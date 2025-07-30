@@ -247,6 +247,11 @@ CREATE TABLE airports (
     dst_timezone TEXT,
     type TEXT NOT NULL DEFAULT 'airport' CHECK (type IN ('airport', 'heliport', 'seaplane_base', 'balloonport')),
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    -- Visit tracking for flight system
+    has_visited BOOLEAN NOT NULL DEFAULT FALSE,
+    visit_count INTEGER NOT NULL DEFAULT 0,
+    first_visit_date DATETIME,
+    last_visit_date DATETIME,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
@@ -273,10 +278,14 @@ CREATE TABLE flights (
     photos TEXT, -- JSON array of photo URLs
     trip_purpose TEXT CHECK (trip_purpose IN ('business', 'vacation', 'personal', 'other')),
     is_favorite BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Flight status and integration
+    flight_status TEXT NOT NULL DEFAULT 'completed' CHECK (flight_status IN ('booked', 'completed', 'cancelled', 'delayed')),
+    blog_post_id INTEGER,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (departure_airport_id) REFERENCES airports(id) ON DELETE CASCADE,
-    FOREIGN KEY (arrival_airport_id) REFERENCES airports(id) ON DELETE CASCADE
+    FOREIGN KEY (arrival_airport_id) REFERENCES airports(id) ON DELETE CASCADE,
+    FOREIGN KEY (blog_post_id) REFERENCES blog_posts(id) ON DELETE SET NULL
 );
 
 -- flight routes for deck.gl visualization
@@ -361,6 +370,70 @@ CREATE TABLE work_experience (
     sort_order INTEGER NOT NULL DEFAULT 0,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- skills and proficiency tracking
+CREATE TABLE skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    category TEXT NOT NULL, -- 'programming', 'framework', 'database', 'tool', 'soft-skill', 'language'
+    proficiency_level INTEGER CHECK (proficiency_level BETWEEN 1 AND 5), -- 1=Beginner, 5=Expert
+    years_experience DECIMAL(3,1),
+    last_used_date DATE,
+    certification_level TEXT,
+    projects_count INTEGER DEFAULT 0,
+    description TEXT,
+    learning_resources TEXT, -- JSON array
+    endorsements_count INTEGER DEFAULT 0,
+    priority_level TEXT DEFAULT 'medium', -- 'high', 'medium', 'low'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+-- project skills relationship
+CREATE TABLE project_skills (
+    project_id INTEGER NOT NULL,
+    skill_id INTEGER NOT NULL,
+    usage_level TEXT DEFAULT 'primary', -- 'primary', 'secondary', 'minor'
+    PRIMARY KEY (project_id, skill_id),
+    FOREIGN KEY (project_id) REFERENCES portfolio_projects(id) ON DELETE CASCADE,
+    FOREIGN KEY (skill_id) REFERENCES skills(id) ON DELETE CASCADE
+);
+
+-- client testimonials and recommendations
+CREATE TABLE testimonials (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_name TEXT NOT NULL,
+    client_position TEXT,
+    client_company TEXT,
+    client_email TEXT,
+    client_linkedin TEXT,
+    project_id INTEGER,
+    testimonial_text TEXT NOT NULL,
+    rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+    date_given DATE NOT NULL,
+    permission_to_display BOOLEAN DEFAULT TRUE,
+    permission_to_contact BOOLEAN DEFAULT FALSE,
+    featured BOOLEAN DEFAULT FALSE,
+    testimonial_type TEXT DEFAULT 'project', -- 'project', 'general', 'skill-specific'
+    work_relationship TEXT, -- 'client', 'colleague', 'supervisor', 'subordinate'
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES portfolio_projects(id) ON DELETE SET NULL
+);
+
+-- project case study components
+CREATE TABLE case_study_sections (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    project_id INTEGER NOT NULL,
+    section_type TEXT NOT NULL, -- 'challenge', 'solution', 'process', 'outcome', 'lessons'
+    section_title TEXT NOT NULL,
+    section_content TEXT NOT NULL,
+    section_order INTEGER NOT NULL,
+    media_items TEXT, -- JSON array of images/videos
+    code_examples TEXT, -- JSON array
+    metrics TEXT, -- JSON object with performance metrics
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (project_id) REFERENCES portfolio_projects(id) ON DELETE CASCADE
 );
 
 -- =============================================================================
@@ -546,6 +619,23 @@ CREATE INDEX idx_certifications_issue_date ON certifications(issue_date DESC);
 CREATE INDEX idx_work_experience_current ON work_experience(is_current);
 CREATE INDEX idx_work_experience_sort ON work_experience(sort_order);
 CREATE INDEX idx_work_experience_dates ON work_experience(start_date DESC, end_date DESC);
+
+-- skills indexes
+CREATE INDEX idx_skills_category ON skills(category);
+CREATE INDEX idx_skills_proficiency ON skills(proficiency_level DESC);
+CREATE INDEX idx_skills_priority ON skills(priority_level);
+CREATE INDEX idx_skills_projects_count ON skills(projects_count DESC);
+
+-- testimonials indexes
+CREATE INDEX idx_testimonials_project_id ON testimonials(project_id);
+CREATE INDEX idx_testimonials_featured ON testimonials(featured);
+CREATE INDEX idx_testimonials_display ON testimonials(permission_to_display);
+CREATE INDEX idx_testimonials_rating ON testimonials(rating DESC);
+
+-- case study sections indexes
+CREATE INDEX idx_case_study_sections_project_id ON case_study_sections(project_id);
+CREATE INDEX idx_case_study_sections_type ON case_study_sections(section_type);
+CREATE INDEX idx_case_study_sections_order ON case_study_sections(section_order);
 
 -- media indexes
 CREATE INDEX idx_media_files_type ON media_files(file_type);

@@ -24,6 +24,10 @@ import type {
   AnalyticsEvent,
   PageView,
   SiteSetting,
+  Skill,
+  ProjectSkill,
+  Testimonial,
+  CaseStudySection,
   
   // Form types
   BlogPostForm,
@@ -1226,7 +1230,7 @@ export class DatabaseQueries {
   // FLIGHT TRACKING SYSTEM
   // =============================================================================
 
-  //creates a new flight record
+  //creates a new flight record with enhanced Plan 5 functionality
   async createFlight(flightData: FlightForm): Promise<Flight> {
     // Calculate flight duration and distance
     const duration = this.calculateFlightDuration(flightData.departure_time, flightData.arrival_time);
@@ -1237,8 +1241,9 @@ export class DatabaseQueries {
         flight_number, airline_code, airline_name, aircraft_type,
         departure_airport_id, arrival_airport_id, departure_time, arrival_time,
         flight_duration, distance_km, seat_number, class, booking_reference,
-        ticket_price, currency, notes, photos, trip_purpose, is_favorite
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ticket_price, currency, notes, photos, trip_purpose, is_favorite,
+        flight_status, blog_post_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `;
     
@@ -1262,10 +1267,22 @@ export class DatabaseQueries {
       flightData.photos ? JSON.stringify(flightData.photos) : null,
       flightData.trip_purpose || null,
       flightData.is_favorite,
+      flightData.flight_status,
+      flightData.blog_post_id || null,
     ];
 
     const result = await executeQuery<Flight>(query, params);
-    return result.rows[0];
+    const flight = result.rows[0];
+    
+    // Update airport visit counts for completed flights
+    if (flightData.flight_status === 'completed') {
+      await Promise.all([
+        this.updateAirportVisits(flightData.departure_airport_id, flightData.departure_time),
+        this.updateAirportVisits(flightData.arrival_airport_id, flightData.arrival_time)
+      ]);
+    }
+    
+    return flight;
   }
 
   //gets paginated flights with airport details
@@ -1419,83 +1436,115 @@ export class DatabaseQueries {
     };
   }
 
-  //gets flight statistics
+  //gets enhanced flight statistics for Plan 5
   async getFlightStatistics(): Promise<{
     totalFlights: number;
     totalDistance: number;
-    totalDuration: number;
+    totalFlightTime: number;
     uniqueAirports: number;
     uniqueCountries: number;
-    favoriteAirline: string | null;
-    mostVisitedAirport: string | null;
+    uniqueAirlines: number;
+    favoriteAirline: string;
+    longestFlight: Flight | null;
+    mostVisitedAirport: string;
   }> {
-    const queries = await Promise.all([
-      executeQuery<{ count: number }>('SELECT COUNT(*) as count FROM flights'),
-      executeQuery<{ total: number }>('SELECT COALESCE(SUM(distance_km), 0) as total FROM flights WHERE distance_km IS NOT NULL'),
-      executeQuery<{ total: number }>('SELECT COALESCE(SUM(flight_duration), 0) as total FROM flights WHERE flight_duration IS NOT NULL'),
-      executeQuery<{ count: number }>(`
-        SELECT COUNT(DISTINCT airport_id) as count FROM (
-          SELECT departure_airport_id as airport_id FROM flights
-          UNION
-          SELECT arrival_airport_id as airport_id FROM flights
-        )
+    const [statsResult, longestFlightResult, favoriteAirlineResult, mostVisitedResult] = await Promise.all([
+      executeQuery<{
+        total_flights: number;
+        total_distance: number;
+        total_flight_time: number;
+        unique_airports: number;
+      }>(`
+        SELECT 
+          COUNT(*) as total_flights,
+          COALESCE(SUM(distance_km), 0) as total_distance,
+          COALESCE(SUM(flight_duration), 0) as total_flight_time,
+          (SELECT COUNT(DISTINCT airport_id) FROM (
+            SELECT departure_airport_id as airport_id FROM flights WHERE flight_status = 'completed'
+            UNION
+            SELECT arrival_airport_id as airport_id FROM flights WHERE flight_status = 'completed'
+          )) as unique_airports
+        FROM flights
+        WHERE flight_status = 'completed'
       `),
-      executeQuery<{ count: number }>(`
-        SELECT COUNT(DISTINCT a.country) as count FROM airports a
-        WHERE a.id IN (
-          SELECT departure_airport_id FROM flights
-          UNION
-          SELECT arrival_airport_id FROM flights
-        )
-      `),
-      executeQuery<{ airline: string }>(`
-        SELECT airline_name as airline FROM flights
-        WHERE airline_name IS NOT NULL
-        GROUP BY airline_name
-        ORDER BY COUNT(*) DESC
+      
+      executeQuery<any>(`
+        SELECT f.*, 
+          da.name as departure_airport_name, da.iata_code as departure_iata,
+          aa.name as arrival_airport_name, aa.iata_code as arrival_iata
+        FROM flights f
+        JOIN airports da ON f.departure_airport_id = da.id
+        JOIN airports aa ON f.arrival_airport_id = aa.id
+        WHERE f.flight_status = 'completed' AND f.distance_km IS NOT NULL
+        ORDER BY f.distance_km DESC
         LIMIT 1
       `),
-      executeQuery<{ airport: string }>(`
-        SELECT a.name as airport FROM airports a
-        WHERE a.id IN (
-          SELECT airport_id FROM (
-            SELECT departure_airport_id as airport_id FROM flights
-            UNION ALL
-            SELECT arrival_airport_id as airport_id FROM flights
-          ) GROUP BY airport_id
-          ORDER BY COUNT(*) DESC
-          LIMIT 1
-        )
+      
+      executeQuery<{ airline_name: string }>(`
+        SELECT airline_name, COUNT(*) as flight_count
+        FROM flights
+        WHERE flight_status = 'completed' AND airline_name IS NOT NULL
+        GROUP BY airline_name
+        ORDER BY flight_count DESC
+        LIMIT 1
       `),
+      
+      executeQuery<{ name: string; iata_code: string }>(`
+        SELECT a.name, a.iata_code, COUNT(*) as visit_count
+        FROM (
+          SELECT departure_airport_id as airport_id FROM flights WHERE flight_status = 'completed'
+          UNION ALL
+          SELECT arrival_airport_id as airport_id FROM flights WHERE flight_status = 'completed'
+        ) f
+        JOIN airports a ON f.airport_id = a.id
+        GROUP BY a.id, a.name, a.iata_code
+        ORDER BY visit_count DESC
+        LIMIT 1
+      `)
     ]);
-    
+
+    const stats = statsResult.rows[0];
+    const longestFlight = longestFlightResult.rows[0] || null;
+    const favoriteAirline = favoriteAirlineResult.rows[0];
+    const mostVisited = mostVisitedResult.rows[0];
+
+    // Get unique countries count
+    const countriesResult = await executeQuery<{ unique_countries: number }>(`
+      SELECT COUNT(DISTINCT country) as unique_countries
+      FROM (
+        SELECT da.country FROM flights f JOIN airports da ON f.departure_airport_id = da.id
+        WHERE f.flight_status = 'completed'
+        UNION
+        SELECT aa.country FROM flights f JOIN airports aa ON f.arrival_airport_id = aa.id
+        WHERE f.flight_status = 'completed'
+      )
+    `);
+
+    const uniqueCountries = countriesResult.rows[0]?.unique_countries || 0;
+
+    // Get unique airlines count
+    const airlinesResult = await executeQuery<{ count: number }>(`
+      SELECT COUNT(DISTINCT airline_name) as count
+      FROM flights
+      WHERE flight_status = 'completed' AND airline_name IS NOT NULL
+    `);
+
     return {
-      totalFlights: Number(queries[0].rows[0]?.count || 0),
-      totalDistance: Number(queries[1].rows[0]?.total || 0),
-      totalDuration: Number(queries[2].rows[0]?.total || 0),
-      uniqueAirports: Number(queries[3].rows[0]?.count || 0),
-      uniqueCountries: Number(queries[4].rows[0]?.count || 0),
-      favoriteAirline: queries[5].rows[0]?.airline || null,
-      mostVisitedAirport: queries[6].rows[0]?.airport || null,
+      totalFlights: Number(stats?.total_flights || 0),
+      totalDistance: Number(stats?.total_distance || 0),
+      totalFlightTime: Number(stats?.total_flight_time || 0),
+      uniqueAirports: Number(stats?.unique_airports || 0),
+      uniqueCountries: Number(uniqueCountries),
+      uniqueAirlines: Number(airlinesResult.rows[0]?.count || 0),
+      favoriteAirline: favoriteAirline?.airline_name || 'N/A',
+      longestFlight: longestFlight,
+      mostVisitedAirport: mostVisited ? `${mostVisited.name} (${mostVisited.iata_code})` : 'N/A'
     };
   }
 
-  //gets all airports
+  //gets all airports (legacy method - redirects to enhanced searchAirports)
   async getAirports(query?: string, limit = 100): Promise<Airport[]> {
-    let sql = 'SELECT * FROM airports WHERE is_active = TRUE';
-    const params: unknown[] = [];
-    
-    if (query) {
-      sql += ' AND (name LIKE ? OR city LIKE ? OR iata_code LIKE ? OR country LIKE ?)';
-      const searchTerm = `%${query}%`;
-      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
-    }
-    
-    sql += ' ORDER BY name ASC LIMIT ?';
-    params.push(limit);
-    
-    const result = await executeQuery<Airport>(sql, params);
-    return result.rows;
+    return this.searchAirports(query, limit);
   }
 
   //gets flight routes for visualization
@@ -1560,6 +1609,233 @@ export class DatabaseQueries {
 
   private toRadians(degrees: number): number {
     return degrees * (Math.PI / 180);
+  }
+
+  // =============================================================================
+  // ENHANCED AIRPORT MANAGEMENT - Plan 5 Extensions
+  // =============================================================================
+
+  //creates a new airport with visit tracking
+  async createAirport(airportData: Omit<Airport, 'id' | 'created_at' | 'updated_at'>): Promise<Airport> {
+    const query = `
+      INSERT INTO airports (
+        iata_code, icao_code, name, city, country, country_code,
+        latitude, longitude, altitude, timezone, has_visited, visit_count,
+        first_visit_date, last_visit_date, type, is_active
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      airportData.iata_code,
+      airportData.icao_code || null,
+      airportData.name,
+      airportData.city,
+      airportData.country,
+      airportData.country_code,
+      airportData.latitude,
+      airportData.longitude,
+      airportData.altitude || null,
+      airportData.timezone || null,
+      airportData.has_visited || false,
+      airportData.visit_count || 0,
+      airportData.first_visit_date || null,
+      airportData.last_visit_date || null,
+      airportData.type || 'airport',
+      airportData.is_active !== undefined ? airportData.is_active : true,
+    ];
+
+    const result = await executeQuery<Airport>(query, params);
+    const airport = result.rows[0];
+    
+    // Add coordinates for deck.gl
+    return {
+      ...airport,
+      coordinates: [airport.longitude, airport.latitude]
+    };
+  }
+
+  //gets airport by ID with coordinates
+  async getAirportById(id: number): Promise<Airport | null> {
+    const query = 'SELECT * FROM airports WHERE id = ?';
+    const result = await executeQuery<Airport>(query, [id]);
+    
+    if (!result.rows[0]) return null;
+    
+    const airport = result.rows[0];
+    return {
+      ...airport,
+      coordinates: [airport.longitude, airport.latitude]
+    };
+  }
+
+  //searches airports with enhanced filtering
+  async searchAirports(searchQuery?: string, limit = 100): Promise<Airport[]> {
+    let query = `
+      SELECT * FROM airports 
+      WHERE is_active = TRUE
+    `;
+    const params: unknown[] = [];
+    
+    if (searchQuery) {
+      query += ` AND (
+        name LIKE ? OR 
+        city LIKE ? OR 
+        iata_code LIKE ? OR 
+        country LIKE ?
+      )`;
+      const searchTerm = `%${searchQuery}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+    
+    query += ` ORDER BY has_visited DESC, visit_count DESC, name ASC LIMIT ?`;
+    params.push(limit);
+    
+    const result = await executeQuery<Airport>(query, params);
+    
+    return result.rows.map(airport => ({
+      ...airport,
+      coordinates: [airport.longitude, airport.latitude]
+    }));
+  }
+
+  //updates airport visit information when flight is completed
+  async updateAirportVisits(airportId: number, visitDate: string): Promise<void> {
+    const query = `
+      UPDATE airports SET 
+        has_visited = TRUE,
+        visit_count = visit_count + 1,
+        first_visit_date = COALESCE(first_visit_date, ?),
+        last_visit_date = ?,
+        updated_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `;
+    
+    await executeQuery(query, [visitDate, visitDate, airportId]);
+  }
+
+  //gets flight by ID with enhanced joins for Plan 5
+  async getFlightById(id: number): Promise<Flight | null> {
+    const query = `
+      SELECT f.*, 
+        da.name as departure_airport_name, da.city as departure_city,
+        da.country as departure_country, da.iata_code as departure_iata,
+        da.latitude as dep_lat, da.longitude as dep_lng,
+        aa.name as arrival_airport_name, aa.city as arrival_city,
+        aa.country as arrival_country, aa.iata_code as arrival_iata,
+        aa.latitude as arr_lat, aa.longitude as arr_lng,
+        bp.title as blog_post_title, bp.slug as blog_post_slug
+      FROM flights f
+      JOIN airports da ON f.departure_airport_id = da.id
+      JOIN airports aa ON f.arrival_airport_id = aa.id
+      LEFT JOIN blog_posts bp ON f.blog_post_id = bp.id
+      WHERE f.id = ?
+    `;
+    
+    const result = await executeQuery<any>(query, [id]);
+    
+    if (result.rows.length === 0) return null;
+    
+    const row = result.rows[0];
+    return {
+      ...row,
+      photos: row.photos ? JSON.parse(row.photos) : [],
+      origin: [row.dep_lng, row.dep_lat],
+      destination: [row.arr_lng, row.arr_lat]
+    };
+  }
+
+  //gets all flights with enhanced filtering for Plan 5
+  async getAllFlights(page = 1, limit = 50, filters: {
+    airline?: string;
+    year?: number;
+    status?: string;
+    search?: string;
+  } = {}): Promise<PaginatedResponse<Flight>> {
+    const offset = (page - 1) * limit;
+    
+    let baseQuery = `
+      FROM flights f
+      JOIN airports da ON f.departure_airport_id = da.id
+      JOIN airports aa ON f.arrival_airport_id = aa.id
+    `;
+    
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+    
+    // Apply filters
+    if (filters.airline) {
+      conditions.push('(f.airline_code LIKE ? OR f.airline_name LIKE ?)');
+      params.push(`%${filters.airline}%`, `%${filters.airline}%`);
+    }
+    
+    if (filters.year) {
+      conditions.push('strftime("%Y", f.departure_time) = ?');
+      params.push(filters.year.toString());
+    }
+    
+    if (filters.status) {
+      conditions.push('f.flight_status = ?');
+      params.push(filters.status);
+    }
+    
+    if (filters.search) {
+      conditions.push(`(
+        f.flight_number LIKE ? OR
+        f.airline_name LIKE ? OR
+        da.name LIKE ? OR
+        aa.name LIKE ? OR
+        da.city LIKE ? OR
+        aa.city LIKE ?
+      )`);
+      const searchTerm = `%${filters.search}%`;
+      params.push(searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm);
+    }
+    
+    const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseQuery} ${whereClause}`;
+    const countResult = await executeQuery<{ total: number }>(countQuery, params);
+    const total = Number(countResult.rows[0].total);
+    
+    // Data query
+    const dataQuery = `
+      SELECT f.*,
+        da.name as departure_airport_name, da.iata_code as departure_iata,
+        da.city as departure_city, da.country as departure_country,
+        da.latitude as dep_lat, da.longitude as dep_lng,
+        aa.name as arrival_airport_name, aa.iata_code as arrival_iata,
+        aa.city as arrival_city, aa.country as arrival_country,
+        aa.latitude as arr_lat, aa.longitude as arr_lng
+      ${baseQuery}
+      ${whereClause}
+      ORDER BY f.departure_time DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    const dataResult = await executeQuery<any>(dataQuery, [...params, limit, offset]);
+    
+    const flights = dataResult.rows.map((row: any) => ({
+      ...row,
+      photos: row.photos ? JSON.parse(row.photos) : [],
+      origin: [row.dep_lng, row.dep_lat],
+      destination: [row.arr_lng, row.arr_lat]
+    }));
+    
+    const totalPages = Math.ceil(total / limit);
+    
+    return {
+      data: flights,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   // =============================================================================

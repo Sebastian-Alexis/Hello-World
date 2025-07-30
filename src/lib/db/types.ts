@@ -185,6 +185,11 @@ export interface Airport extends BaseEntity {
   dst_timezone?: string;
   type: 'airport' | 'heliport' | 'seaplane_base' | 'balloonport';
   is_active: boolean;
+  // Visit tracking fields
+  has_visited: boolean;
+  visit_count: number;
+  first_visit_date?: string;
+  last_visit_date?: string;
   // Computed fields for deck.gl
   coordinates?: [number, number]; // [lng, lat]
 }
@@ -209,9 +214,26 @@ export interface Flight extends BaseEntity {
   photos?: string[]; // JSON array
   trip_purpose?: 'business' | 'vacation' | 'personal' | 'other';
   is_favorite: boolean;
+  // Flight status and integration
+  flight_status: 'booked' | 'completed' | 'cancelled' | 'delayed';
+  blog_post_id?: number;
   // Computed fields from joins
   departure_airport?: Airport;
   arrival_airport?: Airport;
+  departure_airport_name?: string;
+  departure_city?: string;
+  departure_country?: string;
+  departure_iata?: string;
+  arrival_airport_name?: string;
+  arrival_city?: string;
+  arrival_country?: string;
+  arrival_iata?: string;
+  dep_lat?: number;
+  dep_lng?: number;
+  arr_lat?: number;
+  arr_lng?: number;
+  origin?: [number, number]; // [lng, lat] for deck.gl
+  destination?: [number, number]; // [lng, lat] for deck.gl
   route?: FlightRoute;
 }
 
@@ -272,6 +294,61 @@ export interface WorkExperience extends BaseEntity {
   is_current: boolean;
   start_date?: string;
   end_date?: string;
+}
+
+// Skills and proficiency tracking
+export interface Skill extends BaseEntity {
+  name: string;
+  category: 'programming' | 'framework' | 'database' | 'tool' | 'soft-skill' | 'language';
+  proficiency_level: number; // 1-5 scale
+  years_experience?: number;
+  last_used_date?: string;
+  certification_level?: string;
+  projects_count: number;
+  description?: string;
+  learning_resources?: string[]; // JSON array
+  endorsements_count: number;
+  priority_level: 'high' | 'medium' | 'low';
+}
+
+// Project skills relationship
+export interface ProjectSkill {
+  project_id: number;
+  skill_id: number;
+  usage_level: 'primary' | 'secondary' | 'minor';
+}
+
+// Client testimonials and recommendations
+export interface Testimonial extends BaseEntity {
+  client_name: string;
+  client_position?: string;
+  client_company?: string;
+  client_email?: string;
+  client_linkedin?: string;
+  project_id?: number;
+  testimonial_text: string;
+  rating: number; // 1-5 scale
+  date_given: string;
+  permission_to_display: boolean;
+  permission_to_contact: boolean;
+  featured: boolean;
+  testimonial_type: 'project' | 'general' | 'skill-specific';
+  work_relationship?: string;
+  // Computed fields
+  project_title?: string;
+  project_slug?: string;
+}
+
+// Project case study sections
+export interface CaseStudySection extends BaseEntity {
+  project_id: number;
+  section_type: 'challenge' | 'solution' | 'process' | 'outcome' | 'lessons';
+  section_title: string;
+  section_content: string;
+  section_order: number;
+  media_items?: string[]; // JSON array
+  code_examples?: string[]; // JSON array
+  metrics?: Record<string, unknown>; // JSON object
 }
 
 // =============================================================================
@@ -434,6 +511,8 @@ export interface FlightForm {
   photos?: string[];
   trip_purpose?: 'business' | 'vacation' | 'personal' | 'other';
   is_favorite: boolean;
+  flight_status: 'booked' | 'completed' | 'cancelled' | 'delayed';
+  blog_post_id?: number;
 }
 
 // =============================================================================

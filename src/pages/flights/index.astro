@@ -1,0 +1,492 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import type { Flight, Airport } from '../../components/flight-map/types';
+
+//fetch flights and airports from API
+const siteUrl = Astro.site?.toString() || 'http://localhost:4321';
+
+//fetch flight statistics
+let flightStats = {
+  totalFlights: 0,
+  totalDistance: 0,
+  completedFlights: 0,
+  upcomingFlights: 0,
+  uniqueAirlines: 0,
+  visitedAirports: 0,
+  totalAirports: 0,
+  countries: 0
+};
+
+//fetch all flights for map visualization
+let flights: Flight[] = [];
+let airports: Airport[] = [];
+let recentFlights: Flight[] = [];
+let popularRoutes: any[] = [];
+let hasError = false;
+let errorMessage = '';
+
+try {
+  //fetch flights with high limit for map visualization
+  const flightsResponse = await fetch(`${siteUrl}/api/flights?limit=1000`);
+  const flightsData = await flightsResponse.json();
+  
+  if (flightsData.success) {
+    flights = flightsData.data;
+  } else {
+    console.error('Failed to fetch flights:', flightsData.error);
+  }
+
+  //fetch airports
+  const airportsResponse = await fetch(`${siteUrl}/api/airports`);
+  const airportsData = await airportsResponse.json();
+  
+  if (airportsData.success) {
+    airports = airportsData.data;
+  } else {
+    console.error('Failed to fetch airports:', airportsData.error);
+  }
+
+  //fetch flight statistics
+  const statsResponse = await fetch(`${siteUrl}/api/flights/statistics`);
+  const statsData = await statsResponse.json();
+  
+  if (statsData.success) {
+    flightStats = { ...flightStats, ...statsData.data };
+  } else {
+    console.error('Failed to fetch flight statistics:', statsData.error);
+  }
+
+  //get recent flights (last 10)
+  if (flights.length > 0) {
+    recentFlights = flights
+      .sort((a, b) => new Date(b.departure_time).getTime() - new Date(a.departure_time).getTime())
+      .slice(0, 10);
+  }
+
+  //calculate popular routes
+  if (flights.length > 0) {
+    const routeCount = new Map();
+    flights.forEach(flight => {
+      const route = `${flight.departure_airport_name} → ${flight.arrival_airport_name}`;
+      routeCount.set(route, (routeCount.get(route) || 0) + 1);
+    });
+    
+    popularRoutes = Array.from(routeCount.entries())
+      .map(([route, count]) => ({ route, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 5);
+  }
+
+} catch (error) {
+  hasError = true;
+  errorMessage = 'Failed to load flight data. Please try again later.';
+  console.error('Error fetching flight data:', error);
+}
+
+//calculate current year for dynamic content
+const currentYear = new Date().getFullYear();
+---
+
+<BaseLayout 
+	title="Flight Map - Interactive Travel Visualization"
+	description="Explore my flight routes and airport visits with an interactive map. View flight statistics, filter by airlines and dates, and discover travel patterns across the globe."
+	keywords="flight tracking, travel map, interactive visualization, flight routes, airports, travel statistics, mapbox, flight data"
+	image="/images/flight-map-preview.jpg"
+	structuredData={{
+		"@context": "https://schema.org",
+		"@type": "WebPage",
+		"name": "Flight Map - Interactive Travel Visualization",
+		"description": "Interactive map showing flight routes and airport visits with detailed statistics and filtering options.",
+		"url": `${Astro.site}flights/`,
+		"mainEntity": {
+			"@type": "TravelAction",
+			"name": "Flight Tracking",
+			"description": `Tracking ${flightStats.totalFlights} flights across ${flightStats.visitedAirports} airports in ${flightStats.countries} countries.`
+		}
+	}}
+>
+	<!-- Hero Section with Statistics -->
+	<section class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 py-16">
+		<div class="max-w-7xl mx-auto px-4">
+			<div class="text-center mb-12">
+				<h1 class="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-6">
+					Flight Map
+				</h1>
+				<p class="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto mb-8">
+					Explore my travel journey with an interactive map showing flight routes, airports, and detailed statistics.
+					Discover patterns, filter by preferences, and track adventures across the globe.
+				</p>
+				<div class="flex flex-wrap justify-center gap-4">
+					<a href="/flights/list" class="inline-flex items-center px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition-colors duration-200">
+						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+						</svg>
+						View All Flights
+					</a>
+					<a href="#recent-flights" class="inline-flex items-center px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+						Recent Flights
+					</a>
+				</div>
+			</div>
+
+			<!-- Statistics Grid -->
+			<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+				<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20 dark:border-gray-700/50">
+					<div class="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
+						{flightStats.totalFlights.toLocaleString()}
+					</div>
+					<div class="text-sm font-medium text-gray-600 dark:text-gray-300">
+						Total Flights
+					</div>
+				</div>
+
+				<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20 dark:border-gray-700/50">
+					<div class="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
+						{flightStats.visitedAirports}
+					</div>
+					<div class="text-sm font-medium text-gray-600 dark:text-gray-300">
+						Airports Visited
+					</div>
+				</div>
+
+				<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20 dark:border-gray-700/50">
+					<div class="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
+						{(flightStats.totalDistance / 1000).toFixed(0)}K
+					</div>
+					<div class="text-sm font-medium text-gray-600 dark:text-gray-300">
+						KM Traveled
+					</div>
+				</div>
+
+				<div class="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-xl p-6 text-center border border-white/20 dark:border-gray-700/50">
+					<div class="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-2">
+						{flightStats.countries}
+					</div>
+					<div class="text-sm font-medium text-gray-600 dark:text-gray-300">
+						Countries
+					</div>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<main class="max-w-7xl mx-auto px-4 py-12">
+
+		<!-- Error State -->
+		{hasError ? (
+			<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-6 mb-8">
+				<div class="flex items-center mb-2">
+					<svg class="w-5 h-5 text-red-500 mr-2" fill="currentColor" viewBox="0 0 20 20">
+						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
+					</svg>
+					<h3 class="text-red-800 dark:text-red-200 font-medium">Unable to Load Flight Data</h3>
+				</div>
+				<p class="text-red-700 dark:text-red-300">{errorMessage}</p>
+			</div>
+		) : (
+			<!-- Interactive Map Section -->
+			<section class="mb-12">
+				<div class="mb-6">
+					<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+						Interactive Flight Map
+					</h2>
+					<p class="text-gray-600 dark:text-gray-400">
+						Explore flight routes with filtering and detailed information. Click flights for more details.
+					</p>
+				</div>
+
+				<div class="map-wrapper">
+					<FlightMap 
+						flights={flights}
+						airports={airports}
+						height="700px"
+						showControls={true}
+						theme="light"
+						onFlightSelect={(flight) => {
+							if (flight) {
+								window.location.href = `/flights/${flight.id}`;
+							}
+						}}
+						client:load
+					/>
+				</div>
+			</section>
+		)}
+
+		<!-- Recent Flights & Popular Routes -->
+		{!hasError && (
+			<div class="grid lg:grid-cols-2 gap-8 mb-12">
+				<!-- Recent Flights -->
+				<section id="recent-flights">
+					<div class="flex justify-between items-center mb-6">
+						<h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+							Recent Flights
+						</h2>
+						<a href="/flights/list" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium text-sm transition-colors duration-200">
+							View All →
+						</a>
+					</div>
+
+					<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+						{recentFlights.length > 0 ? (
+							<div class="divide-y divide-gray-200 dark:divide-gray-700">
+								{recentFlights.map((flight, index) => (
+									<a key={flight.id} href={`/flights/${flight.id}`} class="flex items-center justify-between p-4 hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors duration-150">
+										<div class="flex-1">
+											<div class="flex items-center gap-3 mb-1">
+												<span class="font-semibold text-gray-900 dark:text-white">
+													{flight.airline_name || 'Unknown Airline'}
+												</span>
+												{flight.flight_number && (
+													<span class="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-medium rounded">
+														{flight.flight_number}
+													</span>
+												)}
+												<span class={`px-2 py-1 text-xs font-medium rounded ${flight.flight_status === 'completed' ? 'bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200' : 
+													flight.flight_status === 'booked' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' :
+													flight.flight_status === 'cancelled' ? 'bg-red-100 dark:bg-red-900 text-red-800 dark:text-red-200' :
+													'bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200'}`}>
+													{flight.flight_status}
+												</span>
+											</div>
+											<p class="text-sm text-gray-600 dark:text-gray-400">
+												{flight.departure_airport_name} → {flight.arrival_airport_name}
+											</p>
+											<p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+												{new Date(flight.departure_time).toLocaleDateString('en-US', { 
+													year: 'numeric', 
+													month: 'short', 
+													day: 'numeric' 
+												})}
+											</p>
+										</div>
+										<div class="flex items-center text-gray-400">
+											<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+												<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+											</svg>
+										</div>
+									</a>
+								))}
+							</div>
+						) : (
+							<div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+								<p>No recent flights to display</p>
+							</div>
+						)}
+					</div>
+				</section>
+
+				<!-- Popular Routes -->
+				<section>
+					<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+						Popular Routes
+					</h2>
+
+					<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+						{popularRoutes.length > 0 ? (
+							<div class="p-6">
+								{popularRoutes.map((route, index) => (
+									<div key={index} class="flex items-center justify-between py-3 {index !== popularRoutes.length - 1 ? 'border-b border-gray-200 dark:border-gray-700' : ''}">
+										<div class="flex items-center gap-3">
+											<div class="flex-shrink-0 w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+												<span class="text-blue-600 dark:text-blue-400 font-semibold text-sm">{index + 1}</span>
+											</div>
+											<span class="text-gray-900 dark:text-white font-medium">{route.route}</span>
+										</div>
+										<div class="flex items-center gap-2">
+											<span class="text-gray-600 dark:text-gray-400 text-sm">{route.count} flights</span>
+										</div>
+									</div>
+								))}
+							</div>
+						) : (
+							<div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+								<p>No route data available</p>
+							</div>
+						)}
+					</div>
+				</section>
+			</div>
+		)}
+
+		<!-- Additional Statistics -->
+		{!hasError && (
+			<section class="mb-12">
+				<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+					Flight Statistics
+				</h2>
+
+				<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+								Completed
+							</h3>
+							<div class="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+								<svg class="w-5 h-5 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+								</svg>
+							</div>
+						</div>
+						<p class="text-3xl font-bold text-green-600 dark:text-green-400 mb-1">
+							{flightStats.completedFlights}
+						</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">
+							of {flightStats.totalFlights} total flights
+						</p>
+					</div>
+
+					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+								Upcoming
+							</h3>
+							<div class="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+								<svg class="w-5 h-5 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+								</svg>
+							</div>
+						</div>
+						<p class="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+							{flightStats.upcomingFlights}
+						</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">
+							booked flights
+						</p>
+					</div>
+
+					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+								Airlines
+							</h3>
+							<div class="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+								<svg class="w-5 h-5 text-purple-600 dark:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"></path>
+								</svg>
+							</div>
+						</div>
+						<p class="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-1">
+							{flightStats.uniqueAirlines}
+						</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">
+							unique airlines
+						</p>
+					</div>
+
+					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+						<div class="flex items-center justify-between mb-4">
+							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+								This Year
+							</h3>
+							<div class="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+								<svg class="w-5 h-5 text-orange-600 dark:text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+								</svg>
+							</div>
+						</div>
+						<p class="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-1">
+							{flights.filter(f => new Date(f.departure_time).getFullYear() === currentYear).length}
+						</p>
+						<p class="text-sm text-gray-600 dark:text-gray-400">
+							flights in {currentYear}
+						</p>
+					</div>
+				</div>
+			</section>
+		)}
+
+		<!-- Usage Instructions -->
+		<section class="mb-8">
+			<div class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-800 dark:via-blue-900/20 dark:to-indigo-900/20 rounded-xl p-8 border border-blue-100 dark:border-blue-800/30">
+				<div class="flex items-start gap-4">
+					<div class="flex-shrink-0 p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+						<svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+						</svg>
+					</div>
+					<div class="flex-1">
+						<h3 class="text-xl font-semibold text-blue-900 dark:text-blue-100 mb-4">
+							How to Use the Flight Map
+						</h3>
+						<div class="grid md:grid-cols-2 gap-4">
+							<ul class="space-y-3 text-blue-800 dark:text-blue-200">
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+									</svg>
+									<span>Hover over airports and flights for quick information</span>
+								</li>
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+									</svg>
+									<span>Click flights to view detailed information</span>
+								</li>
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
+									</svg>
+									<span>Use filters to customize your view by airline, year, or status</span>
+								</li>
+							</ul>
+							<ul class="space-y-3 text-blue-800 dark:text-blue-200">
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"></path>
+									</svg>
+									<span>Green airports are visited destinations</span>
+								</li>
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+										<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"></path>
+									</svg>
+									<span>Blue airports are planned or future destinations</span>
+								</li>
+								<li class="flex items-start gap-3">
+									<svg class="w-5 h-5 text-purple-600 dark:text-purple-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+										<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path>
+									</svg>
+									<span>Toggle animations for dynamic flight visualization</span>
+								</li>
+							</ul>
+						</div>
+					</div>
+				</div>
+			</div>
+		</section>
+	</main>
+</BaseLayout>
+
+<script>
+	import FlightMap from '../../components/flight-map/FlightMap.svelte';
+</script>
+
+<style>
+	.map-wrapper {
+		border-radius: 12px;
+		overflow: hidden;
+		box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+		border: 1px solid rgb(229 231 235 / 0.5);
+	}
+
+	@media (prefers-color-scheme: dark) {
+		.map-wrapper {
+			border-color: rgb(75 85 99 / 0.5);
+		}
+	}
+
+	/* Enhanced hover effects for interactive elements */
+	.flight-card:hover {
+		transform: translateY(-2px);
+		box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.1);
+	}
+
+	/* Smooth transitions for all interactive elements */
+	.transition-smooth {
+		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+	}
+</style>

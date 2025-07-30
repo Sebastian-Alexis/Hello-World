@@ -1,4 +1,5 @@
 @import './variables.css';
+@import 'mapbox-gl/dist/mapbox-gl.css';
 
 /* Font Loading */
 @font-face {
