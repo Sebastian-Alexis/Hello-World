@@ -1,0 +1,296 @@
+---
+import AdminLayout from '../../layouts/AdminLayout.astro';
+import { db } from '../../lib/db/queries.js';
+
+//get dashboard statistics
+const dashboardStats = await db.getDashboardStats();
+
+//get recent content
+const [recentPosts, recentProjects, recentFlights] = await Promise.all([
+  db.getRecentBlogPosts(5),
+  db.getPortfolioProjects({ limit: 5, sortBy: 'created_at', sortOrder: 'DESC' }),
+  db.getFlights({ limit: 5, sortBy: 'departure_time', sortOrder: 'DESC' }),
+]);
+
+//get analytics data
+const analyticsData = await db.getAnalyticsSummary(30);
+---
+
+<AdminLayout 
+  title="Dashboard" 
+  description="Overview of your website's performance and content"
+>
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Posts -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Posts</p>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white">{dashboardStats.blog.totalPosts}</p>
+        </div>
+        <div class="w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 002 2H4a2 2 0 01-2-2V5zm3 1h6v4H5V6zm6 6H5v2h6v-2z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mt-4 flex items-center">
+        <span class="text-green-600 dark:text-green-400 text-sm font-medium">
+          {dashboardStats.blog.publishedPosts} published
+        </span>
+        <span class="text-gray-500 dark:text-gray-400 text-sm ml-2">
+          • {dashboardStats.blog.draftPosts} drafts
+        </span>
+      </div>
+    </div>
+    
+    <!-- Total Views -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Views</p>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white">{analyticsData.totalPageViews.toLocaleString()}</p>
+        </div>
+        <div class="w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <span class="text-green-600 dark:text-green-400 text-sm font-medium">
+          {analyticsData.uniqueVisitors.toLocaleString()} unique visitors
+        </span>
+      </div>
+    </div>
+    
+    <!-- Projects -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Projects</p>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white">{dashboardStats.portfolio.totalProjects}</p>
+        </div>
+        <div class="w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 01-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15.586 13H14a1 1 0 01-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <span class="text-purple-600 dark:text-purple-400 text-sm font-medium">
+          {dashboardStats.portfolio.activeProjects} active
+        </span>
+        <span class="text-gray-500 dark:text-gray-400 text-sm ml-2">
+          • {dashboardStats.portfolio.completedProjects} completed
+        </span>
+      </div>
+    </div>
+    
+    <!-- Flights -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center justify-between">
+        <div>
+          <p class="text-sm font-medium text-gray-500 dark:text-gray-400">Flights</p>
+          <p class="text-3xl font-bold text-gray-900 dark:text-white">{dashboardStats.flights.totalFlights}</p>
+        </div>
+        <div class="w-12 h-12 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+          <svg class="w-6 h-6 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="mt-4">
+        <span class="text-orange-600 dark:text-orange-400 text-sm font-medium">
+          {Math.round(dashboardStats.flights.totalDistance).toLocaleString()} km
+        </span>
+        <span class="text-gray-500 dark:text-gray-400 text-sm ml-2">
+          • {dashboardStats.flights.uniqueAirports} airports
+        </span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Main Content Grid -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+    <!-- Recent Activity -->
+    <div class="lg:col-span-2">
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Recent Posts</h3>
+        </div>
+        <div class="p-6">
+          {recentPosts.length > 0 ? (
+            <div class="space-y-4">
+              {recentPosts.map(post => (
+                <div class="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {post.title}
+                    </h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {new Date(post.published_at || post.created_at).toLocaleDateString()} • 
+                      {post.view_count} views
+                    </p>
+                  </div>
+                  <div class="flex items-center space-x-2 ml-4">
+                    <span class={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                      post.status === 'published' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      post.status === 'draft' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                    }`}>
+                      {post.status}
+                    </span>
+                    <a 
+                      href={`/admin/blog/${post.id}`}
+                      class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 text-sm font-medium"
+                    >
+                      Edit
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div class="text-center py-8">
+              <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M2 5a2 2 0 012-2h8a2 2 0 012 2v10a2 2 0 002 2H4a2 2 0 01-2-2V5zm3 1h6v4H5V6zm6 6H5v2h6v-2z" clip-rule="evenodd"/>
+              </svg>
+              <p class="text-gray-500 dark:text-gray-400">No blog posts yet</p>
+              <a href="/admin/blog/new" class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium mt-2 inline-block">
+                Create your first post
+              </a>
+            </div>
+          )}
+          
+          {recentPosts.length > 0 && (
+            <div class="mt-6">
+              <a 
+                href="/admin/blog" 
+                class="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200 font-medium text-sm"
+              >
+                View all posts →
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Quick Actions & Analytics -->
+    <div class="space-y-8">
+      <!-- Quick Actions -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Quick Actions</h3>
+        </div>
+        <div class="p-6 space-y-3">
+          <a 
+            href="/admin/blog/new" 
+            class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div class="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-blue-600 dark:text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <span class="font-medium text-gray-900 dark:text-white">New Blog Post</span>
+          </a>
+          
+          <a 
+            href="/admin/portfolio/new" 
+            class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div class="w-8 h-8 bg-green-100 dark:bg-green-900 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-green-600 dark:text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 01-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15.586 13H14a1 1 0 01-1-1z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <span class="font-medium text-gray-900 dark:text-white">New Project</span>
+          </a>
+          
+          <a 
+            href="/admin/flights/new" 
+            class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div class="w-8 h-8 bg-purple-100 dark:bg-purple-900 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-purple-600 dark:text-purple-400" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+              </svg>
+            </div>
+            <span class="font-medium text-gray-900 dark:text-white">Add Flight</span>
+          </a>
+          
+          <a 
+            href="/admin/media" 
+            class="flex items-center space-x-3 p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          >
+            <div class="w-8 h-8 bg-orange-100 dark:bg-orange-900 rounded-lg flex items-center justify-center">
+              <svg class="w-4 h-4 text-orange-600 dark:text-orange-400" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <span class="font-medium text-gray-900 dark:text-white">Upload Media</span>
+          </a>
+        </div>
+      </div>
+      
+      <!-- System Stats -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">System Info</h3>
+        </div>
+        <div class="p-6 space-y-4">
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Active Users</span>
+            <span class="font-medium text-gray-900 dark:text-white">{dashboardStats.system.totalUsers}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Active Sessions</span>
+            <span class="font-medium text-gray-900 dark:text-white">{dashboardStats.system.activeSessions}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Media Files</span>
+            <span class="font-medium text-gray-900 dark:text-white">{dashboardStats.system.mediaFiles}</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-sm text-gray-500 dark:text-gray-400">Database Size</span>
+            <span class="font-medium text-gray-900 dark:text-white">
+              {Math.round(dashboardStats.system.databaseSize / 1024 / 1024 * 100) / 100} MB
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top Pages -->
+      {analyticsData.topPages.length > 0 && (
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">Top Pages (30 days)</h3>
+          </div>
+          <div class="p-6">
+            <div class="space-y-4">
+              {analyticsData.topPages.slice(0, 5).map((page, index) => (
+                <div class="flex items-center space-x-3">
+                  <div class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                    {index + 1}
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      {page.page_path}
+                    </h4>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {page.view_count} views
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+</AdminLayout>

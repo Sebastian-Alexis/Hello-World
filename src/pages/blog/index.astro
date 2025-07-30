@@ -1,0 +1,329 @@
+---
+// =============================================================================
+// BLOG LISTING PAGE - Main blog page with filtering, search, and pagination
+// Displays all blog posts with comprehensive filtering and search capabilities
+// =============================================================================
+
+import Layout from '@/layouts/Layout.astro';
+import BlogCard from '@/components/blog/BlogCard.astro';
+import SearchBox from '@/components/blog/SearchBox.svelte';
+import Pagination from '@/components/blog/Pagination.astro';
+import CategoryTag from '@/components/blog/CategoryTag.astro';
+import { db } from '@/lib/db/queries';
+import type { BlogPost, BlogCategory, BlogTag } from '@/lib/db/types';
+
+//get query parameters
+const url = Astro.url;
+const page = parseInt(url.searchParams.get('page') || '1');
+const category = url.searchParams.get('category');
+const tag = url.searchParams.get('tag');
+const sort = url.searchParams.get('sort') || 'latest';
+const perPage = 12;
+
+//fetch blog posts with filters
+let posts: BlogPost[] = [];
+let totalPosts = 0;
+let totalPages = 0;
+let currentCategory: BlogCategory | null = null;
+let currentTag: BlogTag | null = null;
+
+try {
+  //get filtered posts
+  const result = await db.getBlogPosts({
+    page,
+    limit: perPage,
+    category,
+    tag,
+    orderBy: sort === 'popular' ? 'view_count' : 'published_at',
+    orderDirection: 'DESC',
+    published: true,
+  });
+  
+  posts = result.posts;
+  totalPosts = result.total;
+  totalPages = Math.ceil(totalPosts / perPage);
+
+  //get current category/tag info for display
+  if (category) {
+    const categories = await db.getAllCategories();
+    currentCategory = categories.find(c => c.slug === category) || null;
+  }
+  
+  if (tag) {
+    const tags = await db.getAllTags();
+    currentTag = tags.find(t => t.slug === tag) || null;
+  }
+} catch (error) {
+  console.error('Failed to fetch blog posts:', error);
+}
+
+//fetch categories and tags for filters
+let categories: BlogCategory[] = [];
+let tags: BlogTag[] = [];
+
+try {
+  [categories, tags] = await Promise.all([
+    db.getAllCategories(),
+    db.getAllTags({ limit: 20, minPosts: 1 })
+  ]);
+} catch (error) {
+  console.error('Failed to fetch categories/tags:', error);
+}
+
+//build query params for pagination
+const queryParams: Record<string, string> = {};
+if (category) queryParams.category = category;
+if (tag) queryParams.tag = tag;
+if (sort !== 'latest') queryParams.sort = sort;
+
+//determine page title and description
+let pageTitle = 'Blog';
+let pageDescription = 'Explore our latest blog posts on technology, programming, and more.';
+
+if (currentCategory) {
+  pageTitle = `${currentCategory.name} - Blog`;
+  pageDescription = currentCategory.description || `All posts in ${currentCategory.name} category.`;
+} else if (currentTag) {
+  pageTitle = `#${currentTag.name} - Blog`;
+  pageDescription = currentTag.description || `All posts tagged with ${currentTag.name}.`;
+} else if (sort === 'popular') {
+  pageTitle = 'Popular Posts - Blog';
+  pageDescription = 'Discover our most popular blog posts.';
+}
+
+//structured data for blog listing
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  "name": pageTitle,
+  "description": pageDescription,
+  "url": Astro.url.toString(),
+  "blogPost": posts.map(post => ({
+    "@type": "BlogPosting",
+    "headline": post.title,
+    "url": `${Astro.url.origin}/blog/${post.slug}`,
+    "datePublished": post.published_at,
+    "dateModified": post.updated_at,
+    "author": {
+      "@type": "Person",
+      "name": post.author_name,
+    },
+    ...(post.excerpt && { "description": post.excerpt }),
+    ...(post.featured_image_url && { 
+      "image": {
+        "@type": "ImageObject",
+        "url": post.featured_image_url
+      }
+    }),
+  }))
+};
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+  structuredData={structuredData}
+>
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    
+    <!-- Hero Section -->
+    <section class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            {currentCategory ? currentCategory.name : 
+             currentTag ? `#${currentTag.name}` : 
+             'Blog'}
+          </h1>
+          <p class="text-xl text-gray-600 dark:text-gray-300 mb-8 max-w-3xl mx-auto">
+            {pageDescription}
+          </p>
+          
+          <!-- Search Box -->
+          <div class="max-w-2xl mx-auto">
+            <SearchBox client:load showCategories={true} showTags={true} />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div class="lg:grid lg:grid-cols-4 lg:gap-8">
+        
+        <!-- Sidebar -->
+        <aside class="lg:col-span-1 mb-8 lg:mb-0">
+          
+          <!-- Active Filters -->
+          {(currentCategory || currentTag) && (
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Active Filters
+              </h3>
+              <div class="space-y-2">
+                {currentCategory && (
+                  <div class="flex items-center justify-between">
+                    <CategoryTag item={currentCategory} type="category" size="sm" clickable={false} />
+                    <a href="/blog" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+                {currentTag && (
+                  <div class="flex items-center justify-between">
+                    <CategoryTag item={currentTag} type="tag" size="sm" clickable={false} />
+                    <a href="/blog" class="text-red-600 hover:text-red-700 dark:text-red-400 dark:hover:text-red-300">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <!-- Sort Options -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Sort By
+            </h3>
+            <div class="space-y-2">
+              <a 
+                href={`/blog${category ? `?category=${category}` : ''}${tag ? `?tag=${tag}` : ''}`}
+                class={`block px-3 py-2 rounded-md text-sm transition-colors duration-200 ${
+                  sort === 'latest' 
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Latest Posts
+              </a>
+              <a 
+                href={`/blog?sort=popular${category ? `&category=${category}` : ''}${tag ? `&tag=${tag}` : ''}`}
+                class={`block px-3 py-2 rounded-md text-sm transition-colors duration-200 ${
+                  sort === 'popular' 
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Popular Posts
+              </a>
+            </div>
+          </div>
+
+          <!-- Categories -->
+          {categories.length > 0 && (
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Categories
+              </h3>
+              <div class="space-y-2">
+                {categories.map(cat => (
+                  <div class="flex items-center justify-between">
+                    <CategoryTag item={cat} type="category" size="sm" showCount={true} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- Popular Tags -->
+          {tags.length > 0 && (
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Popular Tags
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                {tags.map(tag => (
+                  <CategoryTag item={tag} type="tag" size="xs" />
+                ))}
+              </div>
+            </div>
+          )}
+
+        </aside>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-3">
+          
+          <!-- Results Info -->
+          <div class="flex items-center justify-between mb-6">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+              {totalPosts > 0 ? (
+                `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, totalPosts)} of ${totalPosts} posts`
+              ) : (
+                'No posts found'
+              )}
+            </div>
+            
+            <!-- View Toggle (could add grid/list view options) -->
+            <div class="flex items-center space-x-2">
+              <span class="text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
+            </div>
+          </div>
+
+          <!-- Posts Grid -->
+          {posts.length > 0 ? (
+            <div>
+              <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mb-12">
+                {posts.map(post => (
+                  <BlogCard 
+                    post={post}
+                    variant="default"
+                    showExcerpt={true}
+                    showAuthor={true}
+                    showDate={true}
+                    showCategories={true}
+                    showTags={false}
+                    showReadingTime={true}
+                    showViewCount={false}
+                  />
+                ))}
+              </div>
+
+              <!-- Pagination -->
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  basePath="/blog"
+                  queryParams={queryParams}
+                  showInfo={false}
+                  className="mt-12"
+                />
+              )}
+            </div>
+          ) : (
+            <!-- Empty State -->
+            <div class="text-center py-16">
+              <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">
+                No posts found
+              </h3>
+              <p class="text-gray-600 dark:text-gray-400 mb-6">
+                {currentCategory || currentTag 
+                  ? 'No posts match the current filter. Try browsing all posts.'
+                  : 'No blog posts have been published yet. Check back soon!'}
+              </p>
+              {(currentCategory || currentTag) && (
+                <a 
+                  href="/blog"
+                  class="inline-flex items-center px-4 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors duration-200"
+                >
+                  View all posts
+                </a>
+              )}
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</Layout>

@@ -1,0 +1,439 @@
+---
+// =============================================================================
+// BLOG ARCHIVE PAGE - Chronological listing of all blog posts
+// Displays posts organized by year and month with statistics
+// =============================================================================
+
+import Layout from '@/layouts/Layout.astro';
+import BlogCard from '@/components/blog/BlogCard.astro';
+import { db } from '@/lib/db/queries';
+import type { BlogPost } from '@/lib/db/types';
+
+//get query parameters
+const url = Astro.url;
+const year = parseInt(url.searchParams.get('year') || '0');
+const month = parseInt(url.searchParams.get('month') || '0');
+const page = parseInt(url.searchParams.get('page') || '1');
+const perPage = 24;
+
+//fetch archive data
+let posts: BlogPost[] = [];
+let totalPosts = 0;
+let totalPages = 0;
+let archiveStats: { year: number; month: number; count: number; monthName: string }[] = [];
+
+try {
+  //get archive statistics
+  const stats = await db.getBlogArchiveStats();
+  archiveStats = stats.map(stat => ({
+    ...stat,
+    monthName: new Date(stat.year, stat.month - 1).toLocaleDateString('en-US', { month: 'long' })
+  }));
+
+  //get posts for the specified period
+  if (year && month) {
+    const result = await db.getBlogPostsByMonth(year, month, page, perPage);
+    posts = result.posts;
+    totalPosts = result.total;
+    totalPages = Math.ceil(totalPosts / perPage);
+  } else if (year) {
+    const result = await db.getBlogPostsByYear(year, page, perPage);
+    posts = result.posts;
+    totalPosts = result.total;
+    totalPages = Math.ceil(totalPosts / perPage);
+  } else {
+    //show recent posts if no specific period selected
+    const result = await db.getBlogPosts({ page: 1, limit: 12, published: true });
+    posts = result.posts;
+  }
+} catch (error) {
+  console.error('Failed to fetch archive data:', error);
+}
+
+//organize archive stats by year
+const archiveByYear = archiveStats.reduce((acc, stat) => {
+  if (!acc[stat.year]) {
+    acc[stat.year] = [];
+  }
+  acc[stat.year].push(stat);
+  return acc;
+}, {} as Record<number, typeof archiveStats>);
+
+//sort years in descending order
+const sortedYears = Object.keys(archiveByYear)
+  .map(Number)
+  .sort((a, b) => b - a);
+
+//determine page title and description
+let pageTitle = 'Blog Archive';
+let pageDescription = 'Browse our complete blog archive organized by date.';
+
+if (year && month) {
+  const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' });
+  pageTitle = `${monthName} ${year} - Blog Archive`;
+  pageDescription = `Blog posts from ${monthName} ${year}.`;
+} else if (year) {
+  pageTitle = `${year} - Blog Archive`;
+  pageDescription = `All blog posts from ${year}.`;
+}
+
+//build query params for pagination
+const queryParams: Record<string, string> = {};
+if (year) queryParams.year = year.toString();
+if (month) queryParams.month = month.toString();
+
+//calculate total posts across all time
+const totalPostsAllTime = archiveStats.reduce((sum, stat) => sum + stat.count, 0);
+
+//structured data for archive
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": pageTitle,
+  "description": pageDescription,
+  "url": Astro.url.toString(),
+  "mainEntity": {
+    "@type": "ItemList",
+    "numberOfItems": posts.length,
+    "itemListElement": posts.map((post, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "BlogPosting",
+        "headline": post.title,
+        "url": `${Astro.url.origin}/blog/${post.slug}`,
+        "datePublished": post.published_at,
+        "dateModified": post.updated_at,
+        "author": {
+          "@type": "Person",
+          "name": post.author_name,
+        },
+        ...(post.excerpt && { "description": post.excerpt }),
+        ...(post.featured_image_url && { 
+          "image": {
+            "@type": "ImageObject",
+            "url": post.featured_image_url
+          }
+        }),
+      }
+    }))
+  }
+};
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+  structuredData={structuredData}
+>
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    
+    <!-- Hero Section -->
+    <section class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        <div class="text-center">
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            Blog Archive
+          </h1>
+          <p class="text-xl text-gray-600 dark:text-gray-300 mb-8">
+            {year && month 
+              ? `Posts from ${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+              : year 
+                ? `All posts from ${year}`
+                : `Browse our complete blog archive - ${totalPostsAllTime} posts and counting`
+            }
+          </p>
+          
+          <!-- Current Selection -->
+          {(year || month) && (
+            <div class="inline-flex items-center px-4 py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 rounded-lg mb-6">
+              <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span class="mr-3">
+                {year && month 
+                  ? `${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long' })} ${year}`
+                  : `${year}`
+                }
+              </span>
+              <a 
+                href="/blog/archive" 
+                class="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              >
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </a>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div class="lg:grid lg:grid-cols-4 lg:gap-8">
+        
+        <!-- Sidebar - Archive Navigation -->
+        <aside class="lg:col-span-1 mb-8 lg:mb-0">
+          
+          <!-- Archive Stats -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Archive Stats
+            </h3>
+            <div class="space-y-3">
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600 dark:text-gray-400">Total Posts</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{totalPostsAllTime}</span>
+              </div>
+              <div class="flex justify-between items-center">
+                <span class="text-sm text-gray-600 dark:text-gray-400">Years Active</span>
+                <span class="font-semibold text-gray-900 dark:text-white">{sortedYears.length}</span>
+              </div>
+              {year && month && totalPosts > 0 && (
+                <div class="flex justify-between items-center">
+                  <span class="text-sm text-gray-600 dark:text-gray-400">This Month</span>
+                  <span class="font-semibold text-gray-900 dark:text-white">{totalPosts}</span>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <!-- Archive Navigation -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Browse by Date
+            </h3>
+            
+            {sortedYears.length > 0 ? (
+              <div class="space-y-4">
+                {sortedYears.map(yearKey => {
+                  const yearStats = archiveByYear[yearKey];
+                  const yearTotal = yearStats.reduce((sum, stat) => sum + stat.count, 0);
+                  const isCurrentYear = year === yearKey;
+                  
+                  return (
+                    <div class="space-y-2">
+                      <div class="flex items-center justify-between">
+                        <a 
+                          href={`/blog/archive?year=${yearKey}`}
+                          class={`font-medium transition-colors duration-200 ${
+                            isCurrentYear && !month
+                              ? 'text-blue-600 dark:text-blue-400'
+                              : 'text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400'
+                          }`}
+                        >
+                          {yearKey}
+                        </a>
+                        <span class="text-sm text-gray-500 dark:text-gray-400">
+                          {yearTotal}
+                        </span>
+                      </div>
+                      
+                      {isCurrentYear && (
+                        <div class="ml-4 space-y-1">
+                          {yearStats
+                            .sort((a, b) => b.month - a.month)
+                            .map(stat => (
+                              <div class="flex items-center justify-between">
+                                <a 
+                                  href={`/blog/archive?year=${yearKey}&month=${stat.month}`}
+                                  class={`text-sm transition-colors duration-200 ${
+                                    month === stat.month
+                                      ? 'text-blue-600 dark:text-blue-400 font-medium'
+                                      : 'text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400'
+                                  }`}
+                                >
+                                  {stat.monthName}
+                                </a>
+                                <span class="text-xs text-gray-500 dark:text-gray-400">
+                                  {stat.count}
+                                </span>
+                              </div>
+                            ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p class="text-sm text-gray-500 dark:text-gray-400">
+                No posts in archive yet.
+              </p>
+            )}
+            
+            <!-- All Posts Link -->
+            <div class="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+              <a 
+                href="/blog"
+                class="flex items-center text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                View all posts
+              </a>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-3">
+          
+          <!-- Results Info -->
+          {posts.length > 0 && (
+            <div class="flex items-center justify-between mb-6">
+              <div class="text-sm text-gray-600 dark:text-gray-400">
+                {year && month
+                  ? `${totalPosts} ${totalPosts === 1 ? 'post' : 'posts'} in ${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`
+                  : year
+                    ? `${totalPosts} ${totalPosts === 1 ? 'post' : 'posts'} in ${year}`
+                    : `Recent posts (showing ${posts.length})`
+                }
+              </div>
+              
+              {totalPages > 1 && (
+                <div class="text-sm text-gray-600 dark:text-gray-400">
+                  Page {page} of {totalPages}
+                </div>
+              )}
+            </div>
+          )}
+
+          <!-- Posts -->
+          {posts.length > 0 ? (
+            <div>
+              {year || month ? (
+                // Grid layout for archive view
+                <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mb-12">
+                  {posts.map(post => (
+                    <BlogCard 
+                      post={post}
+                      variant="compact"
+                      showExcerpt={true}
+                      showAuthor={false}
+                      showDate={true}
+                      showCategories={true}
+                      showTags={false}
+                      showReadingTime={true}
+                      showViewCount={false}
+                    />
+                  ))}
+                </div>
+              ) : (
+                // Timeline layout for recent posts
+                <div class="space-y-8 mb-12">
+                  {posts.map(post => {
+                    const postDate = new Date(post.published_at);
+                    const monthYear = postDate.toLocaleDateString('en-US', { 
+                      month: 'long', 
+                      year: 'numeric' 
+                    });
+                    
+                    return (
+                      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+                        <div class="flex items-start space-x-4">
+                          <!-- Date Column -->
+                          <div class="flex-shrink-0 text-center">
+                            <div class="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-lg p-3">
+                              <div class="text-2xl font-bold">
+                                {postDate.getDate()}
+                              </div>
+                              <div class="text-xs uppercase">
+                                {postDate.toLocaleDateString('en-US', { month: 'short' })}
+                              </div>
+                              <div class="text-xs">
+                                {postDate.getFullYear()}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <!-- Content -->
+                          <div class="flex-1">
+                            <BlogCard 
+                              post={post}
+                              variant="minimal"
+                              showExcerpt={true}
+                              showAuthor={true}
+                              showDate={false}
+                              showCategories={true}
+                              showTags={false}
+                              showReadingTime={true}
+                              showViewCount={false}
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <!-- Pagination -->
+              {totalPages > 1 && (
+                <div class="flex justify-center">
+                  <div class="flex items-center space-x-2">
+                    {page > 1 && (
+                      <a
+                        href={`/blog/archive?${new URLSearchParams({ ...queryParams, page: (page - 1).toString() }).toString()}`}
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Previous
+                      </a>
+                    )}
+                    
+                    <span class="px-4 py-2 text-sm text-gray-600 dark:text-gray-400">
+                      Page {page} of {totalPages}
+                    </span>
+                    
+                    {page < totalPages && (
+                      <a
+                        href={`/blog/archive?${new URLSearchParams({ ...queryParams, page: (page + 1).toString() }).toString()}`}
+                        class="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-md hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Next
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <!-- Empty State -->
+            <div class="text-center py-16">
+              <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">
+                No posts found
+              </h3>
+              <p class="text-gray-600 dark:text-gray-400 mb-6">
+                {year && month
+                  ? `No posts were published in ${new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.`
+                  : year
+                    ? `No posts were published in ${year}.`
+                    : 'No blog posts have been published yet.'
+                }
+              </p>
+              <a 
+                href="/blog"
+                class="inline-flex items-center px-6 py-3 text-base font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors duration-200"
+              >
+                View all posts
+                <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </a>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</Layout>

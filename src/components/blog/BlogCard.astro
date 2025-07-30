@@ -1,0 +1,196 @@
+---
+// =============================================================================
+// BLOG CARD COMPONENT - Displays blog post preview with metadata
+// Used in blog listings, search results, and related posts
+// =============================================================================
+
+import type { BlogPost } from '@/lib/db/types';
+import { formatDistanceToNow } from 'date-fns';
+
+interface Props {
+  post: BlogPost;
+  variant?: 'default' | 'compact' | 'featured' | 'minimal';
+  showExcerpt?: boolean;
+  showAuthor?: boolean;
+  showDate?: boolean;
+  showCategories?: boolean;
+  showTags?: boolean;
+  showReadingTime?: boolean;
+  showViewCount?: boolean;
+  className?: string;
+}
+
+const {
+  post,
+  variant = 'default',
+  showExcerpt = true,
+  showAuthor = true,
+  showDate = true,
+  showCategories = true,
+  showTags = false,
+  showReadingTime = true,
+  showViewCount = false,
+  className = '',
+} = Astro.props;
+
+//format publication date
+const publishedDate = post.published_at 
+  ? formatDistanceToNow(new Date(post.published_at), { addSuffix: true })
+  : null;
+
+//determine card styles based on variant
+const cardClasses = {
+  default: 'bg-white dark:bg-gray-800 rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200',
+  compact: 'bg-white dark:bg-gray-800 rounded-md shadow-sm hover:shadow-md transition-shadow duration-200',
+  featured: 'bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300',
+  minimal: 'border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200',
+};
+
+const paddingClasses = {
+  default: 'p-6',
+  compact: 'p-4',
+  featured: 'p-8',
+  minimal: 'py-4',
+};
+
+//truncate excerpt if needed
+const excerpt = post.excerpt && post.excerpt.length > 150 
+  ? post.excerpt.substring(0, 150) + '...' 
+  : post.excerpt;
+---
+
+<article class={`${cardClasses[variant]} ${paddingClasses[variant]} ${className} group cursor-pointer`}>
+  <a href={`/blog/${post.slug}`} class="block">
+    
+    <!-- Featured Image -->
+    {post.featured_image_url && variant !== 'minimal' && (
+      <div class="mb-4 overflow-hidden rounded-lg">
+        <img
+          src={post.featured_image_url}
+          alt={post.title}
+          class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+    )}
+
+    <!-- Content -->
+    <div class="space-y-3">
+      
+      <!-- Categories -->
+      {showCategories && post.categories && post.categories.length > 0 && (
+        <div class="flex flex-wrap gap-2">
+          {post.categories.slice(0, 2).map(category => (
+            <span 
+              class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full"
+              style={`background-color: ${category.color}20; color: ${category.color}`}
+            >
+              {category.icon && <span class="mr-1">{category.icon}</span>}
+              {category.name}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <!-- Title -->
+      <h3 class={`font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200 ${
+        variant === 'featured' ? 'text-2xl' : 
+        variant === 'compact' ? 'text-lg' : 
+        'text-xl'
+      }`}>
+        {post.title}
+        {post.featured && (
+          <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-yellow-800 bg-yellow-200 rounded-full">
+            ★
+          </span>
+        )}
+      </h3>
+
+      <!-- Excerpt -->
+      {showExcerpt && excerpt && variant !== 'minimal' && (
+        <p class="text-gray-600 dark:text-gray-300 leading-relaxed">
+          {excerpt}
+        </p>
+      )}
+
+      <!-- Tags -->
+      {showTags && post.tags && post.tags.length > 0 && variant !== 'minimal' && (
+        <div class="flex flex-wrap gap-1">
+          {post.tags.slice(0, 4).map(tag => (
+            <span class="inline-flex items-center px-2 py-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded">
+              #{tag.name}
+            </span>
+          ))}
+          {post.tags.length > 4 && (
+            <span class="text-xs text-gray-500 dark:text-gray-400">
+              +{post.tags.length - 4} more
+            </span>
+          )}
+        </div>
+      )}
+
+      <!-- Metadata -->
+      <div class="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
+        <div class="flex items-center space-x-4">
+          
+          <!-- Author -->
+          {showAuthor && post.author_name && (
+            <div class="flex items-center space-x-2">
+              {post.author_avatar && (
+                <img
+                  src={post.author_avatar}
+                  alt={post.author_name}
+                  class="w-6 h-6 rounded-full"
+                  loading="lazy"
+                />
+              )}
+              <span>{post.author_name}</span>
+            </div>
+          )}
+
+          <!-- Date -->
+          {showDate && publishedDate && (
+            <time datetime={post.published_at} class="flex items-center space-x-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <span>{publishedDate}</span>
+            </time>
+          )}
+
+        </div>
+
+        <div class="flex items-center space-x-4">
+          
+          <!-- Reading Time -->
+          {showReadingTime && post.reading_time && (
+            <span class="flex items-center space-x-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{post.reading_time} min read</span>
+            </span>
+          )}
+
+          <!-- View Count -->
+          {showViewCount && post.view_count && post.view_count > 0 && (
+            <span class="flex items-center space-x-1">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+              </svg>
+              <span>{post.view_count.toLocaleString()}</span>
+            </span>
+          )}
+
+        </div>
+      </div>
+
+    </div>
+  </a>
+</article>

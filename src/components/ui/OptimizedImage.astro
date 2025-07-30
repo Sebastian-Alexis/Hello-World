@@ -1,0 +1,344 @@
+---
+// =============================================================================
+// OPTIMIZED IMAGE COMPONENT - High-performance image loading with lazy loading
+// Provides responsive images with modern format support and performance optimization
+// =============================================================================
+
+interface Props {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  sizes?: string;
+  quality?: number;
+  format?: 'webp' | 'avif' | 'jpeg' | 'png' | 'auto';
+  loading?: 'lazy' | 'eager';
+  className?: string;
+  priority?: boolean;
+  placeholder?: 'blur' | 'empty';
+  blurDataURL?: string;
+  onLoad?: string; // JavaScript function name to call on load
+  onError?: string; // JavaScript function name to call on error
+}
+
+const {
+  src,
+  alt,
+  width = 800,
+  height,
+  sizes = '(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw',
+  quality = 85,
+  format = 'auto',
+  loading = 'lazy',
+  className = '',
+  priority = false,
+  placeholder = 'empty',
+  blurDataURL,
+  onLoad,
+  onError,
+} = Astro.props;
+
+//generate responsive image sizes
+const responsiveSizes = [320, 640, 768, 1024, 1280, 1920];
+const currentSizes = responsiveSizes.filter(size => size <= width * 1.5);
+
+//determine optimal format based on browser support
+function getOptimizedUrl(originalSrc: string, targetWidth: number, targetFormat?: string): string {
+  //if using Cloudflare Images or similar CDN
+  if (originalSrc.includes('imagedelivery.net') || originalSrc.includes('cloudinary.com')) {
+    const params = [`w_${targetWidth}`, `q_${quality}`];
+    
+    if (targetFormat && targetFormat !== 'auto') {
+      params.push(`f_${targetFormat}`);
+    }
+    
+    if (height) {
+      params.push(`h_${height}`);
+    }
+    
+    //append transformation parameters
+    const separator = originalSrc.includes('?') ? '&' : '?';
+    return `${originalSrc}${separator}${params.join(',')}`;
+  }
+  
+  //fallback for other sources
+  return originalSrc;
+}
+
+//create source set for responsive images
+const sourceSets = {
+  avif: currentSizes.map(size => `${getOptimizedUrl(src, size, 'avif')} ${size}w`).join(', '),
+  webp: currentSizes.map(size => `${getOptimizedUrl(src, size, 'webp')} ${size}w`).join(', '),
+  jpeg: currentSizes.map(size => `${getOptimizedUrl(src, size, 'jpeg')} ${size}w`).join(', '),
+};
+
+//generate primary image URL
+const primarySrc = getOptimizedUrl(src, width, format === 'auto' ? 'webp' : format);
+
+//create placeholder for blur effect
+const placeholderSrc = blurDataURL || (placeholder === 'blur' ? 
+  `data:image/svg+xml;base64,${btoa(`
+    <svg width="${width}" height="${height || Math.round(width * 0.6)}" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" style="stop-color:#f3f4f6;stop-opacity:1" />
+          <stop offset="100%" style="stop-color:#e5e7eb;stop-opacity:1" />
+        </linearGradient>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#grad)" />
+      <text x="50%" y="50%" font-family="system-ui, sans-serif" font-size="14" 
+            fill="#9ca3af" text-anchor="middle" dy="0.3em">Loading...</text>
+    </svg>
+  `)}` : undefined);
+
+//structured data for images
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "ImageObject",
+  "url": primarySrc,
+  "width": width,
+  "height": height || Math.round(width * 0.6),
+  "description": alt,
+};
+
+//determine if image should be preloaded
+const shouldPreload = priority || loading === 'eager';
+---
+
+<!-- Preload critical images -->
+{shouldPreload && (
+  <>
+    {format === 'auto' || format === 'avif' ? (
+      <link rel="preload" as="image" href={getOptimizedUrl(src, width, 'avif')} type="image/avif" />
+    ) : null}
+    {(format === 'auto' || format === 'webp') && format !== 'avif' ? (
+      <link rel="preload" as="image" href={getOptimizedUrl(src, width, 'webp')} type="image/webp" />
+    ) : null}
+    <link rel="preload" as="image" href={primarySrc} />
+  </>
+)}
+
+<!-- Responsive picture element -->
+<picture class={`optimized-image-container ${className}`}>
+  
+  <!-- AVIF source for modern browsers -->
+  {(format === 'auto' || format === 'avif') && (
+    <source 
+      srcset={sourceSets.avif}
+      sizes={sizes}
+      type="image/avif"
+    />
+  )}
+  
+  <!-- WebP source for supported browsers -->
+  {(format === 'auto' || format === 'webp') && format !== 'avif' && (
+    <source 
+      srcset={sourceSets.webp}
+      sizes={sizes}
+      type="image/webp"
+    />
+  )}
+  
+  <!-- Fallback JPEG source -->
+  <source 
+    srcset={sourceSets.jpeg}
+    sizes={sizes}
+    type="image/jpeg"
+  />
+  
+  <!-- Main image element -->
+  <img
+    src={primarySrc}
+    alt={alt}
+    width={width}
+    height={height}
+    loading={loading}
+    decoding="async"
+    sizes={sizes}
+    class={`optimized-image ${placeholder === 'blur' ? 'blur-placeholder' : ''} ${className}`}
+    style={placeholderSrc ? `background-image: url(${placeholderSrc}); background-size: cover; background-position: center;` : ''}
+    onload={onLoad ? `${onLoad}(this)` : 'this.classList.add("loaded")'}
+    onerror={onError ? `${onError}(this)` : 'this.classList.add("error")'}
+    data-original-src={src}
+    data-optimized="true"
+  />
+</picture>
+
+<!-- Structured data -->
+<script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+
+<style>
+  .optimized-image-container {
+    display: block;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .optimized-image {
+    width: 100%;
+    height: auto;
+    transition: opacity 0.3s ease, filter 0.3s ease;
+    opacity: 0;
+  }
+
+  .optimized-image.loaded {
+    opacity: 1;
+  }
+
+  .optimized-image.error {
+    opacity: 1;
+    background-color: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-family: system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  .optimized-image.error::after {
+    content: 'Image failed to load';
+  }
+
+  /* Blur placeholder effect */
+  .blur-placeholder {
+    filter: blur(10px);
+    transform: scale(1.1);
+  }
+
+  .blur-placeholder.loaded {
+    filter: none;
+    transform: none;
+  }
+
+  /* Loading animation */
+  .optimized-image-container::before {
+    content: '';
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: loading-shimmer 1.5s infinite;
+    z-index: 1;
+    opacity: 0;
+  }
+
+  .optimized-image:not(.loaded) + .optimized-image-container::before {
+    opacity: 1;
+  }
+
+  @keyframes loading-shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  /* Responsive behavior */
+  @media (max-width: 768px) {
+    .optimized-image {
+      width: 100%;
+      height: auto;
+    }
+  }
+
+  /* Print styles */
+  @media print {
+    .optimized-image {
+      opacity: 1 !important;
+      filter: none !important;
+      transform: none !important;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .optimized-image,
+    .optimized-image-container::before {
+      transition: none;
+      animation: none;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .optimized-image.error {
+      background-color: #000;
+      color: #fff;
+      border: 2px solid #fff;
+    }
+  }
+</style>
+
+<!-- Performance monitoring script -->
+<script>
+  // Track image loading performance
+  document.addEventListener('DOMContentLoaded', () => {
+    const optimizedImages = document.querySelectorAll('.optimized-image[data-optimized="true"]');
+    
+    optimizedImages.forEach(img => {
+      const startTime = performance.now();
+      
+      img.addEventListener('load', () => {
+        const loadTime = performance.now() - startTime;
+        
+        // Track image load performance
+        if (typeof window.vitalsMonitor !== 'undefined') {
+          window.vitalsMonitor.recordCustomMetric('image-load-time', loadTime, {
+            src: img.dataset.originalSrc,
+            width: img.width,
+            height: img.height,
+          });
+        }
+        
+        // Report slow loading images
+        if (loadTime > 2000) {
+          console.warn(`Slow image load: ${img.dataset.originalSrc} took ${loadTime.toFixed(2)}ms`);
+        }
+      });
+      
+      img.addEventListener('error', () => {
+        const loadTime = performance.now() - startTime;
+        console.error(`Image load failed: ${img.dataset.originalSrc} after ${loadTime.toFixed(2)}ms`);
+        
+        // Track failed images
+        if (typeof window.vitalsMonitor !== 'undefined') {
+          window.vitalsMonitor.recordCustomMetric('image-load-error', loadTime, {
+            src: img.dataset.originalSrc,
+            error: 'load-failed',
+          });
+        }
+      });
+    });
+    
+    // Set up intersection observer for lazy loading analytics
+    if ('IntersectionObserver' in window) {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            
+            // Track when images come into viewport
+            if (typeof window.vitalsMonitor !== 'undefined') {
+              window.vitalsMonitor.recordCustomMetric('image-viewport-entry', Date.now(), {
+                src: img.dataset.originalSrc,
+                loading: img.loading,
+              });
+            }
+            
+            observer.unobserve(img);
+          }
+        });
+      }, {
+        rootMargin: '50px',
+      });
+      
+      optimizedImages.forEach(img => {
+        if (img.loading === 'lazy') {
+          observer.observe(img);
+        }
+      });
+    }
+  });
+</script>

@@ -1,0 +1,173 @@
+---
+// =============================================================================
+// CATEGORY TAG COMPONENT - Displays blog categories and tags with styling
+// Supports both categories and tags with color coding and icons
+// =============================================================================
+
+import type { BlogCategory, BlogTag } from '@/lib/db/types';
+
+interface Props {
+  item: BlogCategory | BlogTag;
+  type: 'category' | 'tag';
+  variant?: 'default' | 'outlined' | 'minimal' | 'large';
+  size?: 'xs' | 'sm' | 'md' | 'lg';
+  showIcon?: boolean;
+  showCount?: boolean;
+  clickable?: boolean;
+  className?: string;
+}
+
+const {
+  item,
+  type,
+  variant = 'default',
+  size = 'sm',
+  showIcon = true,
+  showCount = false,
+  clickable = true,
+  className = '',
+} = Astro.props;
+
+//determine colors and styling
+const baseColor = item.color || (type === 'category' ? '#3B82F6' : '#6B7280');
+const lightColor = baseColor + '20'; // 20% opacity
+const textColor = baseColor;
+
+//size classes
+const sizeClasses = {
+  xs: 'px-2 py-0.5 text-xs',
+  sm: 'px-2 py-1 text-xs',
+  md: 'px-3 py-1 text-sm',
+  lg: 'px-4 py-2 text-base',
+};
+
+//variant styles
+const variantClasses = {
+  default: `text-white font-medium`,
+  outlined: `border-2 font-medium`,
+  minimal: `font-medium`,
+  large: `font-semibold shadow-md`,
+};
+
+//determine final classes based on variant
+let finalClasses = '';
+let finalStyle = '';
+
+switch (variant) {
+  case 'default':
+    finalClasses = `${variantClasses.default} rounded-full`;
+    finalStyle = `background-color: ${baseColor}`;
+    break;
+    
+  case 'outlined':
+    finalClasses = `${variantClasses.outlined} bg-transparent rounded-full`;
+    finalStyle = `border-color: ${baseColor}; color: ${textColor}`;
+    break;
+    
+  case 'minimal':
+    finalClasses = `${variantClasses.minimal} rounded`;
+    finalStyle = `background-color: ${lightColor}; color: ${textColor}`;
+    break;
+    
+  case 'large':
+    finalClasses = `${variantClasses.large} rounded-lg`;
+    finalStyle = `background-color: ${lightColor}; color: ${textColor}`;
+    break;
+}
+
+//add hover effects if clickable
+if (clickable) {
+  finalClasses += ' hover:opacity-80 transition-opacity duration-200 cursor-pointer';
+}
+
+//determine link path
+const linkPath = type === 'category' ? `/blog/category/${item.slug}` : `/blog/tag/${item.slug}`;
+
+//get icon for categories
+const categoryIcon = showIcon && type === 'category' && (item as BlogCategory).icon 
+  ? (item as BlogCategory).icon 
+  : null;
+
+//accessibility label
+const ariaLabel = `${type === 'category' ? 'Category' : 'Tag'}: ${item.name}${
+  showCount && item.post_count ? ` (${item.post_count} posts)` : ''
+}`;
+---
+
+{clickable ? (
+  <a 
+    href={linkPath}
+    class={`inline-flex items-center ${sizeClasses[size]} ${finalClasses} ${className}`}
+    style={finalStyle}
+    aria-label={ariaLabel}
+    title={item.description || item.name}
+  >
+    
+    <!-- Category Icon -->
+    {categoryIcon && (
+      <span class="mr-1" aria-hidden="true">
+        {categoryIcon}
+      </span>
+    )}
+    
+    <!-- Type Indicator (for tags) -->
+    {type === 'tag' && showIcon && (
+      <span class="mr-1" aria-hidden="true">#</span>
+    )}
+    
+    <!-- Name -->
+    <span>{item.name}</span>
+    
+    <!-- Post Count -->
+    {showCount && item.post_count > 0 && (
+      <span class="ml-1 opacity-75">
+        ({item.post_count})
+      </span>
+    )}
+    
+  </a>
+) : (
+  <span 
+    class={`inline-flex items-center ${sizeClasses[size]} ${finalClasses} ${className}`}
+    style={finalStyle}
+    title={item.description || item.name}
+  >
+    
+    <!-- Category Icon -->
+    {categoryIcon && (
+      <span class="mr-1" aria-hidden="true">
+        {categoryIcon}
+      </span>
+    )}
+    
+    <!-- Type Indicator (for tags) -->
+    {type === 'tag' && showIcon && (
+      <span class="mr-1" aria-hidden="true">#</span>
+    )}
+    
+    <!-- Name -->
+    <span>{item.name}</span>
+    
+    <!-- Post Count -->
+    {showCount && item.post_count > 0 && (
+      <span class="ml-1 opacity-75">
+        ({item.post_count})
+      </span>
+    )}
+    
+  </span>
+)}
+
+<!-- Hidden JSON-LD for SEO (only for large variant) -->
+{variant === 'large' && (
+  <script type="application/ld+json" set:html={JSON.stringify({
+    "@context": "https://schema.org",
+    "@type": type === 'category' ? "BlogPosting" : "Thing",
+    "name": item.name,
+    "description": item.description,
+    "url": `${Astro.url.origin}${linkPath}`,
+    ...(showCount && item.post_count > 0 && {
+      "numberOfItems": item.post_count
+    })
+  })} />
+)}

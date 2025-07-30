@@ -1,0 +1,278 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Button from '../components/ui/Button.astro';
+import Card from '../components/ui/Card.astro';
+---
+
+<BaseLayout 
+  title="Home"
+  description="Personal website showcasing blog, portfolio, credentials, and travel experiences."
+>
+  <!-- Hero Section -->
+  <section class="py-20 bg-primary">
+    <div class="container mx-auto text-center">
+      <div class="max-w-4xl mx-auto">
+        <h1 class="text-5xl md:text-6xl font-bold text-text-primary mb-6 fade-in">
+          Hello, I'm <span class="text-accent-primary">Your Name</span>
+        </h1>
+        <p class="text-xl md:text-2xl text-text-secondary mb-8 leading-relaxed fade-in">
+          Software developer passionate about creating efficient, user-friendly applications 
+          and sharing knowledge through writing and travel.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in">
+          <Button variant="primary" size="lg" href="/portfolio">
+            View My Work
+          </Button>
+          <Button variant="outline" size="lg" href="/blog">
+            Read My Blog
+          </Button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Section -->
+  <section class="py-20 bg-secondary">
+    <div class="container mx-auto">
+      <div class="text-center mb-16">
+        <h2 class="text-4xl font-bold text-text-primary mb-4">What I Do</h2>
+        <p class="text-xl text-text-secondary max-w-2xl mx-auto">
+          Exploring the intersection of technology, creativity, and human experience.
+        </p>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Development -->
+        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
+          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-semibold text-text-primary mb-4">Development</h3>
+          <p class="text-text-secondary leading-relaxed">
+            Building modern web applications with cutting-edge technologies, 
+            focusing on performance, accessibility, and user experience.
+          </p>
+        </Card>
+
+        <!-- Writing -->
+        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
+          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-semibold text-text-primary mb-4">Writing</h3>
+          <p class="text-text-secondary leading-relaxed">
+            Sharing insights about software development, technology trends, 
+            and lessons learned from building real-world applications.
+          </p>
+        </Card>
+
+        <!-- Travel -->
+        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
+          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
+            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-semibold text-text-primary mb-4">Travel</h3>
+          <p class="text-text-secondary leading-relaxed">
+            Documenting adventures around the world, from remote work locations 
+            to exploring new cultures and perspectives.
+          </p>
+        </Card>
+      </div>
+    </div>
+  </section>
+
+  <!-- Recent Work Section -->
+  <section class="py-20 bg-primary">
+    <div class="container mx-auto">
+      <div class="flex flex-col lg:flex-row items-center justify-between mb-12">
+        <div>
+          <h2 class="text-4xl font-bold text-text-primary mb-4">Recent Work</h2>
+          <p class="text-xl text-text-secondary">
+            A selection of projects I've been working on.
+          </p>
+        </div>
+        <Button variant="outline" href="/portfolio">
+          View All Projects
+        </Button>
+      </div>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- Project 1 -->
+        <Card variant="elevated" class="overflow-hidden group">
+          <div class="aspect-video bg-tertiary mb-6 rounded-lg flex items-center justify-center group-hover:bg-accent-primary/10 transition-colors">
+            <svg class="w-16 h-16 text-text-tertiary group-hover:text-accent-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7l2 12-2 12m0-24l-2-12-2 12"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-semibold text-text-primary mb-3">E-Commerce Platform</h3>
+          <p class="text-text-secondary mb-4 leading-relaxed">
+            A full-stack e-commerce solution built with modern technologies, 
+            featuring real-time inventory, payment processing, and analytics.
+          </p>
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">React</span>
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Node.js</span>
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">PostgreSQL</span>
+          </div>
+          <Button variant="ghost" href="/portfolio/ecommerce-platform">
+            Learn More →
+          </Button>
+        </Card>
+
+        <!-- Project 2 -->
+        <Card variant="elevated" class="overflow-hidden group">
+          <div class="aspect-video bg-tertiary mb-6 rounded-lg flex items-center justify-center group-hover:bg-accent-primary/10 transition-colors">
+            <svg class="w-16 h-16 text-text-tertiary group-hover:text-accent-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+            </svg>
+          </div>
+          <h3 class="text-2xl font-semibold text-text-primary mb-3">Analytics Dashboard</h3>
+          <p class="text-text-secondary mb-4 leading-relaxed">
+            Real-time analytics dashboard with interactive visualizations, 
+            custom reporting, and performance monitoring capabilities.
+          </p>
+          <div class="flex flex-wrap gap-2 mb-4">
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Vue.js</span>
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">D3.js</span>
+            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Python</span>
+          </div>
+          <Button variant="ghost" href="/portfolio/analytics-dashboard">
+            Learn More →
+          </Button>
+        </Card>
+      </div>
+    </div>
+  </section>
+
+  <!-- Blog Section -->
+  <section class="py-20 bg-secondary">
+    <div class="container mx-auto">
+      <div class="flex flex-col lg:flex-row items-center justify-between mb-12">
+        <div>
+          <h2 class="text-4xl font-bold text-text-primary mb-4">Latest Posts</h2>
+          <p class="text-xl text-text-secondary">
+            Insights, tutorials, and thoughts on development.
+          </p>
+        </div>
+        <Button variant="outline" href="/blog">
+          View All Posts
+        </Button>
+      </div>
+      
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <!-- Blog Post 1 -->
+        <Card variant="default" class="group hover:shadow-lg transition-shadow">
+          <div class="mb-4">
+            <span class="text-sm text-accent-primary font-medium">Tutorial</span>
+            <span class="text-text-tertiary mx-2">•</span>
+            <span class="text-sm text-text-secondary">5 min read</span>
+          </div>
+          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
+            Building Ultra-Fast Web Apps with Astro
+          </h3>
+          <p class="text-text-secondary mb-4 leading-relaxed">
+            Learn how to leverage Astro's island architecture to build 
+            lightning-fast websites with minimal JavaScript.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-text-secondary">Dec 15, 2024</span>
+            <Button variant="ghost" size="sm" href="/blog/building-ultra-fast-web-apps-with-astro">
+              Read More
+            </Button>
+          </div>
+        </Card>
+
+        <!-- Blog Post 2 -->
+        <Card variant="default" class="group hover:shadow-lg transition-shadow">
+          <div class="mb-4">
+            <span class="text-sm text-accent-primary font-medium">Guide</span>
+            <span class="text-text-tertiary mx-2">•</span>
+            <span class="text-sm text-text-secondary">8 min read</span>
+          </div>
+          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
+            Mastering Core Web Vitals in 2024
+          </h3>
+          <p class="text-text-secondary mb-4 leading-relaxed">
+            A comprehensive guide to understanding and optimizing Core Web Vitals 
+            for better user experience and SEO rankings.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-text-secondary">Dec 10, 2024</span>
+            <Button variant="ghost" size="sm" href="/blog/mastering-core-web-vitals-2024">
+              Read More
+            </Button>
+          </div>
+        </Card>
+
+        <!-- Blog Post 3 -->
+        <Card variant="default" class="group hover:shadow-lg transition-shadow">
+          <div class="mb-4">
+            <span class="text-sm text-accent-primary font-medium">Experience</span>
+            <span class="text-text-tertiary mx-2">•</span>
+            <span class="text-sm text-text-secondary">6 min read</span>
+          </div>
+          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
+            Remote Work from Bali: Lessons Learned
+          </h3>
+          <p class="text-text-secondary mb-4 leading-relaxed">
+            Three months of remote work from Indonesia taught me valuable lessons 
+            about productivity, culture, and work-life balance.
+          </p>
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-text-secondary">Dec 5, 2024</span>
+            <Button variant="ghost" size="sm" href="/blog/remote-work-from-bali-lessons-learned">
+              Read More
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA Section -->
+  <section class="py-20 bg-primary">
+    <div class="container mx-auto">
+      <Card variant="elevated" class="max-w-4xl mx-auto text-center bg-gradient-to-r from-accent-primary to-accent-light">
+        <div class="text-white">
+          <h2 class="text-4xl font-bold mb-4">Let's Work Together</h2>
+          <p class="text-xl mb-8 opacity-90 leading-relaxed">
+            I'm always interested in new opportunities and collaborations. 
+            Whether you have a project in mind or just want to chat about technology, 
+            I'd love to hear from you.
+          </p>
+          <div class="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button variant="secondary" size="lg" href="mailto:hello@yoursite.com">
+              Get In Touch
+            </Button>
+            <Button variant="outline" size="lg" href="/resume/download" class="border-white text-white hover:bg-white hover:text-accent-primary">
+              Download Resume
+            </Button>
+          </div>
+        </div>
+      </Card>
+    </div>
+  </section>
+</BaseLayout>
+
+<style>
+  .fade-in {
+    animation: fadeIn 0.8s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+</style>

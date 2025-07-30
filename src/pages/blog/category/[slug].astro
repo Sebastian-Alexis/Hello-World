@@ -1,0 +1,407 @@
+---
+// =============================================================================
+// CATEGORY PAGE - Shows all blog posts in a specific category
+// Displays posts filtered by category with pagination and metadata
+// =============================================================================
+
+import Layout from '@/layouts/Layout.astro';
+import BlogCard from '@/components/blog/BlogCard.astro';
+import SearchBox from '@/components/blog/SearchBox.svelte';
+import Pagination from '@/components/blog/Pagination.astro';
+import CategoryTag from '@/components/blog/CategoryTag.astro';
+import { db } from '@/lib/db/queries';
+import type { BlogPost, BlogCategory, BlogTag } from '@/lib/db/types';
+
+//get the category slug from the URL
+const { slug } = Astro.params;
+
+if (!slug) {
+  return Astro.redirect('/blog');
+}
+
+//get query parameters
+const url = Astro.url;
+const page = parseInt(url.searchParams.get('page') || '1');
+const sort = url.searchParams.get('sort') || 'latest';
+const perPage = 12;
+
+//fetch category and posts
+let category: BlogCategory | null = null;
+let posts: BlogPost[] = [];
+let totalPosts = 0;
+let totalPages = 0;
+let relatedCategories: BlogCategory[] = [];
+let popularTags: BlogTag[] = [];
+
+try {
+  //get the category
+  const categories = await db.getAllCategories();
+  category = categories.find(c => c.slug === slug) || null;
+  
+  if (!category) {
+    return Astro.redirect('/blog');
+  }
+
+  //get posts in this category
+  const result = await db.getBlogPosts({
+    page,
+    limit: perPage,
+    category: slug,
+    orderBy: sort === 'popular' ? 'view_count' : 'published_at',
+    orderDirection: 'DESC',
+    published: true,
+  });
+  
+  posts = result.posts;
+  totalPosts = result.total;
+  totalPages = Math.ceil(totalPosts / perPage);
+
+  //get related categories (categories that share posts with this one)
+  relatedCategories = await db.getRelatedCategories(category.id, 5);
+
+  //get popular tags in this category
+  popularTags = await db.getPopularTagsInCategory(category.id, 10);
+
+} catch (error) {
+  console.error('Failed to fetch category data:', error);
+  return Astro.redirect('/blog');
+}
+
+//build query params for pagination
+const queryParams: Record<string, string> = {};
+if (sort !== 'latest') queryParams.sort = sort;
+
+//determine page title and description
+const pageTitle = `${category.name} - Blog Category`;
+const pageDescription = category.description || `Explore all blog posts in the ${category.name} category. ${totalPosts} ${totalPosts === 1 ? 'post' : 'posts'} available.`;
+
+//structured data for category page
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": pageTitle,
+  "description": pageDescription,
+  "url": Astro.url.toString(),
+  "about": {
+    "@type": "Thing",
+    "name": category.name,
+    "description": category.description,
+  },
+  "mainEntity": {
+    "@type": "ItemList",
+    "numberOfItems": totalPosts,
+    "itemListElement": posts.map((post, index) => ({
+      "@type": "ListItem",
+      "position": (page - 1) * perPage + index + 1,
+      "item": {
+        "@type": "BlogPosting",
+        "headline": post.title,
+        "url": `${Astro.url.origin}/blog/${post.slug}`,
+        "datePublished": post.published_at,
+        "dateModified": post.updated_at,
+        "author": {
+          "@type": "Person",
+          "name": post.author_name,
+        },
+        ...(post.excerpt && { "description": post.excerpt }),
+        ...(post.featured_image_url && { 
+          "image": {
+            "@type": "ImageObject",
+            "url": post.featured_image_url
+          }
+        }),
+      }
+    }))
+  }
+};
+
+//breadcrumb structured data
+const breadcrumbData = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Home",
+      "item": Astro.url.origin
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "Blog",
+      "item": `${Astro.url.origin}/blog`
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "name": category.name,
+      "item": Astro.url.toString()
+    }
+  ]
+};
+---
+
+<Layout 
+  title={pageTitle}
+  description={pageDescription}
+  structuredData={[structuredData, breadcrumbData]}
+>
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    
+    <!-- Hero Section -->
+    <section class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <div class="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+        
+        <!-- Breadcrumb -->
+        <nav class="mb-8" aria-label="Breadcrumb">
+          <ol class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
+            <li><a href="/" class="hover:text-gray-700 dark:hover:text-gray-300">Home</a></li>
+            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+            <li><a href="/blog" class="hover:text-gray-700 dark:hover:text-gray-300">Blog</a></li>
+            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+            </svg>
+            <li class="text-gray-900 dark:text-white">{category.name}</li>
+          </ol>
+        </nav>
+
+        <div class="text-center">
+          <!-- Category Badge -->
+          <div class="flex justify-center mb-6">
+            <CategoryTag item={category} type="category" variant="large" size="lg" clickable={false} />
+          </div>
+
+          <!-- Title -->
+          <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            {category.name}
+          </h1>
+          
+          <!-- Description -->
+          {category.description && (
+            <p class="text-xl text-gray-600 dark:text-gray-300 mb-6 max-w-3xl mx-auto">
+              {category.description}
+            </p>
+          )}
+
+          <!-- Stats -->
+          <div class="flex items-center justify-center space-x-6 text-sm text-gray-600 dark:text-gray-400 mb-8">
+            <div>
+              <span class="font-medium text-gray-900 dark:text-white">{totalPosts}</span>
+              <span class="ml-1">{totalPosts === 1 ? 'post' : 'posts'}</span>
+            </div>
+            {popularTags.length > 0 && (
+              <div>
+                <span class="font-medium text-gray-900 dark:text-white">{popularTags.length}</span>
+                <span class="ml-1">related {popularTags.length === 1 ? 'tag' : 'tags'}</span>
+              </div>
+            )}
+          </div>
+          
+          <!-- Search Box -->
+          <div class="max-w-2xl mx-auto">
+            <SearchBox client:load showCategories={true} showTags={true} />
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+      <div class="lg:grid lg:grid-cols-4 lg:gap-8">
+        
+        <!-- Sidebar -->
+        <aside class="lg:col-span-1 mb-8 lg:mb-0">
+          
+          <!-- Sort Options -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Sort Posts
+            </h3>
+            <div class="space-y-2">
+              <a 
+                href={`/blog/category/${slug}`}
+                class={`block px-3 py-2 rounded-md text-sm transition-colors duration-200 ${
+                  sort === 'latest' 
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Latest Posts
+              </a>
+              <a 
+                href={`/blog/category/${slug}?sort=popular`}
+                class={`block px-3 py-2 rounded-md text-sm transition-colors duration-200 ${
+                  sort === 'popular' 
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100' 
+                    : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                }`}
+              >
+                Most Popular
+              </a>
+            </div>
+          </div>
+
+          <!-- Related Categories -->
+          {relatedCategories.length > 0 && (
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Related Categories
+              </h3>
+              <div class="space-y-2">
+                {relatedCategories.map(cat => (
+                  <div class="flex items-center justify-between">
+                    <CategoryTag item={cat} type="category" size="sm" showCount={true} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- Popular Tags in Category -->
+          {popularTags.length > 0 && (
+            <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6 mb-6">
+              <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Popular Tags
+              </h3>
+              <div class="flex flex-wrap gap-2">
+                {popularTags.map(tag => (
+                  <CategoryTag item={tag} type="tag" size="xs" />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <!-- Category Actions -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-6">
+            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              More Actions
+            </h3>
+            <div class="space-y-3">
+              <a 
+                href="/blog"
+                class="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                All Blog Posts
+              </a>
+              <a 
+                href="/blog/archive"
+                class="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                </svg>
+                Blog Archive
+              </a>
+              <a 
+                href={`/blog/search?category=${slug}`}
+                class="flex items-center text-sm text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400"
+              >
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                        d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Search in Category
+              </a>
+            </div>
+          </div>
+
+        </aside>
+
+        <!-- Main Content -->
+        <div class="lg:col-span-3">
+          
+          <!-- Results Info -->
+          <div class="flex items-center justify-between mb-6">
+            <div class="text-sm text-gray-600 dark:text-gray-400">
+              {totalPosts > 0 ? (
+                `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, totalPosts)} of ${totalPosts} posts`
+              ) : (
+                'No posts found'
+              )}
+            </div>
+            
+            {totalPages > 1 && (
+              <div class="flex items-center space-x-2">
+                <span class="text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
+              </div>
+            )}
+          </div>
+
+          <!-- Posts Grid -->
+          {posts.length > 0 ? (
+            <div>
+              <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mb-12">
+                {posts.map(post => (
+                  <BlogCard 
+                    post={post}
+                    variant="default"
+                    showExcerpt={true}
+                    showAuthor={true}
+                    showDate={true}
+                    showCategories={false} // Don't show category since we're already filtering by it
+                    showTags={true}
+                    showReadingTime={true}
+                    showViewCount={false}
+                  />
+                ))}
+              </div>
+
+              <!-- Pagination -->
+              {totalPages > 1 && (
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  basePath={`/blog/category/${slug}`}
+                  queryParams={queryParams}
+                  showInfo={false}
+                  className="mt-12"
+                />
+              )}
+            </div>
+          ) : (
+            <!-- Empty State -->
+            <div class="text-center py-16">
+              <svg class="w-16 h-16 mx-auto text-gray-400 dark:text-gray-500 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                      d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <h3 class="text-xl font-medium text-gray-900 dark:text-white mb-2">
+                No posts in this category yet
+              </h3>
+              <p class="text-gray-600 dark:text-gray-400 mb-6">
+                We haven't published any posts in the {category.name} category yet. Check back soon or explore other categories.
+              </p>
+              <div class="flex flex-col sm:flex-row gap-4 justify-center">
+                <a 
+                  href="/blog"
+                  class="inline-flex items-center px-6 py-3 text-base font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 rounded-lg transition-colors duration-200"
+                >
+                  Browse all posts
+                  <svg class="ml-2 w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </a>
+                {relatedCategories.length > 0 && (
+                  <a 
+                    href={`/blog/category/${relatedCategories[0].slug}`}
+                    class="inline-flex items-center px-6 py-3 text-base font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors duration-200"
+                  >
+                    Try {relatedCategories[0].name}
+                  </a>
+                )}
+              </div>
+            </div>
+          )}
+
+        </div>
+      </div>
+    </div>
+
+  </main>
+</Layout>

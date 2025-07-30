@@ -1,0 +1,224 @@
+---
+// =============================================================================
+// PAGINATION COMPONENT - Advanced pagination with proper navigation
+// Supports various pagination patterns and accessibility features
+// =============================================================================
+
+interface Props {
+  currentPage: number;
+  totalPages: number;
+  basePath: string;
+  queryParams?: Record<string, string>;
+  showInfo?: boolean;
+  showFirstLast?: boolean;
+  maxVisiblePages?: number;
+  className?: string;
+  size?: 'sm' | 'md' | 'lg';
+}
+
+const {
+  currentPage,
+  totalPages,
+  basePath,
+  queryParams = {},
+  showInfo = true,
+  showFirstLast = true,
+  maxVisiblePages = 7,
+  className = '',
+  size = 'md',
+} = Astro.props;
+
+//helper function to build URL with query params
+function buildUrl(page: number): string {
+  const params = new URLSearchParams(queryParams);
+  if (page > 1) {
+    params.set('page', page.toString());
+  } else {
+    params.delete('page');
+  }
+  
+  const queryString = params.toString();
+  return `${basePath}${queryString ? '?' + queryString : ''}`;
+}
+
+//calculate visible page range
+function getVisiblePages(): (number | 'ellipsis')[] {
+  if (totalPages <= maxVisiblePages) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const halfVisible = Math.floor(maxVisiblePages / 2);
+  let start = Math.max(1, currentPage - halfVisible);
+  let end = Math.min(totalPages, currentPage + halfVisible);
+
+  //adjust range if we're near the beginning or end
+  if (currentPage <= halfVisible) {
+    end = Math.min(totalPages, maxVisiblePages);
+  } else if (currentPage >= totalPages - halfVisible) {
+    start = Math.max(1, totalPages - maxVisiblePages + 1);
+  }
+
+  const pages: (number | 'ellipsis')[] = [];
+
+  //add first page if not in range
+  if (start > 1) {
+    pages.push(1);
+    if (start > 2) {
+      pages.push('ellipsis');
+    }
+  }
+
+  //add visible range
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  //add last page if not in range
+  if (end < totalPages) {
+    if (end < totalPages - 1) {
+      pages.push('ellipsis');
+    }
+    pages.push(totalPages);
+  }
+
+  return pages;
+}
+
+const visiblePages = getVisiblePages();
+
+//determine button sizes
+const sizeClasses = {
+  sm: 'px-2 py-1 text-sm',
+  md: 'px-3 py-2 text-sm',
+  lg: 'px-4 py-2 text-base',
+};
+
+const iconSizes = {
+  sm: 'w-4 h-4',
+  md: 'w-5 h-5',
+  lg: 'w-6 h-6',
+};
+
+//check if pagination is needed
+const showPagination = totalPages > 1;
+---
+
+{showPagination && (
+  <nav class={`flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0 ${className}`} aria-label="Pagination">
+    
+    <!-- Page Info -->
+    {showInfo && (
+      <div class="text-sm text-gray-700 dark:text-gray-300">
+        Showing page <span class="font-medium">{currentPage}</span> of <span class="font-medium">{totalPages}</span>
+      </div>
+    )}
+
+    <!-- Pagination Controls -->
+    <div class="flex items-center space-x-1">
+      
+      <!-- First Page -->
+      {showFirstLast && currentPage > 1 && (
+        <a
+          href={buildUrl(1)}
+          class={`${sizeClasses[size]} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-colors duration-200 flex items-center`}
+          aria-label="Go to first page"
+        >
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+          </svg>
+        </a>
+      )}
+
+      <!-- Previous Page -->
+      {currentPage > 1 ? (
+        <a
+          href={buildUrl(currentPage - 1)}
+          class={`${sizeClasses[size]} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-colors duration-200 flex items-center`}
+          aria-label="Go to previous page"
+        >
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span class="ml-1 hidden sm:inline">Previous</span>
+        </a>
+      ) : (
+        <span class={`${sizeClasses[size]} border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-md flex items-center cursor-not-allowed`}>
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          <span class="ml-1 hidden sm:inline">Previous</span>
+        </span>
+      )}
+
+      <!-- Page Numbers -->
+      <div class="flex items-center space-x-1">
+        {visiblePages.map((page) => {
+          if (page === 'ellipsis') {
+            return (
+              <span class={`${sizeClasses[size]} text-gray-500 dark:text-gray-400`}>
+                ...
+              </span>
+            );
+          }
+
+          const isCurrentPage = page === currentPage;
+          
+          return (
+            isCurrentPage ? (
+              <span 
+                class={`${sizeClasses[size]} border-2 border-blue-500 bg-blue-500 text-white rounded-md font-medium`}
+                aria-current="page"
+                aria-label={`Current page ${page}`}
+              >
+                {page}
+              </span>
+            ) : (
+              <a
+                href={buildUrl(page)}
+                class={`${sizeClasses[size]} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 rounded-md transition-colors duration-200`}
+                aria-label={`Go to page ${page}`}
+              >
+                {page}
+              </a>
+            )
+          );
+        })}
+      </div>
+
+      <!-- Next Page -->
+      {currentPage < totalPages ? (
+        <a
+          href={buildUrl(currentPage + 1)}
+          class={`${sizeClasses[size]} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-colors duration-200 flex items-center`}
+          aria-label="Go to next page"
+        >
+          <span class="mr-1 hidden sm:inline">Next</span>
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </a>
+      ) : (
+        <span class={`${sizeClasses[size]} border border-gray-200 dark:border-gray-700 bg-gray-100 dark:bg-gray-700 text-gray-400 dark:text-gray-500 rounded-md flex items-center cursor-not-allowed`}>
+          <span class="mr-1 hidden sm:inline">Next</span>
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </span>
+      )}
+
+      <!-- Last Page -->
+      {showFirstLast && currentPage < totalPages && (
+        <a
+          href={buildUrl(totalPages)}
+          class={`${sizeClasses[size]} border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 hover:text-gray-700 dark:hover:text-gray-300 rounded-md transition-colors duration-200 flex items-center`}
+          aria-label="Go to last page"
+        >
+          <svg class={iconSizes[size]} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+          </svg>
+        </a>
+      )}
+
+    </div>
+  </nav>
+)}
