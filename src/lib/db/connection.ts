@@ -2,6 +2,7 @@ import { createClient, type Client } from '@libsql/client';
 import { getDbConfig, isDev } from '@/lib/env';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import { ConnectionPoolMonitor } from './performance';
 
 let _client: Client | null = null;
 
@@ -59,24 +60,40 @@ export async function initDatabase(): Promise<void> {
     console.log('Initializing local database schema...');
     
     const schemaPath = join(process.cwd(), 'database', 'schema.sql');
+    const performanceIndexesPath = join(process.cwd(), 'database', 'performance-indexes.sql');
+    
     const schema = readFileSync(schemaPath, 'utf-8');
+    const performanceIndexes = readFileSync(performanceIndexesPath, 'utf-8');
     
     const client = getDbClient();
     
     // Split schema into individual statements
-    const statements = schema
+    const schemaStatements = schema
       .split(';')
       .map(stmt => stmt.trim())
       .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
     
-    // Execute each statement
-    for (const statement of statements) {
+    const performanceStatements = performanceIndexes
+      .split(';')
+      .map(stmt => stmt.trim())
+      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
+    
+    // Execute schema statements
+    for (const statement of schemaStatements) {
       if (statement.trim()) {
         await client.execute(statement);
       }
     }
     
-    console.log(`✅ Database schema initialized successfully (${statements.length} statements)`);
+    // Execute performance optimization statements
+    for (const statement of performanceStatements) {
+      if (statement.trim()) {
+        await client.execute(statement);
+      }
+    }
+    
+    console.log(`✅ Database schema initialized successfully (${schemaStatements.length + performanceStatements.length} statements)`);
+    console.log('✅ Performance indexes and monitoring tables created');
   } catch (error) {
     console.error('❌ Failed to initialize database schema:', error);
     throw error;
@@ -175,6 +192,11 @@ export async function getDatabaseStats(): Promise<{
   tables: number;
   indexes: number;
   pragmaStats: Record<string, unknown>;
+  performance: {
+    avgQueryTime: number;
+    slowQueries: number;
+    cacheHitRate: number;
+  };
 }> {
   try {
     const client = getDbClient();
@@ -189,20 +211,149 @@ export async function getDatabaseStats(): Promise<{
       client.execute('PRAGMA cache_size;'),
       client.execute('PRAGMA journal_mode;'),
       client.execute('PRAGMA synchronous;'),
-    ]).then(([cache, journal, sync]) => ({
+      client.execute('PRAGMA page_size;'),
+      client.execute('PRAGMA mmap_size;'),
+    ]).then(([cache, journal, sync, pageSize, mmapSize]) => ({
       cache_size: cache.rows[0],
       journal_mode: journal.rows[0],
       synchronous: sync.rows[0],
+      page_size: pageSize.rows[0],
+      mmap_size: mmapSize.rows[0],
     }));
+
+    //get performance statistics
+    let performanceStats = {
+      avgQueryTime: 0,
+      slowQueries: 0,
+      cacheHitRate: 0,
+    };
+
+    try {
+      const [avgTimeResult, slowQueriesResult, cacheStatsResult] = await Promise.all([
+        client.execute(`
+          SELECT AVG(execution_time_ms) as avg_time 
+          FROM query_performance_log 
+          WHERE created_at > datetime('now', '-1 hour')
+        `),
+        client.execute(`
+          SELECT COUNT(*) as count 
+          FROM query_performance_log 
+          WHERE execution_time_ms > 100 
+            AND created_at > datetime('now', '-1 hour')
+        `),
+        client.execute(`
+          SELECT 
+            COUNT(*) as total,
+            SUM(CASE WHEN hit_miss = 'hit' THEN 1 ELSE 0 END) as hits
+          FROM cache_performance_log 
+          WHERE created_at > datetime('now', '-1 hour')
+        `),
+      ]);
+
+      const avgTime = avgTimeResult.rows[0]?.avg_time;
+      const slowCount = slowQueriesResult.rows[0]?.count;
+      const cacheStats = cacheStatsResult.rows[0];
+
+      performanceStats = {
+        avgQueryTime: typeof avgTime === 'number' ? avgTime : 0,
+        slowQueries: typeof slowCount === 'number' ? slowCount : 0,
+        cacheHitRate: cacheStats?.total > 0 
+          ? (Number(cacheStats.hits) / Number(cacheStats.total)) * 100 
+          : 0,
+      };
+    } catch (perfError) {
+      //performance tables might not exist yet
+      console.warn('Performance stats not available:', perfError);
+    }
     
     return {
-      size: Number(sizeResult.rows[0]?.page_count) * 4096, // Assuming 4KB page size
+      size: Number(sizeResult.rows[0]?.page_count) * 4096,
       tables: Number(tablesResult.rows[0]?.count),
       indexes: Number(indexesResult.rows[0]?.count),
       pragmaStats,
+      performance: performanceStats,
     };
   } catch (error) {
     console.error('Failed to get database stats:', error);
     throw error;
+  }
+}
+
+//enhanced health check with performance metrics
+export async function enhancedHealthCheck(): Promise<{
+  healthy: boolean;
+  error?: string;
+  latency: number;
+  performance: {
+    queryTime: number;
+    indexUsage: boolean;
+    cacheEnabled: boolean;
+  };
+}> {
+  try {
+    const start = Date.now();
+    const client = getDbClient();
+    
+    //test basic connectivity
+    await client.execute('SELECT 1');
+    const basicLatency = Date.now() - start;
+    
+    //test index usage with EXPLAIN QUERY PLAN
+    const complexQueryStart = Date.now();
+    const planResult = await client.execute(`
+      EXPLAIN QUERY PLAN 
+      SELECT * FROM blog_posts 
+      WHERE status = 'published' 
+      ORDER BY published_at DESC 
+      LIMIT 5
+    `);
+    const complexQueryTime = Date.now() - complexQueryStart;
+    
+    //check if indexes are being used
+    const planText = JSON.stringify(planResult.rows);
+    const indexUsage = planText.includes('USING INDEX') || planText.includes('SEARCH');
+    
+    //test cache functionality
+    const cacheTestStart = Date.now();
+    await client.execute('SELECT COUNT(*) FROM sqlite_master');
+    const cacheTestTime = Date.now() - cacheTestStart;
+    
+    return {
+      healthy: true,
+      latency: basicLatency,
+      performance: {
+        queryTime: complexQueryTime,
+        indexUsage,
+        cacheEnabled: cacheTestTime < 50, //assume cache if very fast
+      },
+    };
+  } catch (error) {
+    return {
+      healthy: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      latency: -1,
+      performance: {
+        queryTime: -1,
+        indexUsage: false,
+        cacheEnabled: false,
+      },
+    };
+  }
+}
+
+//performance monitoring middleware
+export async function monitorConnection(): Promise<void> {
+  try {
+    //simulate connection pool metrics for SQLite/Turso
+    await ConnectionPoolMonitor.logMetrics({
+      activeConnections: _client ? 1 : 0,
+      idleConnections: _client ? 0 : 1,
+      waitingConnections: 0,
+      totalConnections: 1,
+      avgWaitTimeMs: 0,
+      avgQueryTimeMs: 50, //estimated based on typical SQLite performance
+    });
+  } catch (error) {
+    console.error('Failed to monitor connection:', error);
   }
 }

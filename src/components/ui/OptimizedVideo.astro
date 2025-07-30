@@ -1,0 +1,760 @@
+---
+// =============================================================================
+// OPTIMIZED VIDEO COMPONENT - High-performance video loading with adaptive streaming
+// Provides responsive videos with modern format support and performance optimization
+// =============================================================================
+
+import type { VideoOptimizationOptions } from '../../lib/video/optimizer';
+
+interface Props {
+  src: string;
+  poster?: string;
+  width?: number;
+  height?: number;
+  quality?: 'ultra' | 'high' | 'medium' | 'low' | 'mobile';
+  format?: 'av1' | 'vp9' | 'h264' | 'h265' | 'auto';
+  autoplay?: boolean;
+  muted?: boolean;
+  loop?: boolean;
+  controls?: boolean;
+  playsInline?: boolean;
+  preload?: 'none' | 'metadata' | 'auto';
+  className?: string;
+  aspectRatio?: string;
+  objectFit?: 'cover' | 'contain' | 'fill' | 'scale-down' | 'none';
+  fadeInDuration?: number;
+  threshold?: number;
+  rootMargin?: string;
+  lazyLoad?: boolean;
+  adaptiveStreaming?: boolean;
+  thumbnailScrubbing?: boolean;
+  onLoadStart?: string;
+  onCanPlay?: string;
+  onError?: string;
+  onEnded?: string;
+}
+
+const {
+  src,
+  poster,
+  width = 1280,
+  height = 720,
+  quality = 'medium',
+  format = 'auto',
+  autoplay = false,
+  muted = false,
+  loop = false,
+  controls = true,
+  playsInline = true,
+  preload = 'metadata',
+  className = '',
+  aspectRatio,
+  objectFit = 'cover',
+  fadeInDuration = 300,
+  threshold = 0.1,
+  rootMargin = '50px',
+  lazyLoad = true,
+  adaptiveStreaming = true,
+  thumbnailScrubbing = false,
+  onLoadStart,
+  onCanPlay,
+  onError,
+  onEnded,
+} = Astro.props;
+
+//determine optimal video format
+function getOptimalFormat(requestedFormat: string): string {
+  //simplified format detection - would use browser capabilities in full implementation
+  const formatPriority = ['av1', 'vp9', 'h264', 'h265'];
+  
+  if (requestedFormat !== 'auto') {
+    return requestedFormat;
+  }
+  
+  //return most compatible format for now
+  return 'h264';
+}
+
+//build optimized video URL
+function buildOptimizedUrl(originalSrc: string, targetFormat: string, targetQuality: string): string {
+  //if using Cloudflare Stream
+  if (originalSrc.includes('videodelivery.net')) {
+    const params = [`${width}x${height}`, `br=${getQualityBitrate(targetQuality)}`];
+    
+    return `${originalSrc}/${params.join(',')}/mp4`;
+  }
+  
+  //if using Mux
+  if (originalSrc.includes('stream.mux.com')) {
+    const url = new URL(originalSrc);
+    url.searchParams.set('width', width.toString());
+    url.searchParams.set('height', height.toString());
+    url.searchParams.set('quality', targetQuality);
+    
+    return url.toString();
+  }
+  
+  //fallback for other sources
+  return originalSrc;
+}
+
+//get bitrate for quality preset
+function getQualityBitrate(quality: string): number {
+  const bitrateMap = {
+    ultra: 8000,
+    high: 4000,
+    medium: 2000,
+    low: 800,
+    mobile: 400,
+  };
+  
+  return bitrateMap[quality as keyof typeof bitrateMap] || 2000;
+}
+
+//generate adaptive streaming sources
+const optimalFormat = getOptimalFormat(format);
+const adaptiveResolutions = [
+  { width: 1920, height: 1080, label: '1080p', bitrate: 3000 },
+  { width: 1280, height: 720, label: '720p', bitrate: 1500 },
+  { width: 854, height: 480, label: '480p', bitrate: 800 },
+  { width: 640, height: 360, label: '360p', bitrate: 400 },
+];
+
+const videoSources = adaptiveStreaming ? 
+  adaptiveResolutions.map(res => ({
+    src: buildOptimizedUrl(src, optimalFormat, quality),
+    type: `video/mp4; codecs="${optimalFormat === 'h264' ? 'avc1.42E01E' : 'av01.0.08M.08'}"`,
+    width: res.width,
+    height: res.height,
+    label: res.label,
+  })) : 
+  [{ 
+    src: buildOptimizedUrl(src, optimalFormat, quality), 
+    type: `video/mp4; codecs="${optimalFormat === 'h264' ? 'avc1.42E01E' : 'av01.0.08M.08'}"`,
+    width, 
+    height,
+    label: 'Default',
+  }];
+
+//primary video source
+const primarySrc = videoSources[0].src;
+
+//generate poster image if not provided
+const posterSrc = poster || (src.includes('videodelivery.net') ? 
+  `${src}/thumbnails/thumbnail.jpg?time=5s&width=${width}&height=${height}` : 
+  '/images/video-poster-placeholder.jpg');
+
+//calculate aspect ratio for container
+const calculatedAspectRatio = aspectRatio || `${width}/${height}`;
+
+//generate thumbnails for scrubbing if enabled
+const thumbnailCount = 10;
+const thumbnails = thumbnailScrubbing ? 
+  Array.from({ length: thumbnailCount }, (_, i) => {
+    const timePercent = (i / thumbnailCount) * 100;
+    return src.includes('videodelivery.net') ? 
+      `${src}/thumbnails/thumbnail.jpg?time=${timePercent}%&width=160&height=90` :
+      `/images/video-thumbnail-${i}.jpg`;
+  }) : [];
+
+//structured data for videos
+const structuredData = {
+  "@context": "https://schema.org",
+  "@type": "VideoObject",
+  "url": primarySrc,
+  "thumbnailUrl": posterSrc,
+  "width": width,
+  "height": height,
+  "description": `Optimized video content`,
+  "uploadDate": new Date().toISOString(),
+};
+---
+
+<!-- Responsive video element with aspect ratio container -->
+<div 
+  class={`optimized-video-wrapper ${className}`}
+  style={`aspect-ratio: ${calculatedAspectRatio}; transition: opacity ${fadeInDuration}ms ease-in-out;`}
+  data-lazy-load={lazyLoad}
+  data-threshold={threshold}
+  data-root-margin={rootMargin}
+>
+  <video
+    class="optimized-video"
+    width={width}
+    height={height}
+    poster={posterSrc}
+    autoplay={autoplay}
+    muted={muted}
+    loop={loop}
+    controls={controls}
+    playsinline={playsInline}
+    preload={lazyLoad ? 'none' : preload}
+    style={`
+      object-fit: ${objectFit}; 
+      transition: opacity ${fadeInDuration}ms ease-in-out;
+    `}
+    onloadstart={onLoadStart ? `${onLoadStart}(this)` : 'this.classList.add("loading")'}
+    oncanplay={onCanPlay ? `${onCanPlay}(this)` : 'this.classList.add("loaded")'}
+    onerror={onError ? `${onError}(this)` : 'this.classList.add("error")'}
+    onended={onEnded ? `${onEnded}(this)` : undefined}
+    data-original-src={src}
+    data-optimized="true"
+    data-adaptive-streaming={adaptiveStreaming}
+    data-thumbnail-scrubbing={thumbnailScrubbing}
+    data-fade-duration={fadeInDuration}
+  >
+    <!-- Adaptive streaming sources -->
+    {videoSources.map(source => (
+      <source 
+        src={source.src} 
+        type={source.type}
+        media={adaptiveStreaming ? `(max-width: ${source.width}px)` : undefined}
+      />
+    ))}
+    
+    <!-- Fallback message -->
+    <p class="video-fallback">
+      Your browser doesn't support HTML5 video. 
+      <a href={primarySrc} download>Download the video</a>.
+    </p>
+  </video>
+  
+  <!-- Thumbnail scrubbing overlay -->
+  {thumbnailScrubbing && (
+    <div class="thumbnail-scrubber" style="display: none;">
+      <div class="thumbnail-container">
+        {thumbnails.map((thumbnail, index) => (
+          <img 
+            src={thumbnail} 
+            alt={`Video thumbnail ${index + 1}`}
+            class="scrub-thumbnail"
+            data-time-percent={(index / thumbnailCount) * 100}
+          />
+        ))}
+      </div>
+      <div class="scrub-progress">
+        <div class="scrub-handle"></div>
+      </div>
+    </div>
+  )}
+  
+  <!-- Loading indicator -->
+  <div class="video-loading-indicator">
+    <div class="loading-spinner"></div>
+    <span>Loading video...</span>
+  </div>
+</div>
+
+<!-- Structured data -->
+<script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+
+<style>
+  .optimized-video-wrapper {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    background-color: #000;
+  }
+
+  .optimized-video {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    background-color: #000;
+  }
+
+  .optimized-video.loading {
+    opacity: 0.5;
+  }
+
+  .optimized-video.loaded {
+    opacity: 1;
+  }
+
+  .optimized-video.error {
+    opacity: 1;
+    background-color: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    font-family: system-ui, sans-serif;
+  }
+
+  .video-fallback {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    color: #fff;
+    text-align: center;
+    font-family: system-ui, sans-serif;
+  }
+
+  .video-fallback a {
+    color: #3b82f6;
+    text-decoration: underline;
+  }
+
+  /* Loading indicator */
+  .video-loading-indicator {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #fff;
+    font-family: system-ui, sans-serif;
+    opacity: 0;
+    transition: opacity 300ms ease;
+    pointer-events: none;
+  }
+
+  .optimized-video.loading + .video-loading-indicator {
+    opacity: 1;
+  }
+
+  .loading-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top: 2px solid #fff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Thumbnail scrubbing */
+  .thumbnail-scrubber {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    right: 10px;
+    background: rgba(0, 0, 0, 0.8);
+    border-radius: 8px;
+    padding: 8px;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+
+  .optimized-video-wrapper:hover .thumbnail-scrubber {
+    opacity: 1;
+  }
+
+  .thumbnail-container {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .thumbnail-container::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrub-thumbnail {
+    width: 60px;
+    height: 34px;
+    object-fit: cover;
+    border-radius: 4px;
+    opacity: 0.7;
+    transition: opacity 200ms ease;
+    cursor: pointer;
+  }
+
+  .scrub-thumbnail:hover,
+  .scrub-thumbnail.active {
+    opacity: 1;
+  }
+
+  .scrub-progress {
+    position: relative;
+    height: 4px;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 2px;
+    cursor: pointer;
+  }
+
+  .scrub-handle {
+    position: absolute;
+    top: -2px;
+    left: 0;
+    width: 8px;
+    height: 8px;
+    background: #fff;
+    border-radius: 50%;
+    transform: translateX(-50%);
+    transition: transform 200ms ease;
+  }
+
+  /* Responsive behavior */
+  @media (max-width: 768px) {
+    .optimized-video-wrapper {
+      width: 100%;
+    }
+    
+    .thumbnail-scrubber {
+      bottom: 5px;
+      left: 5px;
+      right: 5px;
+    }
+    
+    .scrub-thumbnail {
+      width: 40px;
+      height: 23px;
+    }
+  }
+
+  /* Print styles */
+  @media print {
+    .optimized-video {
+      opacity: 1 !important;
+    }
+    
+    .video-loading-indicator,
+    .thumbnail-scrubber {
+      display: none !important;
+    }
+  }
+
+  /* Reduced motion support */
+  @media (prefers-reduced-motion: reduce) {
+    .optimized-video,
+    .video-loading-indicator,
+    .thumbnail-scrubber,
+    .scrub-handle {
+      transition: none;
+    }
+    
+    .loading-spinner {
+      animation: none;
+    }
+  }
+
+  /* High contrast mode support */
+  @media (prefers-contrast: high) {
+    .video-fallback {
+      background-color: #000;
+      border: 2px solid #fff;
+      padding: 20px;
+    }
+    
+    .thumbnail-scrubber {
+      background: #000;
+      border: 1px solid #fff;
+    }
+  }
+</style>
+
+<!-- Enhanced video optimization and lazy loading script -->
+<script>
+  //advanced video optimization utilities
+  class AdvancedVideoOptimizer {
+    constructor() {
+      this.observers = new Map();
+      this.performanceMetrics = new Map();
+      this.loadingQueue = new Set();
+    }
+    
+    //initialize advanced lazy loading for videos
+    initializeAdvancedVideoLazyLoading() {
+      const optimizedVideos = document.querySelectorAll('.optimized-video[data-optimized="true"]');
+      
+      optimizedVideos.forEach(video => {
+        const wrapper = video.closest('.optimized-video-wrapper');
+        const lazyLoad = wrapper?.dataset.lazyLoad === 'true';
+        
+        if (lazyLoad) {
+          const threshold = parseFloat(wrapper.dataset.threshold) || 0.1;
+          const rootMargin = wrapper.dataset.rootMargin || '50px';
+          
+          //create intersection observer for lazy loading
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+              if (entry.isIntersecting) {
+                this.loadVideo(video);
+                observer.unobserve(entry.target);
+              }
+            });
+          }, {
+            threshold: threshold,
+            rootMargin: rootMargin,
+          });
+          
+          observer.observe(wrapper);
+        }
+        
+        //setup performance monitoring
+        this.setupVideoPerformanceMonitoring(video);
+        
+        //setup thumbnail scrubbing if enabled
+        if (video.dataset.thumbnailScrubbing === 'true') {
+          this.setupThumbnailScrubbing(video);
+        }
+        
+        //setup adaptive quality selection
+        this.setupAdaptiveQuality(video);
+      });
+    }
+    
+    //load video with performance tracking
+    loadVideo(video) {
+      const src = video.dataset.originalSrc;
+      
+      //prevent duplicate loading
+      if (this.loadingQueue.has(src)) return;
+      this.loadingQueue.add(src);
+      
+      const startTime = performance.now();
+      
+      //set preload to metadata to start loading
+      video.preload = 'metadata';
+      
+      //track loading performance
+      video.addEventListener('loadstart', () => {
+        video.classList.add('loading');
+        this.recordMetric('video-load-start', performance.now() - startTime, {
+          src: src,
+          width: video.videoWidth || video.width,
+          height: video.videoHeight || video.height,
+        });
+      });
+      
+      video.addEventListener('canplay', () => {
+        const loadTime = performance.now() - startTime;
+        video.classList.remove('loading');
+        video.classList.add('loaded');
+        
+        this.recordMetric('video-can-play', loadTime, {
+          src: src,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          duration: video.duration,
+          buffered: video.buffered.length > 0 ? video.buffered.end(0) : 0,
+        });
+        
+        this.loadingQueue.delete(src);
+      });
+      
+      video.addEventListener('error', () => {
+        const loadTime = performance.now() - startTime;
+        video.classList.add('error');
+        
+        console.error(`Video load failed: ${src} after ${loadTime.toFixed(2)}ms`);
+        
+        this.recordMetric('video-load-error', loadTime, {
+          src: src,
+          error: video.error?.message || 'Unknown error',
+        });
+        
+        this.loadingQueue.delete(src);
+      });
+    }
+    
+    //setup video performance monitoring
+    setupVideoPerformanceMonitoring(video) {
+      //track video metrics
+      video.addEventListener('loadedmetadata', () => {
+        this.recordMetric('video-metadata-loaded', Date.now(), {
+          src: video.dataset.originalSrc,
+          width: video.videoWidth,
+          height: video.videoHeight,
+          duration: video.duration,
+        });
+      });
+      
+      //track playback events
+      video.addEventListener('play', () => {
+        this.recordMetric('video-play', Date.now(), {
+          src: video.dataset.originalSrc,
+          currentTime: video.currentTime,
+        });
+      });
+      
+      video.addEventListener('pause', () => {
+        this.recordMetric('video-pause', Date.now(), {
+          src: video.dataset.originalSrc,
+          currentTime: video.currentTime,
+        });
+      });
+      
+      //track buffering events
+      video.addEventListener('waiting', () => {
+        this.recordMetric('video-buffering-start', Date.now(), {
+          src: video.dataset.originalSrc,
+          currentTime: video.currentTime,
+        });
+      });
+      
+      video.addEventListener('canplaythrough', () => {
+        this.recordMetric('video-buffering-end', Date.now(), {
+          src: video.dataset.originalSrc,
+          currentTime: video.currentTime,
+        });
+      });
+    }
+    
+    //setup thumbnail scrubbing functionality
+    setupThumbnailScrubbing(video) {
+      const wrapper = video.closest('.optimized-video-wrapper');
+      const scrubber = wrapper?.querySelector('.thumbnail-scrubber');
+      const thumbnails = scrubber?.querySelectorAll('.scrub-thumbnail');
+      const progressBar = scrubber?.querySelector('.scrub-progress');
+      const handle = scrubber?.querySelector('.scrub-handle');
+      
+      if (!scrubber || !thumbnails || !progressBar || !handle) return;
+      
+      //show scrubber on hover
+      wrapper.addEventListener('mouseenter', () => {
+        scrubber.style.display = 'block';
+      });
+      
+      wrapper.addEventListener('mouseleave', () => {
+        scrubber.style.display = 'none';
+      });
+      
+      //thumbnail click events
+      thumbnails.forEach((thumbnail, index) => {
+        thumbnail.addEventListener('click', () => {
+          const timePercent = parseFloat(thumbnail.dataset.timePercent) || 0;
+          const targetTime = (timePercent / 100) * video.duration;
+          
+          video.currentTime = targetTime;
+          this.updateScrubberPosition(handle, timePercent);
+          
+          //highlight active thumbnail
+          thumbnails.forEach(t => t.classList.remove('active'));
+          thumbnail.classList.add('active');
+        });
+      });
+      
+      //progress bar scrubbing
+      progressBar.addEventListener('click', (e) => {
+        const rect = progressBar.getBoundingClientRect();
+        const clickX = e.clientX - rect.left;
+        const percent = (clickX / rect.width) * 100;
+        const targetTime = (percent / 100) * video.duration;
+        
+        video.currentTime = targetTime;
+        this.updateScrubberPosition(handle, percent);
+      });
+      
+      //update scrubber position during playback
+      video.addEventListener('timeupdate', () => {
+        if (video.duration > 0) {
+          const percent = (video.currentTime / video.duration) * 100;
+          this.updateScrubberPosition(handle, percent);
+          
+          //highlight current thumbnail
+          const currentThumbnailIndex = Math.floor((percent / 100) * thumbnails.length);
+          thumbnails.forEach((t, i) => {
+            t.classList.toggle('active', i === currentThumbnailIndex);
+          });
+        }
+      });
+    }
+    
+    //update scrubber handle position
+    updateScrubberPosition(handle, percent) {
+      handle.style.left = `${Math.max(0, Math.min(100, percent))}%`;
+    }
+    
+    //setup adaptive quality selection based on network conditions
+    setupAdaptiveQuality(video) {
+      if (!video.dataset.adaptiveStreaming === 'true') return;
+      
+      //monitor network conditions
+      if ('connection' in navigator) {
+        const connection = navigator.connection;
+        
+        const updateQuality = () => {
+          const effectiveType = connection.effectiveType;
+          const downlink = connection.downlink;
+          
+          //determine optimal quality based on network
+          let targetQuality = 'medium';
+          
+          if (effectiveType === 'slow-2g' || downlink < 0.5) {
+            targetQuality = 'mobile';
+          } else if (effectiveType === '2g' || downlink < 1.5) {
+            targetQuality = 'low';
+          } else if (effectiveType === '3g' || downlink < 5) {
+            targetQuality = 'medium';
+          } else if (downlink >= 10) {
+            targetQuality = 'high';
+          }
+          
+          this.recordMetric('video-quality-adaptation', Date.now(), {
+            src: video.dataset.originalSrc,
+            networkType: effectiveType,
+            downlink: downlink,
+            selectedQuality: targetQuality,
+          });
+        };
+        
+        connection.addEventListener('change', updateQuality);
+        updateQuality(); //initial quality selection
+      }
+    }
+    
+    //record performance metrics
+    recordMetric(name, value, metadata = {}) {
+      if (typeof window.vitalsMonitor !== 'undefined') {
+        window.vitalsMonitor.recordCustomMetric(name, value, metadata);
+      }
+      
+      //store locally for analysis
+      if (!window.videoPerformanceMetrics) {
+        window.videoPerformanceMetrics = [];
+      }
+      
+      window.videoPerformanceMetrics.push({
+        name,
+        value,
+        metadata,
+        timestamp: Date.now(),
+      });
+    }
+    
+    //get performance summary
+    getPerformanceSummary() {
+      const metrics = window.videoPerformanceMetrics || [];
+      const loadTimes = metrics.filter(m => m.name === 'video-can-play');
+      const errors = metrics.filter(m => m.name === 'video-load-error');
+      
+      return {
+        totalVideos: this.performanceMetrics.size,
+        averageLoadTime: loadTimes.reduce((sum, m) => sum + m.value, 0) / loadTimes.length || 0,
+        errorRate: errors.length / this.performanceMetrics.size || 0,
+        slowVideos: loadTimes.filter(m => m.value > 5000).length,
+      };
+    }
+  }
+  
+  //initialize on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const optimizer = new AdvancedVideoOptimizer();
+    optimizer.initializeAdvancedVideoLazyLoading();
+    
+    //expose optimizer for debugging
+    window.videoOptimizer = optimizer;
+    
+    //log performance summary after initial load
+    setTimeout(() => {
+      const summary = optimizer.getPerformanceSummary();
+      console.log('Video Optimization Summary:', summary);
+    }, 5000);
+  });
+</script>

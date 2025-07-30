@@ -584,3 +584,206 @@ export interface FlightQueryOptions extends QueryOptions {
   year?: number;
   month?: number;
 }
+
+// =============================================================================
+// LIGHTHOUSE CI PERFORMANCE MONITORING
+// =============================================================================
+
+export interface LighthouseResult extends BaseEntity {
+  url: string;
+  timestamp: number;
+  config: 'desktop' | 'mobile';
+  
+  // lighthouse scores (0-1 scale)
+  performance_score: number;
+  accessibility_score: number;
+  best_practices_score: number;
+  seo_score: number;
+  
+  // core web vitals (milliseconds, except CLS)
+  lcp: number; // largest contentful paint
+  fcp: number; // first contentful paint
+  cls: number; // cumulative layout shift (0-1 scale)
+  tbt: number; // total blocking time
+  si: number;  // speed index
+  tti: number; // time to interactive
+  ttfb?: number; // time to first byte
+  
+  // additional metrics
+  total_byte_weight?: number;
+  unused_css_rules?: number;
+  unused_javascript?: number;
+  render_blocking_resources?: number;
+  
+  // environment data (JSON)
+  environment_data?: string;
+  
+  // metadata
+  commit_hash?: string;
+  branch_name?: string;
+  build_id?: string;
+}
+
+export interface LighthouseBaseline extends BaseEntity {
+  url: string;
+  config: 'desktop' | 'mobile';
+  result_id: number;
+  updated_at: number;
+}
+
+export interface PerformanceRegression extends BaseEntity {
+  lighthouse_result_id: number;
+  baseline_result_id: number;
+  
+  // regression details
+  metric_name: string; // 'performance_score', 'lcp', 'fcp', etc.
+  current_value: number;
+  baseline_value: number;
+  regression_percentage: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  
+  // metadata
+  detected_at: number;
+  acknowledged: boolean;
+  acknowledged_by?: string;
+  acknowledged_at?: number;
+  resolution_notes?: string;
+}
+
+export interface PerformanceTrend {
+  id?: number;
+  url: string;
+  config: 'desktop' | 'mobile';
+  metric_name: string;
+  
+  // trend analysis
+  trend_direction: 'improving' | 'stable' | 'degrading';
+  trend_strength: number; // 0-1 scale
+  
+  // time period
+  period_start: number;
+  period_end: number;
+  sample_count: number;
+  
+  // statistical data
+  avg_value: number;
+  min_value: number;
+  max_value: number;
+  std_deviation?: number;
+  
+  // data points for visualization
+  dataPoints: Array<{
+    timestamp: number;
+    value: number;
+    source: 'lighthouse' | 'rum' | 'synthetic';
+  }>;
+  
+  // metadata
+  calculated_at?: number;
+}
+
+export interface PerformanceAlert extends BaseEntity {
+  alert_type: 'regression' | 'budget_exceeded' | 'threshold_violation';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  
+  // alert details
+  title: string;
+  message: string;
+  url: string;
+  metric_name?: string;
+  current_value?: number;
+  threshold_value?: number;
+  
+  // related records
+  lighthouse_result_id?: number;
+  regression_id?: number;
+  
+  // alert status
+  status: 'active' | 'acknowledged' | 'resolved';
+  acknowledged_by?: string;
+  acknowledged_at?: number;
+  resolved_at?: number;
+  resolution_notes?: string;
+}
+
+export interface LighthouseConfig extends BaseEntity {
+  name: string;
+  config_data: string; // JSON configuration
+  is_active: boolean;
+}
+
+// =============================================================================
+// LIGHTHOUSE CI FORM TYPES
+// =============================================================================
+
+export interface LighthouseResultForm {
+  url: string;
+  config: 'desktop' | 'mobile';
+  performance_score: number;
+  accessibility_score: number;
+  best_practices_score: number;
+  seo_score: number;
+  lcp: number;
+  fcp: number;
+  cls: number;
+  tbt: number;
+  si: number;
+  tti: number;
+  ttfb?: number;
+  total_byte_weight?: number;
+  unused_css_rules?: number;
+  unused_javascript?: number;
+  render_blocking_resources?: number;
+  environment_data?: any;
+  commit_hash?: string;
+  branch_name?: string;
+  build_id?: string;
+}
+
+export interface PerformanceRegressionForm {
+  lighthouse_result_id: number;
+  baseline_result_id: number;
+  metric_name: string;
+  current_value: number;
+  baseline_value: number;
+  regression_percentage: number;
+  severity: 'low' | 'medium' | 'high' | 'critical';
+}
+
+export interface PerformanceAlertForm {
+  alert_type: 'regression' | 'budget_exceeded' | 'threshold_violation';
+  severity: 'low' | 'medium' | 'high' | 'critical';
+  title: string;
+  message: string;
+  url: string;
+  metric_name?: string;
+  current_value?: number;
+  threshold_value?: number;
+  lighthouse_result_id?: number;
+  regression_id?: number;
+}
+
+// =============================================================================
+// LIGHTHOUSE CI QUERY OPTIONS
+// =============================================================================
+
+export interface LighthouseQueryOptions extends QueryOptions {
+  url?: string;
+  config?: 'desktop' | 'mobile';
+  timeRange?: string;
+  includeEnvironment?: boolean;
+}
+
+export interface PerformanceRegressionQueryOptions extends QueryOptions {
+  url?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  acknowledged?: boolean;
+  timeRange?: string;
+}
+
+export interface PerformanceAlertQueryOptions extends QueryOptions {
+  status?: 'active' | 'acknowledged' | 'resolved';
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  alert_type?: 'regression' | 'budget_exceeded' | 'threshold_violation';
+  timeRange?: string;
+}

@@ -15,10 +15,17 @@ interface Props {
   loading?: 'lazy' | 'eager';
   className?: string;
   priority?: boolean;
-  placeholder?: 'blur' | 'empty';
+  placeholder?: 'blur' | 'empty' | 'lqip';
   blurDataURL?: string;
   onLoad?: string; // JavaScript function name to call on load
   onError?: string; // JavaScript function name to call on error
+  aspectRatio?: string; // e.g., '16/9', '4/3', '1/1'
+  objectFit?: 'cover' | 'contain' | 'fill' | 'scale-down' | 'none';
+  fadeInDuration?: number; // Fade-in animation duration in ms
+  threshold?: number; // Intersection observer threshold (0-1)
+  rootMargin?: string; // Intersection observer root margin
+  enableBlurUp?: boolean; // Enable progressive blur-up loading
+  lqipQuality?: number; // Low quality image placeholder quality (1-10)
 }
 
 const {
@@ -36,6 +43,13 @@ const {
   blurDataURL,
   onLoad,
   onError,
+  aspectRatio,
+  objectFit = 'cover',
+  fadeInDuration = 300,
+  threshold = 0.1,
+  rootMargin = '50px',
+  enableBlurUp = true,
+  lqipQuality = 10,
 } = Astro.props;
 
 //generate responsive image sizes
@@ -43,26 +57,56 @@ const responsiveSizes = [320, 640, 768, 1024, 1280, 1920];
 const currentSizes = responsiveSizes.filter(size => size <= width * 1.5);
 
 //determine optimal format based on browser support
-function getOptimizedUrl(originalSrc: string, targetWidth: number, targetFormat?: string): string {
-  //if using Cloudflare Images or similar CDN
-  if (originalSrc.includes('imagedelivery.net') || originalSrc.includes('cloudinary.com')) {
-    const params = [`w_${targetWidth}`, `q_${quality}`];
+function getOptimizedUrl(originalSrc: string, targetWidth: number, targetFormat?: string, targetQuality?: number): string {
+  const useQuality = targetQuality || quality;
+  
+  //if using Cloudflare Images
+  if (originalSrc.includes('imagedelivery.net')) {
+    const params = [`w=${targetWidth}`, `q=${useQuality}`];
+    
+    if (targetFormat && targetFormat !== 'auto') {
+      params.push(`f=${targetFormat}`);
+    }
+    
+    if (height) {
+      params.push(`h=${height}`, 'fit=crop');
+    }
+    
+    //add additional optimizations
+    params.push('dpr=1', 'metadata=none');
+    
+    return `${originalSrc}/${params.join(',')}`;
+  }
+  
+  //if using Cloudinary
+  if (originalSrc.includes('cloudinary.com')) {
+    const params = [`w_${targetWidth}`, `q_${useQuality}`];
     
     if (targetFormat && targetFormat !== 'auto') {
       params.push(`f_${targetFormat}`);
     }
     
     if (height) {
-      params.push(`h_${height}`);
+      params.push(`h_${height}`, 'c_fill');
     }
     
-    //append transformation parameters
-    const separator = originalSrc.includes('?') ? '&' : '?';
-    return `${originalSrc}${separator}${params.join(',')}`;
+    //add progressive loading and auto optimization
+    params.push('fl_progressive', 'f_auto');
+    
+    const separator = originalSrc.includes('/upload/') ? '/upload/' : '/';
+    return originalSrc.replace(separator, `${separator}${params.join(',')}/`);
   }
   
-  //fallback for other sources
+  //fallback for other sources or local images
   return originalSrc;
+}
+
+//generate low quality image placeholder (LQIP)
+function generateLQIP(originalSrc: string): string {
+  if (placeholder !== 'lqip') return '';
+  
+  //generate extremely low quality version for blur-up effect
+  return getOptimizedUrl(originalSrc, 40, 'jpeg', lqipQuality);
 }
 
 //create source set for responsive images
@@ -76,20 +120,26 @@ const sourceSets = {
 const primarySrc = getOptimizedUrl(src, width, format === 'auto' ? 'webp' : format);
 
 //create placeholder for blur effect
-const placeholderSrc = blurDataURL || (placeholder === 'blur' ? 
-  `data:image/svg+xml;base64,${btoa(`
-    <svg width="${width}" height="${height || Math.round(width * 0.6)}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#f3f4f6;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#e5e7eb;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#grad)" />
-      <text x="50%" y="50%" font-family="system-ui, sans-serif" font-size="14" 
-            fill="#9ca3af" text-anchor="middle" dy="0.3em">Loading...</text>
-    </svg>
-  `)}` : undefined);
+const placeholderSrc = blurDataURL || 
+  (placeholder === 'lqip' ? generateLQIP(src) :
+   placeholder === 'blur' ? 
+    `data:image/svg+xml;base64,${btoa(`
+      <svg width="${width}" height="${height || Math.round(width * 0.6)}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#f3f4f6;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#e5e7eb;stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grad)" />
+        <text x="50%" y="50%" font-family="system-ui, sans-serif" font-size="14" 
+              fill="#9ca3af" text-anchor="middle" dy="0.3em">Loading...</text>
+      </svg>
+    `)}` : undefined);
+
+//calculate aspect ratio for container
+const calculatedAspectRatio = aspectRatio || 
+  (height && width ? `${width}/${height}` : '16/9');
 
 //structured data for images
 const structuredData = {
@@ -118,67 +168,92 @@ const shouldPreload = priority || loading === 'eager';
   </>
 )}
 
-<!-- Responsive picture element -->
-<picture class={`optimized-image-container ${className}`}>
-  
-  <!-- AVIF source for modern browsers -->
-  {(format === 'auto' || format === 'avif') && (
+<!-- Responsive picture element with aspect ratio container -->
+<div 
+  class={`optimized-image-wrapper ${className}`}
+  style={`aspect-ratio: ${calculatedAspectRatio}; transition: opacity ${fadeInDuration}ms ease-in-out;`}
+>
+  <picture class="optimized-image-container">
+    
+    <!-- AVIF source for modern browsers -->
+    {(format === 'auto' || format === 'avif') && (
+      <source 
+        srcset={sourceSets.avif}
+        sizes={sizes}
+        type="image/avif"
+      />
+    )}
+    
+    <!-- WebP source for supported browsers -->
+    {(format === 'auto' || format === 'webp') && format !== 'avif' && (
+      <source 
+        srcset={sourceSets.webp}
+        sizes={sizes}
+        type="image/webp"
+      />
+    )}
+    
+    <!-- Fallback JPEG source -->
     <source 
-      srcset={sourceSets.avif}
+      srcset={sourceSets.jpeg}
       sizes={sizes}
-      type="image/avif"
+      type="image/jpeg"
     />
-  )}
-  
-  <!-- WebP source for supported browsers -->
-  {(format === 'auto' || format === 'webp') && format !== 'avif' && (
-    <source 
-      srcset={sourceSets.webp}
+    
+    <!-- Main image element -->
+    <img
+      src={primarySrc}
+      alt={alt}
+      width={width}
+      height={height}
+      loading={loading}
+      decoding="async"
       sizes={sizes}
-      type="image/webp"
+      class={`optimized-image ${placeholder === 'blur' || placeholder === 'lqip' ? 'blur-placeholder' : ''}`}
+      style={`
+        object-fit: ${objectFit}; 
+        transition: opacity ${fadeInDuration}ms ease-in-out, filter ${fadeInDuration}ms ease-in-out, transform ${fadeInDuration}ms ease-in-out;
+        ${placeholderSrc ? `background-image: url(${placeholderSrc}); background-size: cover; background-position: center;` : ''}
+      `}
+      onload={onLoad ? `${onLoad}(this)` : 'this.classList.add("loaded")'}
+      onerror={onError ? `${onError}(this)` : 'this.classList.add("error")'}
+      data-original-src={src}
+      data-optimized="true"
+      data-fade-duration={fadeInDuration}
+      data-threshold={threshold}
+      data-root-margin={rootMargin}
+      data-blur-up={enableBlurUp}
     />
-  )}
-  
-  <!-- Fallback JPEG source -->
-  <source 
-    srcset={sourceSets.jpeg}
-    sizes={sizes}
-    type="image/jpeg"
-  />
-  
-  <!-- Main image element -->
-  <img
-    src={primarySrc}
-    alt={alt}
-    width={width}
-    height={height}
-    loading={loading}
-    decoding="async"
-    sizes={sizes}
-    class={`optimized-image ${placeholder === 'blur' ? 'blur-placeholder' : ''} ${className}`}
-    style={placeholderSrc ? `background-image: url(${placeholderSrc}); background-size: cover; background-position: center;` : ''}
-    onload={onLoad ? `${onLoad}(this)` : 'this.classList.add("loaded")'}
-    onerror={onError ? `${onError}(this)` : 'this.classList.add("error")'}
-    data-original-src={src}
-    data-optimized="true"
-  />
-</picture>
+  </picture>
+</div>
 
 <!-- Structured data -->
 <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
 
 <style>
-  .optimized-image-container {
+  .optimized-image-wrapper {
     display: block;
     position: relative;
     overflow: hidden;
+    width: 100%;
+    background-color: #f3f4f6;
+  }
+
+  .optimized-image-container {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 100%;
   }
 
   .optimized-image {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
-    height: auto;
-    transition: opacity 0.3s ease, filter 0.3s ease;
+    height: 100%;
     opacity: 0;
+    object-fit: cover;
   }
 
   .optimized-image.loaded {
@@ -200,15 +275,22 @@ const shouldPreload = priority || loading === 'eager';
     content: 'Image failed to load';
   }
 
-  /* Blur placeholder effect */
+  /* Enhanced blur placeholder effect */
   .blur-placeholder {
-    filter: blur(10px);
-    transform: scale(1.1);
+    filter: blur(20px);
+    transform: scale(1.05);
   }
 
   .blur-placeholder.loaded {
     filter: none;
     transform: none;
+  }
+
+  /* LQIP specific styles */
+  .optimized-image-wrapper[data-placeholder="lqip"] .optimized-image {
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
   }
 
   /* Loading animation */
@@ -271,74 +353,294 @@ const shouldPreload = priority || loading === 'eager';
   }
 </style>
 
-<!-- Performance monitoring script -->
+<!-- Enhanced performance monitoring and lazy loading script -->
 <script>
-  // Track image loading performance
-  document.addEventListener('DOMContentLoaded', () => {
-    const optimizedImages = document.querySelectorAll('.optimized-image[data-optimized="true"]');
+  //advanced image optimization utilities
+  class AdvancedImageOptimizer {
+    constructor() {
+      this.observers = new Map();
+      this.performanceMetrics = new Map();
+      this.loadingQueue = new Set();
+    }
     
-    optimizedImages.forEach(img => {
-      const startTime = performance.now();
-      
-      img.addEventListener('load', () => {
-        const loadTime = performance.now() - startTime;
-        
-        // Track image load performance
-        if (typeof window.vitalsMonitor !== 'undefined') {
-          window.vitalsMonitor.recordCustomMetric('image-load-time', loadTime, {
-            src: img.dataset.originalSrc,
-            width: img.width,
-            height: img.height,
-          });
-        }
-        
-        // Report slow loading images
-        if (loadTime > 2000) {
-          console.warn(`Slow image load: ${img.dataset.originalSrc} took ${loadTime.toFixed(2)}ms`);
-        }
-      });
-      
-      img.addEventListener('error', () => {
-        const loadTime = performance.now() - startTime;
-        console.error(`Image load failed: ${img.dataset.originalSrc} after ${loadTime.toFixed(2)}ms`);
-        
-        // Track failed images
-        if (typeof window.vitalsMonitor !== 'undefined') {
-          window.vitalsMonitor.recordCustomMetric('image-load-error', loadTime, {
-            src: img.dataset.originalSrc,
-            error: 'load-failed',
-          });
-        }
-      });
-    });
-    
-    // Set up intersection observer for lazy loading analytics
-    if ('IntersectionObserver' in window) {
-      const observer = new IntersectionObserver((entries) => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting) {
-            const img = entry.target;
-            
-            // Track when images come into viewport
-            if (typeof window.vitalsMonitor !== 'undefined') {
-              window.vitalsMonitor.recordCustomMetric('image-viewport-entry', Date.now(), {
-                src: img.dataset.originalSrc,
-                loading: img.loading,
-              });
-            }
-            
-            observer.unobserve(img);
-          }
-        });
-      }, {
-        rootMargin: '50px',
-      });
+    //initialize advanced lazy loading with custom intersection observer
+    initializeAdvancedLazyLoading() {
+      const optimizedImages = document.querySelectorAll('.optimized-image[data-optimized="true"]');
       
       optimizedImages.forEach(img => {
+        const threshold = parseFloat(img.dataset.threshold) || 0.1;
+        const rootMargin = img.dataset.rootMargin || '50px';
+        const blurUp = img.dataset.blurUp === 'true';
+        const fadeDuration = parseInt(img.dataset.fadeDuration) || 300;
+        
+        //create unique observer for each image configuration
+        const observerKey = `${threshold}-${rootMargin}`;
+        
+        if (!this.observers.has(observerKey)) {
+          const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => this.handleIntersection(entry, blurUp, fadeDuration));
+          }, {
+            threshold: threshold,
+            rootMargin: rootMargin,
+          });
+          
+          this.observers.set(observerKey, observer);
+        }
+        
+        //track initial state
+        this.trackImageMetrics(img);
+        
+        //observe the image
         if (img.loading === 'lazy') {
-          observer.observe(img);
+          this.observers.get(observerKey).observe(img);
         }
       });
     }
+    
+    //handle intersection with advanced loading strategies
+    handleIntersection(entry, enableBlurUp, fadeDuration) {
+      if (!entry.isIntersecting) return;
+      
+      const img = entry.target;
+      const startTime = performance.now();
+      
+      //prevent duplicate loading
+      if (this.loadingQueue.has(img.dataset.originalSrc)) return;
+      this.loadingQueue.add(img.dataset.originalSrc);
+      
+      //track viewport entry
+      this.recordMetric('image-viewport-entry', startTime, {
+        src: img.dataset.originalSrc,
+        loading: img.loading,
+        intersectionRatio: entry.intersectionRatio,
+      });
+      
+      //setup load handlers
+      const onLoad = () => {
+        const loadTime = performance.now() - startTime;
+        this.handleImageLoad(img, loadTime, enableBlurUp, fadeDuration);
+        this.loadingQueue.delete(img.dataset.originalSrc);
+      };
+      
+      const onError = () => {
+        const loadTime = performance.now() - startTime;
+        this.handleImageError(img, loadTime);
+        this.loadingQueue.delete(img.dataset.originalSrc);
+      };
+      
+      img.addEventListener('load', onLoad, { once: true });
+      img.addEventListener('error', onError, { once: true });
+      
+      //unobserve after initiating load
+      entry.target.dispatchEvent(new Event('intersectionHandled'));
+      this.observers.forEach(observer => observer.unobserve(img));
+    }
+    
+    //handle successful image load with blur-up effect
+    handleImageLoad(img, loadTime, enableBlurUp, fadeDuration) {
+      //apply blur-up transition
+      if (enableBlurUp && img.classList.contains('blur-placeholder')) {
+        //gradual blur removal for smoother transition
+        img.style.transition = `filter ${fadeDuration}ms ease-out, transform ${fadeDuration}ms ease-out, opacity ${fadeDuration}ms ease-out`;
+        
+        //use requestAnimationFrame for smooth animation
+        requestAnimationFrame(() => {
+          img.classList.add('loaded');
+        });
+      } else {
+        img.classList.add('loaded');
+      }
+      
+      //track performance metrics
+      this.recordMetric('image-load-time', loadTime, {
+        src: img.dataset.originalSrc,
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+        fileSize: this.estimateImageSize(img),
+        format: this.detectImageFormat(img.src),
+      });
+      
+      //report slow loading images
+      if (loadTime > 2000) {
+        console.warn(`Slow image load: ${img.dataset.originalSrc} took ${loadTime.toFixed(2)}ms`);
+      }
+      
+      //preload next images in sequence if applicable
+      this.preloadNextImages(img);
+    }
+    
+    //handle image load errors
+    handleImageError(img, loadTime) {
+      img.classList.add('error');
+      
+      console.error(`Image load failed: ${img.dataset.originalSrc} after ${loadTime.toFixed(2)}ms`);
+      
+      this.recordMetric('image-load-error', loadTime, {
+        src: img.dataset.originalSrc,
+        error: 'load-failed',
+      });
+      
+      //attempt fallback loading strategies
+      this.attemptFallbackLoading(img);
+    }
+    
+    //attempt fallback loading strategies
+    attemptFallbackLoading(img) {
+      const originalSrc = img.dataset.originalSrc;
+      
+      //try different formats as fallbacks
+      const fallbacks = [
+        originalSrc.replace(/\.(webp|avif)$/, '.jpg'),
+        originalSrc.replace(/\.(webp|avif)$/, '.png'),
+        '/images/placeholder-error.jpg' //ultimate fallback
+      ];
+      
+      let fallbackIndex = 0;
+      
+      const tryFallback = () => {
+        if (fallbackIndex >= fallbacks.length) return;
+        
+        const fallbackSrc = fallbacks[fallbackIndex++];
+        const tempImg = new Image();
+        
+        tempImg.onload = () => {
+          img.src = fallbackSrc;
+          img.classList.remove('error');
+          img.classList.add('loaded');
+        };
+        
+        tempImg.onerror = tryFallback;
+        tempImg.src = fallbackSrc;
+      };
+      
+      tryFallback();
+    }
+    
+    //intelligent preloading of next images
+    preloadNextImages(currentImg) {
+      const container = currentImg.closest('[data-gallery]') || document;
+      const allImages = container.querySelectorAll('.optimized-image[data-optimized="true"]');
+      const currentIndex = Array.from(allImages).indexOf(currentImg);
+      
+      //preload next 2 images in sequence
+      for (let i = 1; i <= 2; i++) {
+        const nextImg = allImages[currentIndex + i];
+        if (nextImg && !nextImg.classList.contains('loaded') && !this.loadingQueue.has(nextImg.dataset.originalSrc)) {
+          this.preloadImage(nextImg.src);
+        }
+      }
+    }
+    
+    //preload image utility
+    preloadImage(src) {
+      const link = document.createElement('link');
+      link.rel = 'preload';
+      link.as = 'image';
+      link.href = src;
+      document.head.appendChild(link);
+    }
+    
+    //track comprehensive image metrics
+    trackImageMetrics(img) {
+      const metrics = {
+        src: img.dataset.originalSrc,
+        width: img.width || 0,
+        height: img.height || 0,
+        loading: img.loading,
+        format: this.detectImageFormat(img.src),
+        timestamp: Date.now(),
+      };
+      
+      this.performanceMetrics.set(img.dataset.originalSrc, metrics);
+    }
+    
+    //detect image format from URL
+    detectImageFormat(src) {
+      const extension = src.split('.').pop().toLowerCase();
+      const formatMap = {
+        'webp': 'WebP',
+        'avif': 'AVIF',
+        'jpg': 'JPEG',
+        'jpeg': 'JPEG',
+        'png': 'PNG',
+        'gif': 'GIF',
+      };
+      return formatMap[extension] || 'Unknown';
+    }
+    
+    //estimate image file size
+    estimateImageSize(img) {
+      //rough estimation based on dimensions and format
+      const pixels = img.naturalWidth * img.naturalHeight;
+      const format = this.detectImageFormat(img.src);
+      
+      const compressionRatios = {
+        'AVIF': 0.5,
+        'WebP': 0.7,
+        'JPEG': 1.0,
+        'PNG': 2.0,
+      };
+      
+      return Math.round(pixels * (compressionRatios[format] || 1.0) * 0.75); //bytes estimate
+    }
+    
+    //record performance metrics
+    recordMetric(name, value, metadata = {}) {
+      if (typeof window.vitalsMonitor !== 'undefined') {
+        window.vitalsMonitor.recordCustomMetric(name, value, metadata);
+      }
+      
+      //also store locally for analysis
+      if (!window.imagePerformanceMetrics) {
+        window.imagePerformanceMetrics = [];
+      }
+      
+      window.imagePerformanceMetrics.push({
+        name,
+        value,
+        metadata,
+        timestamp: Date.now(),
+      });
+    }
+    
+    //get performance summary
+    getPerformanceSummary() {
+      const metrics = window.imagePerformanceMetrics || [];
+      const loadTimes = metrics.filter(m => m.name === 'image-load-time');
+      const errors = metrics.filter(m => m.name === 'image-load-error');
+      
+      return {
+        totalImages: this.performanceMetrics.size,
+        averageLoadTime: loadTimes.reduce((sum, m) => sum + m.value, 0) / loadTimes.length || 0,
+        errorRate: errors.length / this.performanceMetrics.size || 0,
+        formatDistribution: this.getFormatDistribution(),
+        slowImages: loadTimes.filter(m => m.value > 2000).length,
+      };
+    }
+    
+    //get format distribution
+    getFormatDistribution() {
+      const distribution = {};
+      this.performanceMetrics.forEach(metric => {
+        const format = metric.format;
+        distribution[format] = (distribution[format] || 0) + 1;
+      });
+      return distribution;
+    }
+  }
+  
+  //initialize on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const optimizer = new AdvancedImageOptimizer();
+    optimizer.initializeAdvancedLazyLoading();
+    
+    //expose optimizer for debugging
+    window.imageOptimizer = optimizer;
+    
+    //log performance summary after initial load
+    setTimeout(() => {
+      const summary = optimizer.getPerformanceSummary();
+      console.log('Image Optimization Summary:', summary);
+    }, 5000);
   });
 </script>

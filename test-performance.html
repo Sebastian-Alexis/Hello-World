@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Performance Tracker Test</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            padding: 2rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .metrics {
+            background: #f5f5f5;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        .alert {
+            background: #fee;
+            border: 1px solid #fcc;
+            padding: 1rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+        }
+        button {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
+            margin: 0.5rem;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #005999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Enhanced Performance Tracker Test</h1>
+    
+    <div id="status">Loading performance tracker...</div>
+    
+    <div class="metrics">
+        <h3>Current Performance Summary</h3>
+        <div id="summary">Waiting for data...</div>
+    </div>
+    
+    <div class="metrics">
+        <h3>Memory Usage</h3>
+        <div id="memory">Monitoring...</div>
+    </div>
+    
+    <div class="metrics">
+        <h3>User Interactions</h3>
+        <div id="interactions">Click buttons to track interactions</div>
+    </div>
+    
+    <div>
+        <h3>Test Actions</h3>
+        <button onclick="simulateSlowOperation()">Simulate Slow Operation</button>
+        <button onclick="simulateMemoryUsage()">Simulate Memory Usage</button>
+        <button onclick="trackCustomMetric()">Track Custom Metric</button>
+        <button onclick="forceMetricsSend()">Send Metrics Now</button>
+    </div>
+    
+    <div id="alerts"></div>
+    
+    <div class="metrics">
+        <h3>Recommendations</h3>
+        <div id="recommendations">Analyzing performance...</div>
+    </div>
+
+    <script type="module">
+        // Import our enhanced performance tracker
+        // In a real implementation, this would be bundled properly
+        
+        // Simulate the PerformanceTracker functionality for testing
+        class TestPerformanceTracker {
+            constructor() {
+                this.sessionId = 'test-' + Date.now();
+                this.vitalsData = [];
+                this.alerts = [];
+                this.memoryMetrics = [];
+                this.userInteractions = [];
+                this.isInitialized = false;
+                
+                this.init();
+            }
+            
+            async init() {
+                console.log('Enhanced Performance Tracker Test initialized');
+                document.getElementById('status').textContent = 'Performance tracker initialized!';
+                
+                // Start monitoring
+                this.startMemoryMonitoring();
+                this.trackUserInteractions();
+                this.updateSummary();
+                
+                this.isInitialized = true;
+                
+                // Update display every 2 seconds
+                setInterval(() => this.updateDisplay(), 2000);
+            }
+            
+            startMemoryMonitoring() {
+                if (!performance.memory) return;
+                
+                const trackMemory = () => {
+                    const memory = performance.memory;
+                    const memoryMetric = {
+                        usedJSHeapSize: memory.usedJSHeapSize,
+                        totalJSHeapSize: memory.totalJSHeapSize,
+                        jsHeapSizeLimit: memory.jsHeapSizeLimit,
+                        usagePercentage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100,
+                        timestamp: Date.now()
+                    };
+                    
+                    this.memoryMetrics.push(memoryMetric);
+                    
+                    // Keep only last 10 readings
+                    if (this.memoryMetrics.length > 10) {
+                        this.memoryMetrics = this.memoryMetrics.slice(-10);
+                    }
+                };
+                
+                trackMemory();
+                setInterval(trackMemory, 5000);
+            }
+            
+            trackUserInteractions() {
+                ['click', 'keydown'].forEach(type => {
+                    document.addEventListener(type, (event) => {
+                        const startTime = performance.now();
+                        
+                        // Simulate processing time
+                        requestIdleCallback(() => {
+                            const duration = performance.now() - startTime;
+                            
+                            const interaction = {
+                                interactionType: type,
+                                target: this.getElementSelector(event.target),
+                                startTime,
+                                duration,
+                                timestamp: Date.now()
+                            };
+                            
+                            this.userInteractions.push(interaction);
+                            
+                            // Keep only last 20 interactions
+                            if (this.userInteractions.length > 20) {
+                                this.userInteractions = this.userInteractions.slice(-20);
+                            }
+                        });
+                    }, { passive: true });
+                });
+            }
+            
+            getElementSelector(element) {
+                if (!element) return 'unknown';
+                if (element.id) return `#${element.id}`;
+                if (element.className) return `.${element.className.split(' ')[0]}`;
+                return element.tagName.toLowerCase();
+            }
+            
+            trackCustomMetric(name, value) {
+                const metric = {
+                    name: `CUSTOM_${name.toUpperCase()}`,
+                    value,
+                    timestamp: Date.now(),
+                    sessionId: this.sessionId
+                };
+                
+                console.log('Custom metric tracked:', metric);
+                
+                // Simulate alert if value is high
+                if (value > 1000) {
+                    this.addAlert({
+                        metric: name,
+                        value,
+                        threshold: 1000,
+                        severity: 'warning',
+                        url: window.location.href,
+                        timestamp: Date.now(),
+                        sessionId: this.sessionId
+                    });
+                }
+            }
+            
+            addAlert(alert) {
+                this.alerts.push(alert);
+                
+                // Keep only last 10 alerts
+                if (this.alerts.length > 10) {
+                    this.alerts = this.alerts.slice(-10);
+                }
+                
+                this.displayAlert(alert);
+            }
+            
+            displayAlert(alert) {
+                const alertsDiv = document.getElementById('alerts');
+                const alertEl = document.createElement('div');
+                alertEl.className = 'alert';
+                alertEl.innerHTML = `
+                    <strong>${alert.severity.toUpperCase()} Alert:</strong> 
+                    ${alert.metric} = ${alert.value} > ${alert.threshold} (threshold)
+                    <br><small>Time: ${new Date(alert.timestamp).toLocaleTimeString()}</small>
+                `;
+                
+                alertsDiv.insertBefore(alertEl, alertsDiv.firstChild);
+                
+                // Remove after 10 seconds
+                setTimeout(() => {
+                    if (alertEl.parentNode) {
+                        alertEl.parentNode.removeChild(alertEl);
+                    }
+                }, 10000);
+            }
+            
+            updateSummary() {
+                const summary = this.getPerformanceSummary();
+                document.getElementById('summary').innerHTML = `
+                    <strong>Session ID:</strong> ${this.sessionId}<br>
+                    <strong>Performance Score:</strong> ${summary.overallScore}<br>
+                    <strong>Memory Usage:</strong> ${summary.memoryUsage.toFixed(1)}%<br>
+                    <strong>Alert Count:</strong> ${summary.alertCount}<br>
+                    <strong>Session Duration:</strong> ${Math.round(summary.sessionDuration / 1000)}s
+                `;
+            }
+            
+            getPerformanceSummary() {
+                const latestMemory = this.memoryMetrics[this.memoryMetrics.length - 1];
+                const sessionDuration = Date.now() - parseInt(this.sessionId.split('-')[1]);
+                
+                return {
+                    vitals: {},
+                    overallScore: Math.random() * 40 + 60, // Random score 60-100
+                    resourceCount: 0,
+                    memoryUsage: latestMemory?.usagePercentage || 0,
+                    alertCount: this.alerts.length,
+                    sessionDuration
+                };
+            }
+            
+            updateDisplay() {
+                this.updateSummary();
+                
+                // Update memory display
+                const latestMemory = this.memoryMetrics[this.memoryMetrics.length - 1];
+                if (latestMemory) {
+                    document.getElementById('memory').innerHTML = `
+                        <strong>Used:</strong> ${(latestMemory.usedJSHeapSize / (1024 * 1024)).toFixed(2)} MB<br>
+                        <strong>Total:</strong> ${(latestMemory.totalJSHeapSize / (1024 * 1024)).toFixed(2)} MB<br>
+                        <strong>Limit:</strong> ${(latestMemory.jsHeapSizeLimit / (1024 * 1024)).toFixed(2)} MB<br>
+                        <strong>Usage:</strong> ${latestMemory.usagePercentage.toFixed(1)}%
+                    `;
+                }
+                
+                // Update interactions display
+                const recentInteractions = this.userInteractions.slice(-5);
+                document.getElementById('interactions').innerHTML = 
+                    recentInteractions.length > 0 ? 
+                    recentInteractions.map(i => 
+                        `${i.interactionType} on ${i.target} (${i.duration.toFixed(1)}ms)`
+                    ).join('<br>') : 
+                    'No recent interactions';
+                
+                // Update recommendations
+                this.updateRecommendations();
+            }
+            
+            updateRecommendations() {
+                const recommendations = this.getRecommendations();
+                const recDiv = document.getElementById('recommendations');
+                
+                let html = `<strong>Performance Score: ${recommendations.score}</strong><br>`;
+                
+                if (recommendations.critical.length > 0) {
+                    html += '<br><strong style="color: red;">Critical Issues:</strong><br>';
+                    html += recommendations.critical.map(r => `• ${r}`).join('<br>');
+                }
+                
+                if (recommendations.important.length > 0) {
+                    html += '<br><strong style="color: orange;">Important:</strong><br>';
+                    html += recommendations.important.map(r => `• ${r}`).join('<br>');
+                }
+                
+                if (recommendations.minor.length > 0) {
+                    html += '<br><strong style="color: blue;">Minor:</strong><br>';
+                    html += recommendations.minor.map(r => `• ${r}`).join('<br>');
+                }
+                
+                if (recommendations.critical.length === 0 && recommendations.important.length === 0) {
+                    html += '<br><span style="color: green;">Performance looks good! ✓</span>';
+                }
+                
+                recDiv.innerHTML = html;
+            }
+            
+            getRecommendations() {
+                const summary = this.getPerformanceSummary();
+                const recommendations = {
+                    critical: [],
+                    important: [],
+                    minor: [],
+                    score: summary.overallScore
+                };
+                
+                if (summary.memoryUsage > 80) {
+                    recommendations.critical.push('High memory usage detected - investigate memory leaks');
+                } else if (summary.memoryUsage > 60) {
+                    recommendations.important.push('Monitor memory usage - consider optimization');
+                }
+                
+                if (summary.alertCount > 3) {
+                    recommendations.important.push('Multiple performance alerts detected');
+                }
+                
+                if (summary.overallScore < 50) {
+                    recommendations.critical.push('Overall performance is poor - immediate optimization needed');
+                } else if (summary.overallScore < 80) {
+                    recommendations.important.push('Performance could be improved with targeted optimizations');
+                }
+                
+                return recommendations;
+            }
+            
+            async measureAsyncOperation(name, operation) {
+                const start = performance.now();
+                
+                try {
+                    const result = await operation();
+                    const duration = performance.now() - start;
+                    
+                    console.log(`Performance: ${name} took ${duration.toFixed(2)}ms`);
+                    this.trackCustomMetric(`async-operation-${name}`, duration);
+                    
+                    return result;
+                } catch (error) {
+                    const duration = performance.now() - start;
+                    this.trackCustomMetric(`async-operation-${name}-error`, duration);
+                    throw error;
+                }
+            }
+            
+            async forceMetricsSend() {
+                console.log('Sending metrics to server...');
+                
+                const performanceData = {
+                    vitals: this.vitalsData,
+                    resources: [],
+                    navigation: performance.getEntriesByType('navigation')[0] || null,
+                    memory: this.memoryMetrics,
+                    userInteractions: this.userInteractions,
+                    connection: navigator.connection || null,
+                    timestamp: Date.now(),
+                    sessionId: this.sessionId,
+                    userId: 'test-user',
+                    pageUrl: window.location.href,
+                    referrer: document.referrer,
+                    deviceInfo: {
+                        userAgent: navigator.userAgent,
+                        viewport: {
+                            width: window.innerWidth,
+                            height: window.innerHeight
+                        },
+                        deviceMemory: navigator.deviceMemory,
+                        hardwareConcurrency: navigator.hardwareConcurrency,
+                        connectionType: navigator.connection?.effectiveType
+                    },
+                    performanceScore: this.getPerformanceSummary().overallScore,
+                    regressions: this.alerts
+                };
+                
+                try {
+                    const response = await fetch('/api/analytics/performance', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(performanceData)
+                    });
+                    
+                    const result = await response.json();
+                    console.log('Metrics sent successfully:', result);
+                    
+                    alert('Metrics sent successfully! Check console for details.');
+                } catch (error) {
+                    console.error('Failed to send metrics:', error);
+                    alert('Failed to send metrics. Check console for details.');
+                }
+            }
+        }
+        
+        // Initialize the test tracker
+        const performanceTracker = new TestPerformanceTracker();
+        
+        // Make functions available globally for button clicks
+        window.simulateSlowOperation = async function() {
+            await performanceTracker.measureAsyncOperation('slow-operation', async () => {
+                // Simulate slow operation
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 2000 + 500));
+                return 'Operation completed';
+            });
+        };
+        
+        window.simulateMemoryUsage = function() {
+            // Create some objects to simulate memory usage
+            const largeArray = new Array(100000).fill('test data ' + Math.random());
+            performanceTracker.trackCustomMetric('memory-simulation', largeArray.length);
+            
+            // Clean up after a few seconds
+            setTimeout(() => {
+                largeArray.length = 0;
+            }, 3000);
+        };
+        
+        window.trackCustomMetric = function() {
+            const value = Math.random() * 2000;
+            performanceTracker.trackCustomMetric('random-metric', value);
+        };
+        
+        window.forceMetricsSend = function() {
+            performanceTracker.forceMetricsSend();
+        };
+        
+        // Log that the test is ready
+        console.log('Enhanced Performance Tracker Test ready!');
+    </script>
+</body>
+</html>

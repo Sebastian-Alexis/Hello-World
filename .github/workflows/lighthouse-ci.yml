@@ -1,0 +1,374 @@
+name: Lighthouse CI Performance Testing
+
+on:
+  # Run on pull requests
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'tailwind.config.mjs'
+      - 'lighthouserc.js'
+  
+  # Run on pushes to main
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'public/**'
+      - 'astro.config.mjs'
+      - 'package.json'
+      - 'tailwind.config.mjs'
+      - 'lighthouserc.js'
+  
+  # Allow manual triggers
+  workflow_dispatch:
+    inputs:
+      test_url:
+        description: 'Custom URL to test (optional)'
+        required: false
+        default: ''
+      test_all_pages:
+        description: 'Test all configured pages'
+        required: false
+        type: boolean
+        default: true
+
+# Set permissions for GitHub token
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
+  statuses: write
+
+env:
+  NODE_VERSION: '18'
+  ASTRO_BUILD_PATH: './dist'
+
+jobs:
+  lighthouse-ci:
+    name: Lighthouse CI Performance Analysis
+    runs-on: ubuntu-latest
+    
+    # Only run if not a draft PR
+    if: github.event.pull_request.draft == false || github.event_name != 'pull_request'
+    
+    strategy:
+      matrix:
+        # Test different viewport configurations
+        config: [
+          { name: 'desktop', preset: 'desktop' },
+          { name: 'mobile', preset: 'mobile' }
+        ]
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch full history for accurate change detection
+          fetch-depth: 0
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+      
+      - name: Cache dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.npm
+            node_modules
+            .astro
+          key: ${{ runner.os }}-lighthouse-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-lighthouse-
+            ${{ runner.os }}-
+      
+      # Install dependencies
+      - name: Install dependencies
+        run: |
+          npm ci --prefer-offline
+          npx playwright install chromium --with-deps
+      
+      # Setup database for testing
+      - name: Setup test database
+        run: |
+          npm run db:setup
+          npm run db:seed
+        env:
+          NODE_ENV: test
+      
+      # Build the project
+      - name: Build Astro project
+        run: npm run build
+        env:
+          NODE_ENV: production
+          PUBLIC_MAPBOX_TOKEN: ${{ secrets.MAPBOX_TOKEN }}
+      
+      # Start the preview server
+      - name: Start preview server
+        run: |
+          npm run preview &
+          # Wait for server to be ready
+          npx wait-on http://localhost:4321 --timeout 60000
+        env:
+          NODE_ENV: production
+      
+      # Run Lighthouse CI with custom configuration
+      - name: Run Lighthouse CI (${{ matrix.config.name }})
+        run: |
+          # Create matrix-specific lighthouse config
+          cp lighthouserc.js lighthouserc-${{ matrix.config.name }}.js
+          
+          # Modify config for current matrix
+          if [ "${{ matrix.config.name }}" = "mobile" ]; then
+            sed -i 's/preset: "desktop"/preset: "mobile"/g' lighthouserc-${{ matrix.config.name }}.js
+            sed -i 's/mobile: false/mobile: true/g' lighthouserc-${{ matrix.config.name }}.js
+            sed -i 's/width: 1350/width: 375/g' lighthouserc-${{ matrix.config.name }}.js
+            sed -i 's/height: 940/height: 667/g' lighthouserc-${{ matrix.config.name }}.js
+          fi
+          
+          # Run Lighthouse CI
+          npx lhci autorun --config=lighthouserc-${{ matrix.config.name }}.js
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+          LHCI_TOKEN: ${{ secrets.LHCI_TOKEN }}
+          LHCI_BUILD_CONTEXT__CURRENT_HASH: ${{ github.sha }}
+          LHCI_BUILD_CONTEXT__CURRENT_BRANCH: ${{ github.ref_name }}
+          LHCI_BUILD_CONTEXT__COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          LHCI_BUILD_CONTEXT__AUTHOR: ${{ github.event.head_commit.author.name }}
+          LHCI_BUILD_CONTEXT__AVATAR_URL: ${{ github.event.head_commit.author.avatar_url }}
+      
+      # Upload Lighthouse results as artifacts
+      - name: Upload Lighthouse artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-results-${{ matrix.config.name }}
+          path: |
+            .lighthouseci/
+            lighthouse-results-${{ matrix.config.name }}.json
+          retention-days: 30
+      
+      # Generate performance report
+      - name: Generate performance report
+        if: always()
+        run: |
+          # Create performance summary
+          node -e "
+            const fs = require('fs');
+            const path = require('path');
+            
+            // Find latest lighthouse results
+            const lhciDir = '.lighthouseci';
+            if (!fs.existsSync(lhciDir)) {
+              console.log('No lighthouse results found');
+              process.exit(0);
+            }
+            
+            const files = fs.readdirSync(lhciDir)
+              .filter(f => f.endsWith('.json'))
+              .map(f => ({ 
+                name: f, 
+                time: fs.statSync(path.join(lhciDir, f)).mtime 
+              }))
+              .sort((a, b) => b.time - a.time);
+            
+            if (files.length === 0) {
+              console.log('No JSON results found');
+              process.exit(0);
+            }
+            
+            const latestFile = files[0].name;
+            const results = JSON.parse(fs.readFileSync(path.join(lhciDir, latestFile), 'utf8'));
+            
+            // Generate summary
+            const summary = {
+              timestamp: new Date().toISOString(),
+              config: '${{ matrix.config.name }}',
+              commit: '${{ github.sha }}',
+              branch: '${{ github.ref_name }}',
+              urls: {}
+            };
+            
+            Object.keys(results).forEach(url => {
+              const result = results[url];
+              if (result && result.categories) {
+                summary.urls[url] = {
+                  performance: Math.round(result.categories.performance.score * 100),
+                  accessibility: Math.round(result.categories.accessibility.score * 100),
+                  bestPractices: Math.round(result.categories['best-practices'].score * 100),
+                  seo: Math.round(result.categories.seo.score * 100),
+                  audits: {
+                    lcp: result.audits['largest-contentful-paint']?.numericValue,
+                    fcp: result.audits['first-contentful-paint']?.numericValue,
+                    cls: result.audits['cumulative-layout-shift']?.numericValue,
+                    tbt: result.audits['total-blocking-time']?.numericValue,
+                    si: result.audits['speed-index']?.numericValue,
+                    tti: result.audits['interactive']?.numericValue
+                  }
+                };
+              }
+            });
+            
+            fs.writeFileSync('lighthouse-summary-${{ matrix.config.name }}.json', JSON.stringify(summary, null, 2));
+            console.log('Performance summary generated');
+          "
+      
+      # Comment on PR with results (only for PRs)
+      - name: Comment PR with Lighthouse results
+        if: github.event_name == 'pull_request' && matrix.config.name == 'desktop'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            
+            // Read performance summary
+            let summary = {};
+            try {
+              summary = JSON.parse(fs.readFileSync('lighthouse-summary-desktop.json', 'utf8'));
+            } catch (error) {
+              console.log('No summary file found, skipping PR comment');
+              return;
+            }
+            
+            // Generate comment content
+            let comment = `## 🔍 Lighthouse CI Performance Report\n\n`;
+            comment += `**Commit:** ${summary.commit.substring(0, 8)}\n`;
+            comment += `**Branch:** ${summary.branch}\n`;
+            comment += `**Timestamp:** ${summary.timestamp}\n\n`;
+            
+            Object.keys(summary.urls).forEach(url => {
+              const scores = summary.urls[url];
+              comment += `### 📊 ${url}\n\n`;
+              comment += `| Metric | Score | Status |\n`;
+              comment += `|--------|-------|--------|\n`;
+              comment += `| Performance | ${scores.performance} | ${scores.performance >= 95 ? '✅' : scores.performance >= 80 ? '⚠️' : '❌'} |\n`;
+              comment += `| Accessibility | ${scores.accessibility} | ${scores.accessibility >= 95 ? '✅' : scores.accessibility >= 80 ? '⚠️' : '❌'} |\n`;
+              comment += `| Best Practices | ${scores.bestPractices} | ${scores.bestPractices >= 90 ? '✅' : scores.bestPractices >= 80 ? '⚠️' : '❌'} |\n`;
+              comment += `| SEO | ${scores.seo} | ${scores.seo >= 90 ? '✅' : scores.seo >= 80 ? '⚠️' : '❌'} |\n\n`;
+              
+              comment += `**Core Web Vitals:**\n`;
+              comment += `- LCP: ${Math.round(scores.audits.lcp)}ms ${scores.audits.lcp <= 2500 ? '✅' : '❌'}\n`;
+              comment += `- FCP: ${Math.round(scores.audits.fcp)}ms ${scores.audits.fcp <= 1800 ? '✅' : '❌'}\n`;
+              comment += `- CLS: ${scores.audits.cls.toFixed(3)} ${scores.audits.cls <= 0.1 ? '✅' : '❌'}\n`;
+              comment += `- TBT: ${Math.round(scores.audits.tbt)}ms ${scores.audits.tbt <= 200 ? '✅' : '❌'}\n\n`;
+            });
+            
+            comment += `---\n`;
+            comment += `💡 **Performance Tips:**\n`;
+            comment += `- ✅ Target: Performance ≥95, Core Web Vitals in "Good" range\n`;
+            comment += `- ⚠️ Warning: Performance 80-94, some Core Web Vitals need improvement\n`;
+            comment += `- ❌ Critical: Performance <80, Core Web Vitals in "Poor" range\n`;
+            
+            // Post comment
+            await github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
+      
+      # Fail the job if performance is below thresholds
+      - name: Check performance thresholds
+        run: |
+          node -e "
+            const fs = require('fs');
+            
+            let summary = {};
+            try {
+              summary = JSON.parse(fs.readFileSync('lighthouse-summary-${{ matrix.config.name }}.json', 'utf8'));
+            } catch (error) {
+              console.log('No summary file found, skipping threshold check');
+              process.exit(0);
+            }
+            
+            let failed = false;
+            
+            Object.keys(summary.urls).forEach(url => {
+              const scores = summary.urls[url];
+              const audits = scores.audits;
+              
+              console.log(\`Checking thresholds for \${url}:\`);
+              
+              // Check Lighthouse scores
+              if (scores.performance < 95) {
+                console.log(\`❌ Performance score \${scores.performance} below threshold (95)\`);
+                failed = true;
+              }
+              
+              // Check Core Web Vitals
+              if (audits.lcp > 2500) {
+                console.log(\`❌ LCP \${Math.round(audits.lcp)}ms above threshold (2500ms)\`);
+                failed = true;
+              }
+              
+              if (audits.fcp > 1800) {
+                console.log(\`❌ FCP \${Math.round(audits.fcp)}ms above threshold (1800ms)\`);
+                failed = true;
+              }
+              
+              if (audits.cls > 0.1) {
+                console.log(\`❌ CLS \${audits.cls.toFixed(3)} above threshold (0.1)\`);
+                failed = true;
+              }
+              
+              if (audits.tbt > 200) {
+                console.log(\`❌ TBT \${Math.round(audits.tbt)}ms above threshold (200ms)\`);
+                failed = true;
+              }
+            });
+            
+            if (failed) {
+              console.log('\\n💥 Performance thresholds not met!');
+              process.exit(1);
+            } else {
+              console.log('\\n✅ All performance thresholds met!');
+            }
+          "
+
+  # Aggregate results from both desktop and mobile
+  aggregate-results:
+    name: Aggregate Performance Results
+    runs-on: ubuntu-latest
+    needs: lighthouse-ci
+    if: always()
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: lighthouse-artifacts
+      
+      - name: Aggregate results
+        run: |
+          echo "## 📊 Performance Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check if artifacts exist
+          if [ -d "lighthouse-artifacts" ]; then
+            echo "### Test Configurations" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Configuration | Status |" >> $GITHUB_STEP_SUMMARY
+            echo "|---------------|--------|" >> $GITHUB_STEP_SUMMARY
+            
+            for config in desktop mobile; do
+              if [ -f "lighthouse-artifacts/lighthouse-results-$config/lighthouse-summary-$config.json" ]; then
+                echo "| $config | ✅ Completed |" >> $GITHUB_STEP_SUMMARY
+              else
+                echo "| $config | ❌ Failed |" >> $GITHUB_STEP_SUMMARY
+              fi
+            done
+          else
+            echo "❌ No lighthouse artifacts found" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📝 Detailed results are available in the job artifacts and PR comments." >> $GITHUB_STEP_SUMMARY

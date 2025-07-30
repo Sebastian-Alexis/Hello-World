@@ -45,6 +45,13 @@ import type {
   BlogSearchFilters,
   ProjectSearchFilters,
   FlightSearchFilters,
+  
+  // Lighthouse CI types
+  LighthouseResult,
+  LighthouseBaseline,
+  PerformanceRegression,
+  PerformanceTrend,
+  PerformanceAlert,
 } from './types';
 
 export class DatabaseQueries {
@@ -3128,6 +3135,394 @@ export class DatabaseQueries {
     });
 
     return trafficSources;
+  }
+
+  // =============================================================================
+  // LIGHTHOUSE CI PERFORMANCE MONITORING
+  // =============================================================================
+
+  //create lighthouse test result
+  async createLighthouseResult(data: Partial<LighthouseResult>): Promise<LighthouseResult> {
+    const query = `
+      INSERT INTO lighthouse_results (
+        url, timestamp, config, performance_score, accessibility_score,
+        best_practices_score, seo_score, lcp, fcp, cls, tbt, si, tti, ttfb,
+        total_byte_weight, unused_css_rules, unused_javascript,
+        render_blocking_resources, environment_data, commit_hash, branch_name, build_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+
+    const result = await executeQuery(query, [
+      data.url,
+      data.timestamp || Date.now(),
+      data.config || 'desktop',
+      data.performance_score,
+      data.accessibility_score,
+      data.best_practices_score,
+      data.seo_score,
+      data.lcp,
+      data.fcp,
+      data.cls,
+      data.tbt,
+      data.si,
+      data.tti,
+      data.ttfb,
+      data.total_byte_weight || 0,
+      data.unused_css_rules || 0,
+      data.unused_javascript || 0,
+      data.render_blocking_resources || 0,
+      data.environment_data ? JSON.stringify(data.environment_data) : null,
+      data.commit_hash,
+      data.branch_name,
+      data.build_id
+    ]);
+
+    return result as LighthouseResult;
+  }
+
+  //get lighthouse results with filtering
+  async getLighthouseResults(options: {
+    url?: string;
+    config?: 'desktop' | 'mobile';
+    timeRange?: string;
+    limit?: number;
+    offset?: number;
+  } = {}): Promise<LighthouseResult[]> {
+    let query = `
+      SELECT * FROM lighthouse_results
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (options.url) {
+      query += ` AND url = ?`;
+      params.push(options.url);
+    }
+
+    if (options.config) {
+      query += ` AND config = ?`;
+      params.push(options.config);
+    }
+
+    if (options.timeRange) {
+      const days = parseInt(options.timeRange.replace('d', '')) || 30;
+      query += ` AND timestamp > strftime('%s', 'now', '-${days} days') * 1000`;
+    }
+
+    query += ` ORDER BY timestamp DESC`;
+
+    if (options.limit) {
+      query += ` LIMIT ?`;
+      params.push(options.limit);
+    }
+
+    if (options.offset) {
+      query += ` OFFSET ?`;
+      params.push(options.offset);
+    }
+
+    const results = await executeQuery(query, params);
+    return Array.isArray(results) ? results as LighthouseResult[] : [results as LighthouseResult];
+  }
+
+  //get lighthouse baseline for URL and config
+  async getLighthouseBaseline(url: string, config: 'desktop' | 'mobile' = 'desktop'): Promise<LighthouseResult | null> {
+    const query = `
+      SELECT lr.* FROM lighthouse_results lr
+      JOIN lighthouse_baselines lb ON lr.id = lb.result_id
+      WHERE lb.url = ? AND lb.config = ?
+      ORDER BY lb.updated_at DESC
+      LIMIT 1
+    `;
+
+    const result = await executeQuery(query, [url, config]);
+    return result as LighthouseResult | null;
+  }
+
+  //update lighthouse baseline
+  async updateLighthouseBaseline(data: {
+    url: string;
+    config: 'desktop' | 'mobile';
+    result_id: number;
+  }): Promise<void> {
+    const query = `
+      INSERT INTO lighthouse_baselines (url, config, result_id)
+      VALUES (?, ?, ?)
+      ON CONFLICT(url, config) DO UPDATE SET
+        result_id = excluded.result_id,
+        updated_at = strftime('%s', 'now')
+    `;
+
+    await executeQuery(query, [data.url, data.config, data.result_id]);
+  }
+
+  //create performance regression record
+  async createPerformanceRegression(data: Partial<PerformanceRegression>): Promise<PerformanceRegression> {
+    const query = `
+      INSERT INTO performance_regressions (
+        lighthouse_result_id, baseline_result_id, metric_name,
+        current_value, baseline_value, regression_percentage, severity
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+
+    const result = await executeQuery(query, [
+      data.lighthouse_result_id,
+      data.baseline_result_id,
+      data.metric_name,
+      data.current_value,
+      data.baseline_value,
+      data.regression_percentage,
+      data.severity || 'medium'
+    ]);
+
+    return result as PerformanceRegression;
+  }
+
+  //get lighthouse performance regressions
+  async getLighthouseRegressions(options: {
+    url?: string;
+    timeRange?: string;
+    severity?: string;
+    acknowledged?: boolean;
+  } = {}): Promise<PerformanceRegression[]> {
+    let query = `
+      SELECT pr.*, lr.url, lr.timestamp as test_timestamp
+      FROM performance_regressions pr
+      JOIN lighthouse_results lr ON pr.lighthouse_result_id = lr.id
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (options.url) {
+      query += ` AND lr.url = ?`;
+      params.push(options.url);
+    }
+
+    if (options.timeRange) {
+      const days = parseInt(options.timeRange.replace('d', '')) || 7;
+      query += ` AND pr.detected_at > strftime('%s', 'now', '-${days} days') * 1000`;
+    }
+
+    if (options.severity) {
+      query += ` AND pr.severity = ?`;
+      params.push(options.severity);
+    }
+
+    if (options.acknowledged !== undefined) {
+      query += ` AND pr.acknowledged = ?`;
+      params.push(options.acknowledged);
+    }
+
+    query += ` ORDER BY pr.detected_at DESC`;
+
+    const results = await executeQuery(query, params);
+    return Array.isArray(results) ? results as PerformanceRegression[] : [results as PerformanceRegression];
+  }
+
+  //get lighthouse performance trends
+  async getLighthousePerformanceTrends(options: {
+    url: string;
+    config?: 'desktop' | 'mobile';
+    timeRange?: string;
+    metrics?: string[];
+  }): Promise<PerformanceTrend[]> {
+    const days = options.timeRange ? parseInt(options.timeRange.replace('d', '')) : 30;
+    const config = options.config || 'desktop';
+    const metrics = options.metrics || ['performance_score', 'lcp', 'fcp', 'cls', 'tbt'];
+
+    const trends: PerformanceTrend[] = [];
+
+    for (const metric of metrics) {
+      const query = `
+        SELECT 
+          timestamp,
+          ${metric} as value
+        FROM lighthouse_results
+        WHERE url = ? AND config = ?
+          AND timestamp > strftime('%s', 'now', '-${days} days') * 1000
+        ORDER BY timestamp ASC
+      `;
+
+      const results = await executeQuery(query, [options.url, config]);
+      const dataPoints = Array.isArray(results) ? results : [results];
+
+      if (dataPoints.length >= 3) {
+        //calculate trend
+        const values = dataPoints.map((d: any) => d.value);
+        const trend = this.calculateTrend(values);
+
+        trends.push({
+          url: options.url,
+          config,
+          metric_name: metric,
+          dataPoints: dataPoints.map((d: any) => ({
+            timestamp: d.timestamp,
+            value: d.value,
+            source: 'lighthouse' as const
+          })),
+          trend_direction: trend.direction,
+          trend_strength: trend.strength,
+          period_start: dataPoints[0].timestamp,
+          period_end: dataPoints[dataPoints.length - 1].timestamp,
+          sample_count: dataPoints.length,
+          avg_value: values.reduce((sum, v) => sum + v, 0) / values.length,
+          min_value: Math.min(...values),
+          max_value: Math.max(...values),
+          std_deviation: this.calculateStandardDeviation(values)
+        });
+      }
+    }
+
+    return trends;
+  }
+
+  //create performance alert
+  async createPerformanceAlert(data: Partial<PerformanceAlert>): Promise<PerformanceAlert> {
+    const query = `
+      INSERT INTO performance_alerts (
+        alert_type, severity, title, message, url, metric_name,
+        current_value, threshold_value, lighthouse_result_id, regression_id
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+
+    const result = await executeQuery(query, [
+      data.alert_type,
+      data.severity || 'medium',
+      data.title,
+      data.message,
+      data.url,
+      data.metric_name,
+      data.current_value,
+      data.threshold_value,
+      data.lighthouse_result_id,
+      data.regression_id
+    ]);
+
+    return result as PerformanceAlert;
+  }
+
+  //get performance alerts
+  async getPerformanceAlerts(options: {
+    status?: string;
+    severity?: string;
+    timeRange?: string;
+  } = {}): Promise<PerformanceAlert[]> {
+    let query = `
+      SELECT * FROM performance_alerts
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (options.status) {
+      query += ` AND status = ?`;
+      params.push(options.status);
+    }
+
+    if (options.severity) {
+      query += ` AND severity = ?`;
+      params.push(options.severity);
+    }
+
+    if (options.timeRange) {
+      const days = parseInt(options.timeRange.replace('d', '')) || 30;
+      query += ` AND created_at > strftime('%s', 'now', '-${days} days') * 1000`;
+    }
+
+    query += ` ORDER BY created_at DESC`;
+
+    const results = await executeQuery(query, params);
+    return Array.isArray(results) ? results as PerformanceAlert[] : [results as PerformanceAlert];
+  }
+
+  //acknowledge performance alert
+  async acknowledgePerformanceAlert(alertId: number, acknowledgedBy: string, notes?: string): Promise<void> {
+    const query = `
+      UPDATE performance_alerts
+      SET status = 'acknowledged',
+          acknowledged_by = ?,
+          acknowledged_at = strftime('%s', 'now'),
+          resolution_notes = ?
+      WHERE id = ?
+    `;
+
+    await executeQuery(query, [acknowledgedBy, notes, alertId]);
+  }
+
+  //get lighthouse performance summary
+  async getLighthousePerformanceSummary(url?: string, config?: 'desktop' | 'mobile'): Promise<any> {
+    let query = `
+      SELECT 
+        url,
+        config,
+        COUNT(*) as total_tests,
+        AVG(performance_score) as avg_performance,
+        AVG(lcp) as avg_lcp,
+        AVG(fcp) as avg_fcp,
+        AVG(cls) as avg_cls,
+        AVG(tbt) as avg_tbt,
+        MIN(timestamp) as first_test,
+        MAX(timestamp) as last_test,
+        COUNT(CASE WHEN performance_score >= 0.95 THEN 1 END) as excellent_tests,
+        COUNT(CASE WHEN performance_score >= 0.8 THEN 1 END) as good_tests
+      FROM lighthouse_results
+      WHERE 1=1
+    `;
+    const params: any[] = [];
+
+    if (url) {
+      query += ` AND url = ?`;
+      params.push(url);
+    }
+
+    if (config) {
+      query += ` AND config = ?`;
+      params.push(config);
+    }
+
+    query += ` GROUP BY url, config ORDER BY last_test DESC`;
+
+    const results = await executeQuery(query, params);
+    return Array.isArray(results) ? results : [results];
+  }
+
+  //helper method to calculate trend direction and strength
+  private calculateTrend(values: number[]): { direction: 'improving' | 'stable' | 'degrading'; strength: number } {
+    if (values.length < 3) return { direction: 'stable', strength: 0 };
+
+    //calculate linear regression slope
+    const n = values.length;
+    const xSum = (n * (n + 1)) / 2;
+    const ySum = values.reduce((sum, val) => sum + val, 0);
+    const xySum = values.reduce((sum, val, i) => sum + val * (i + 1), 0);
+    const xSquaredSum = (n * (n + 1) * (2 * n + 1)) / 6;
+
+    const slope = (n * xySum - xSum * ySum) / (n * xSquaredSum - xSum * xSum);
+    const strength = Math.abs(slope) / (Math.max(...values) - Math.min(...values));
+
+    let direction: 'improving' | 'stable' | 'degrading';
+    if (Math.abs(slope) < 0.01) {
+      direction = 'stable';
+    } else if (slope > 0) {
+      direction = 'improving';
+    } else {
+      direction = 'degrading';
+    }
+
+    return { direction, strength: Math.min(1, strength * 10) };
+  }
+
+  //helper method to calculate standard deviation
+  private calculateStandardDeviation(values: number[]): number {
+    const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+    const squaredDiffs = values.map(val => Math.pow(val - mean, 2));
+    const avgSquaredDiff = squaredDiffs.reduce((sum, val) => sum + val, 0) / values.length;
+    return Math.sqrt(avgSquaredDiff);
   }
 }
 

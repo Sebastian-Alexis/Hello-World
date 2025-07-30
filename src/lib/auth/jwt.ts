@@ -22,7 +22,7 @@ export interface RefreshTokenPayload extends TokenPayload {
 export const JWT_CONFIG = {
   ACCESS_TOKEN_EXPIRES: '15m', //short-lived for security
   REFRESH_TOKEN_EXPIRES: '7d', //longer for user convenience
-  ALGORITHM: 'HS256' as const, //using HS256 for simplicity, RS256 recommended for production
+  ALGORITHM: !import.meta.env.DEV ? 'RS256' as const : 'HS256' as const, //rs256 for production security
   ISSUER: 'hello-world-app',
   AUDIENCE: 'hello-world-users',
 } as const;

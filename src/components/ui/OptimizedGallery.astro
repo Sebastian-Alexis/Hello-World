@@ -1,0 +1,1243 @@
+---
+// =============================================================================
+// OPTIMIZED GALLERY COMPONENT - High-performance image gallery with virtual scrolling
+// Provides responsive gallery with lazy loading, virtual scrolling, and advanced performance
+// =============================================================================
+
+interface GalleryImage {
+  src: string;
+  alt: string;
+  width?: number;
+  height?: number;
+  caption?: string;
+  thumbnail?: string;
+  metadata?: Record<string, any>;
+}
+
+interface Props {
+  images: GalleryImage[];
+  columns?: number | 'auto';
+  gap?: number;
+  aspectRatio?: string;
+  maxHeight?: number;
+  virtualScrolling?: boolean;
+  virtualBufferSize?: number;
+  lazyLoad?: boolean;
+  preloadCount?: number;
+  lightbox?: boolean;
+  thumbnailQuality?: number;
+  fullQuality?: number;
+  formats?: ('avif' | 'webp' | 'jpeg')[];
+  className?: string;
+  itemClassName?: string;
+  captionPosition?: 'overlay' | 'below' | 'none';
+  hoverEffect?: 'zoom' | 'fade' | 'lift' | 'none';
+  loadingPlaceholder?: 'blur' | 'skeleton' | 'spinner';
+  infiniteScroll?: boolean;
+  onImageClick?: string;
+  onImageLoad?: string;
+  onViewportChange?: string;
+}
+
+const {
+  images,
+  columns = 'auto',
+  gap = 16,
+  aspectRatio = '1/1',
+  maxHeight = 800,
+  virtualScrolling = true,
+  virtualBufferSize = 5,
+  lazyLoad = true,
+  preloadCount = 3,
+  lightbox = false,
+  thumbnailQuality = 85,
+  fullQuality = 95,
+  formats = ['avif', 'webp', 'jpeg'],
+  className = '',
+  itemClassName = '',
+  captionPosition = 'overlay',
+  hoverEffect = 'zoom',
+  loadingPlaceholder = 'blur',
+  infiniteScroll = false,
+  onImageClick,
+  onImageLoad,
+  onViewportChange,
+} = Astro.props;
+
+//calculate responsive columns
+function calculateColumns(columnsProp: number | 'auto'): string {
+  if (columnsProp === 'auto') {
+    return 'repeat(auto-fill, minmax(280px, 1fr))';
+  }
+  return `repeat(${columnsProp}, 1fr)`;
+}
+
+//generate optimized image URL
+function generateOptimizedUrl(src: string, width: number, quality: number, format: string): string {
+  //if using Cloudflare Images
+  if (src.includes('imagedelivery.net')) {
+    return `${src}/w=${width},q=${quality},f=${format}`;
+  }
+  
+  //if using Cloudinary
+  if (src.includes('cloudinary.com')) {
+    return src.replace('/upload/', `/upload/w_${width},q_${quality},f_${format}/`);
+  }
+  
+  //fallback for other sources
+  return src;
+}
+
+//generate responsive image source sets
+function generateSourceSets(src: string, width: number = 400): Record<string, string> {
+  const sizes = [width * 0.5, width, width * 1.5, width * 2];
+  const sourceSets: Record<string, string> = {};
+  
+  for (const format of formats) {
+    const sources = sizes.map(size => 
+      `${generateOptimizedUrl(src, Math.round(size), thumbnailQuality, format)} ${size}w`
+    ).join(', ');
+    
+    sourceSets[format] = sources;
+  }
+  
+  return sourceSets;
+}
+
+//generate thumbnail URL
+function generateThumbnail(src: string, width: number = 400): string {
+  return generateOptimizedUrl(src, width, thumbnailQuality, 'webp');
+}
+
+//generate LQIP (Low Quality Image Placeholder)
+function generateLQIP(src: string): string {
+  return generateOptimizedUrl(src, 40, 10, 'jpeg');
+}
+
+const gridColumns = calculateColumns(columns);
+---
+
+<!-- Optimized Gallery Container -->
+<div 
+  class={`optimized-gallery ${className}`}
+  data-virtual-scrolling={virtualScrolling}
+  data-infinite-scroll={infiniteScroll}
+  data-lightbox={lightbox}
+  data-gallery="true"
+  style={`
+    --gallery-columns: ${gridColumns};
+    --gallery-gap: ${gap}px;
+    --gallery-aspect-ratio: ${aspectRatio};
+    --gallery-max-height: ${maxHeight}px;
+  `}
+>
+  <!-- Virtual Scrolling Container -->
+  {virtualScrolling ? (
+    <div class="virtual-container" data-buffer-size={virtualBufferSize}>
+      <div class="virtual-spacer-before"></div>
+      <div class="virtual-items-container">
+        <!-- Virtual items will be populated by JavaScript -->
+      </div>
+      <div class="virtual-spacer-after"></div>
+    </div>
+  ) : (
+    <!-- Static Grid Container -->
+    <div class="gallery-grid">
+      {images.map((image, index) => (
+        <div 
+          class={`gallery-item ${itemClassName}`}
+          data-index={index}
+          data-src={image.src}
+          data-hover-effect={hoverEffect}
+        >
+          <!-- Image Container -->
+          <div class="image-container">
+            {/* Progressive Enhancement Picture Element */}
+            <picture class="optimized-picture">
+              {/* Modern Format Sources */}
+              {formats.map(format => {
+                const sourceSets = generateSourceSets(image.src);
+                return (
+                  <source 
+                    srcset={sourceSets[format]}
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    type={`image/${format}`}
+                  />
+                );
+              })}
+              
+              {/* Main Image */}
+              <img
+                src={lazyLoad ? generateLQIP(image.src) : generateThumbnail(image.src)}
+                data-src={generateThumbnail(image.src)}
+                data-full-src={image.src}
+                alt={image.alt}
+                width={image.width || 400}
+                height={image.height || 400}
+                loading={lazyLoad ? 'lazy' : 'eager'}
+                decoding="async"
+                class={`gallery-image ${loadingPlaceholder === 'blur' ? 'blur-placeholder' : ''}`}
+                style={`
+                  aspect-ratio: ${aspectRatio};
+                  background-image: url(${generateLQIP(image.src)});
+                  background-size: cover;
+                  background-position: center;
+                `}
+                onload={onImageLoad ? `${onImageLoad}(this, ${index})` : undefined}
+                onclick={onImageClick ? `${onImageClick}(this, ${index})` : lightbox ? `openLightbox(${index})` : undefined}
+                data-optimized="true"
+                data-index={index}
+              />
+            </picture>
+            
+            {/* Loading Placeholder */}
+            {loadingPlaceholder === 'skeleton' && (
+              <div class="skeleton-placeholder">
+                <div class="skeleton-shimmer"></div>
+              </div>
+            )}
+            
+            {loadingPlaceholder === 'spinner' && (
+              <div class="spinner-placeholder">
+                <div class="spinner"></div>
+              </div>
+            )}
+            
+            {/* Hover Overlay */}
+            <div class="hover-overlay">
+              {lightbox && (
+                <button class="expand-button" onclick={`openLightbox(${index})`}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+          
+          {/* Caption */}
+          {image.caption && captionPosition !== 'none' && (
+            <div class={`image-caption ${captionPosition}`}>
+              <p>{image.caption}</p>
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  )}
+  
+  <!-- Infinite Scroll Loading Indicator -->
+  {infiniteScroll && (
+    <div class="infinite-scroll-loader" style="display: none;">
+      <div class="loading-spinner"></div>
+      <span>Loading more images...</span>
+    </div>
+  )}
+</div>
+
+<!-- Lightbox Modal -->
+{lightbox && (
+  <div class="lightbox-modal" id="gallery-lightbox" style="display: none;">
+    <div class="lightbox-backdrop" onclick="closeLightbox()"></div>
+    <div class="lightbox-container">
+      <button class="lightbox-close" onclick="closeLightbox()">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <line x1="18" y1="6" x2="6" y2="18"></line>
+          <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+      </button>
+      
+      <button class="lightbox-prev" onclick="navigateLightbox(-1)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polyline points="15,18 9,12 15,6"></polyline>
+        </svg>
+      </button>
+      
+      <button class="lightbox-next" onclick="navigateLightbox(1)">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <polyline points="9,18 15,12 9,6"></polyline>
+        </svg>
+      </button>
+      
+      <div class="lightbox-content">
+        <img class="lightbox-image" alt="" />
+        <div class="lightbox-caption"></div>
+      </div>
+      
+      <div class="lightbox-counter">
+        <span class="current-index">1</span> / <span class="total-count">{images.length}</span>
+      </div>
+    </div>
+  </div>
+)}
+
+<style>
+  .optimized-gallery {
+    position: relative;
+    width: 100%;
+    min-height: 200px;
+  }
+
+  /* Grid Layout */
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: var(--gallery-columns);
+    gap: var(--gallery-gap);
+    padding: var(--gallery-gap);
+  }
+
+  /* Virtual Scrolling */
+  .virtual-container {
+    height: var(--gallery-max-height);
+    overflow-y: auto;
+    scroll-behavior: smooth;
+  }
+
+  .virtual-items-container {
+    display: grid;
+    grid-template-columns: var(--gallery-columns);
+    gap: var(--gallery-gap);
+    padding: var(--gallery-gap);
+  }
+
+  .virtual-spacer-before,
+  .virtual-spacer-after {
+    height: 0;
+    transition: height 200ms ease;
+  }
+
+  /* Gallery Items */
+  .gallery-item {
+    position: relative;
+    border-radius: 8px;
+    overflow: hidden;
+    background-color: #f3f4f6;
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .gallery-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  }
+
+  .image-container {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .optimized-picture {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .gallery-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transition: opacity 0.3s ease, filter 0.3s ease, transform 0.3s ease;
+    cursor: pointer;
+  }
+
+  .gallery-image.blur-placeholder {
+    filter: blur(10px);
+  }
+
+  .gallery-image.loaded {
+    filter: none;
+  }
+
+  /* Hover Effects */
+  .gallery-item[data-hover-effect="zoom"] .gallery-image:hover {
+    transform: scale(1.05);
+  }
+
+  .gallery-item[data-hover-effect="fade"] .gallery-image:hover {
+    opacity: 0.8;
+  }
+
+  .gallery-item[data-hover-effect="lift"]:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Loading Placeholders */
+  .skeleton-placeholder {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: skeleton-loading 1.5s infinite;
+  }
+
+  .skeleton-shimmer {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+    animation: shimmer 1.5s infinite;
+  }
+
+  .spinner-placeholder {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+
+  .spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid rgba(0, 0, 0, 0.1);
+    border-top: 3px solid #3b82f6;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  /* Hover Overlay */
+  .hover-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+  }
+
+  .gallery-item:hover .hover-overlay {
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  .expand-button {
+    background: rgba(255, 255, 255, 0.9);
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s ease;
+    color: #1f2937;
+  }
+
+  .expand-button:hover {
+    transform: scale(1.1);
+    background: white;
+  }
+
+  /* Captions */
+  .image-caption {
+    padding: 12px;
+    background: white;
+  }
+
+  .image-caption.overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+    color: white;
+    transform: translateY(100%);
+    transition: transform 0.3s ease;
+  }
+
+  .gallery-item:hover .image-caption.overlay {
+    transform: translateY(0);
+  }
+
+  .image-caption p {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.4;
+  }
+
+  /* Lightbox */
+  .lightbox-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1000;
+    background: rgba(0, 0, 0, 0.9);
+    backdrop-filter: blur(4px);
+  }
+
+  .lightbox-backdrop {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    cursor: pointer;
+  }
+
+  .lightbox-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px 20px;
+  }
+
+  .lightbox-content {
+    max-width: 90vw;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .lightbox-image {
+    max-width: 100%;
+    max-height: 80vh;
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+
+  .lightbox-caption {
+    margin-top: 16px;
+    color: white;
+    text-align: center;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+
+  .lightbox-close,
+  .lightbox-prev,
+  .lightbox-next {
+    position: absolute;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    width: 48px;
+    height: 48px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    color: white;
+  }
+
+  .lightbox-close {
+    top: 20px;
+    right: 20px;
+  }
+
+  .lightbox-prev {
+    left: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .lightbox-next {
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+  }
+
+  .lightbox-close:hover,
+  .lightbox-prev:hover,
+  .lightbox-next:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  .lightbox-counter {
+    position: absolute;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    color: white;
+    font-size: 14px;
+    background: rgba(0, 0, 0, 0.5);
+    padding: 8px 16px;
+    border-radius: 20px;
+  }
+
+  /* Infinite Scroll */
+  .infinite-scroll-loader {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 40px;
+    color: #6b7280;
+    font-size: 14px;
+  }
+
+  .loading-spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid rgba(107, 114, 128, 0.3);
+    border-top: 2px solid #6b7280;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+  }
+
+  /* Animations */
+  @keyframes skeleton-loading {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+
+  @keyframes shimmer {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(200%); }
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .gallery-grid {
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .lightbox-container {
+      padding: 40px 10px 10px;
+    }
+
+    .lightbox-close,
+    .lightbox-prev,
+    .lightbox-next {
+      width: 40px;
+      height: 40px;
+    }
+
+    .lightbox-close {
+      top: 10px;
+      right: 10px;
+    }
+
+    .lightbox-prev {
+      left: 10px;
+    }
+
+    .lightbox-next {
+      right: 10px;
+    }
+  }
+
+  /* Reduced Motion */
+  @media (prefers-reduced-motion: reduce) {
+    .gallery-item,
+    .gallery-image,
+    .hover-overlay,
+    .image-caption,
+    .expand-button {
+      transition: none;
+    }
+
+    .skeleton-placeholder,
+    .skeleton-shimmer,
+    .spinner,
+    .loading-spinner {
+      animation: none;
+    }
+  }
+
+  /* High Contrast */
+  @media (prefers-contrast: high) {
+    .gallery-item {
+      border: 2px solid #000;
+    }
+
+    .hover-overlay {
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    .expand-button {
+      background: #fff;
+      border: 2px solid #000;
+    }
+  }
+
+  /* Print Styles */
+  @media print {
+    .hover-overlay,
+    .lightbox-modal,
+    .infinite-scroll-loader {
+      display: none !important;
+    }
+
+    .gallery-item {
+      break-inside: avoid;
+    }
+  }
+</style>
+
+<!-- Enhanced Gallery Script -->
+<script>
+  //advanced gallery optimization and virtual scrolling
+  class OptimizedGallery {
+    constructor(container) {
+      this.container = container;
+      this.images = this.extractImageData();
+      this.virtualScrolling = container.dataset.virtualScrolling === 'true';
+      this.infiniteScroll = container.dataset.infiniteScroll === 'true';
+      this.lightbox = container.dataset.lightbox === 'true';
+      
+      //virtual scrolling properties
+      this.itemHeight = 300; //estimated item height
+      this.bufferSize = parseInt(container.dataset.bufferSize) || 5;
+      this.visibleItems = [];
+      this.scrollContainer = null;
+      
+      //infinite scroll properties
+      this.currentPage = 1;
+      this.isLoading = false;
+      this.hasMore = true;
+      
+      //performance tracking
+      this.observer = null;
+      this.resizeObserver = null;
+      this.loadedImages = new Set();
+      this.preloadQueue = [];
+      
+      this.initialize();
+    }
+    
+    //extract image data from container
+    extractImageData() {
+      const imageElements = this.container.querySelectorAll('.gallery-item');
+      return Array.from(imageElements).map((element, index) => ({
+        index,
+        element,
+        src: element.dataset.src,
+        loaded: false,
+        inViewport: false,
+      }));
+    }
+    
+    //initialize gallery
+    initialize() {
+      if (this.virtualScrolling) {
+        this.setupVirtualScrolling();
+      } else {
+        this.setupStaticGallery();
+      }
+      
+      if (this.infiniteScroll) {
+        this.setupInfiniteScroll();
+      }
+      
+      if (this.lightbox) {
+        this.setupLightbox();
+      }
+      
+      this.setupPerformanceMonitoring();
+      this.setupKeyboardNavigation();
+      this.setupPreloading();
+    }
+    
+    //setup virtual scrolling
+    setupVirtualScrolling() {
+      this.scrollContainer = this.container.querySelector('.virtual-container');
+      if (!this.scrollContainer) return;
+      
+      //calculate dimensions
+      this.updateDimensions();
+      
+      //setup scroll listener
+      this.scrollContainer.addEventListener('scroll', this.throttle(() => {
+        this.updateVisibleItems();
+      }, 16)); //60fps
+      
+      //setup resize observer
+      this.resizeObserver = new ResizeObserver(() => {
+        this.updateDimensions();
+        this.updateVisibleItems();
+      });
+      
+      this.resizeObserver.observe(this.scrollContainer);
+      
+      //initial render
+      this.updateVisibleItems();
+    }
+    
+    //setup static gallery
+    setupStaticGallery() {
+      this.setupIntersectionObserver();
+      this.loadVisibleImages();
+    }
+    
+    //setup intersection observer for lazy loading
+    setupIntersectionObserver() {
+      if (!('IntersectionObserver' in window)) {
+        //fallback for older browsers
+        this.loadAllImages();
+        return;
+      }
+      
+      this.observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const item = this.images.find(img => img.element === entry.target);
+            if (item && !item.loaded) {
+              this.loadImage(item);
+            }
+          }
+        });
+      }, {
+        rootMargin: '50px',
+        threshold: 0.1,
+      });
+      
+      //observe all items
+      this.images.forEach(item => {
+        this.observer.observe(item.element);
+      });
+    }
+    
+    //update virtual scrolling dimensions
+    updateDimensions() {
+      if (!this.scrollContainer) return;
+      
+      const containerRect = this.scrollContainer.getBoundingClientRect();
+      this.containerHeight = containerRect.height;
+      this.scrollTop = this.scrollContainer.scrollTop;
+      
+      //calculate items per row and item dimensions
+      const gridStyle = getComputedStyle(this.container);
+      const gap = parseInt(gridStyle.getPropertyValue('--gallery-gap')) || 16;
+      
+      //estimate item height based on aspect ratio
+      const aspectRatio = gridStyle.getPropertyValue('--gallery-aspect-ratio') || '1/1';
+      const [width, height] = aspectRatio.split('/').map(Number);
+      this.itemHeight = (containerRect.width / 3) * (height / width) + gap; //rough estimate
+    }
+    
+    //update visible items in virtual scrolling
+    updateVisibleItems() {
+      if (!this.scrollContainer) return;
+      
+      const scrollTop = this.scrollContainer.scrollTop;
+      const containerHeight = this.containerHeight;
+      
+      //calculate visible range
+      const startIndex = Math.floor(scrollTop / this.itemHeight) - this.bufferSize;
+      const endIndex = Math.ceil((scrollTop + containerHeight) / this.itemHeight) + this.bufferSize;
+      
+      const visibleStart = Math.max(0, startIndex);
+      const visibleEnd = Math.min(this.images.length, endIndex);
+      
+      //update spacers
+      const spacerBefore = this.container.querySelector('.virtual-spacer-before');
+      const spacerAfter = this.container.querySelector('.virtual-spacer-after');
+      
+      if (spacerBefore) {
+        spacerBefore.style.height = `${visibleStart * this.itemHeight}px`;
+      }
+      
+      if (spacerAfter) {
+        const remainingItems = this.images.length - visibleEnd;
+        spacerAfter.style.height = `${remainingItems * this.itemHeight}px`;
+      }
+      
+      //render visible items
+      this.renderVisibleItems(visibleStart, visibleEnd);
+      
+      //trigger viewport change callback
+      if (typeof window[this.container.dataset.onViewportChange] === 'function') {
+        window[this.container.dataset.onViewportChange](visibleStart, visibleEnd);
+      }
+    }
+    
+    //render visible items
+    renderVisibleItems(start, end) {
+      const container = this.container.querySelector('.virtual-items-container');
+      if (!container) return;
+      
+      //clear existing items
+      container.innerHTML = '';
+      
+      //render visible items
+      for (let i = start; i < end; i++) {
+        const item = this.images[i];
+        if (item) {
+          const element = this.createVirtualItem(item, i);
+          container.appendChild(element);
+          
+          //load image if not already loaded
+          if (!item.loaded) {
+            this.loadImage(item);
+          }
+        }
+      }
+    }
+    
+    //create virtual item element
+    createVirtualItem(item, index) {
+      const element = document.createElement('div');
+      element.className = 'gallery-item';
+      element.dataset.index = index;
+      element.dataset.src = item.src;
+      
+      element.innerHTML = `
+        <div class="image-container">
+          <picture class="optimized-picture">
+            <img
+              src="${this.generateLQIP(item.src)}"
+              data-src="${this.generateThumbnail(item.src)}"
+              data-full-src="${item.src}"
+              alt="Gallery image ${index + 1}"
+              loading="lazy"
+              decoding="async"
+              class="gallery-image blur-placeholder"
+              data-optimized="true"
+              data-index="${index}"
+            />
+          </picture>
+          <div class="hover-overlay">
+            ${this.lightbox ? `
+              <button class="expand-button" onclick="openLightbox(${index})">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                </svg>
+              </button>
+            ` : ''}
+          </div>
+        </div>
+      `;
+      
+      return element;
+    }
+    
+    //load image with performance tracking
+    loadImage(item) {
+      if (item.loaded) return;
+      
+      const img = item.element.querySelector('.gallery-image');
+      if (!img) return;
+      
+      const startTime = performance.now();
+      const src = img.dataset.src;
+      
+      //create new image for loading
+      const loadingImg = new Image();
+      
+      loadingImg.onload = () => {
+        const loadTime = performance.now() - startTime;
+        
+        //update image source
+        img.src = src;
+        img.classList.remove('blur-placeholder');
+        img.classList.add('loaded');
+        
+        item.loaded = true;
+        this.loadedImages.add(item.index);
+        
+        //track performance
+        this.trackImagePerformance('image-load-time', loadTime, {
+          src: item.src,
+          index: item.index,
+          width: loadingImg.naturalWidth,
+          height: loadingImg.naturalHeight,
+        });
+        
+        //preload next images
+        this.schedulePreload(item.index);
+        
+        //trigger load callback
+        const onLoad = this.container.dataset.onImageLoad;
+        if (onLoad && typeof window[onLoad] === 'function') {
+          window[onLoad](img, item.index);
+        }
+      };
+      
+      loadingImg.onerror = () => {
+        const loadTime = performance.now() - startTime;
+        
+        img.classList.add('error');
+        
+        this.trackImagePerformance('image-load-error', loadTime, {
+          src: item.src,
+          index: item.index,
+          error: 'load-failed',
+        });
+      };
+      
+      //start loading
+      loadingImg.src = src;
+    }
+    
+    //setup infinite scroll
+    setupInfiniteScroll() {
+      const scrollContainer = this.virtualScrolling ? 
+        this.container.querySelector('.virtual-container') : 
+        window;
+      
+      const checkScroll = this.throttle(() => {
+        if (this.isLoading || !this.hasMore) return;
+        
+        const scrollHeight = scrollContainer === window ? 
+          document.documentElement.scrollHeight : 
+          scrollContainer.scrollHeight;
+        
+        const scrollTop = scrollContainer === window ? 
+          window.pageYOffset : 
+          scrollContainer.scrollTop;
+        
+        const clientHeight = scrollContainer === window ? 
+          window.innerHeight : 
+          scrollContainer.clientHeight;
+        
+        //trigger load when near bottom
+        if (scrollHeight - scrollTop - clientHeight < 200) {
+          this.loadMoreImages();
+        }
+      }, 100);
+      
+      scrollContainer.addEventListener('scroll', checkScroll);
+    }
+    
+    //load more images for infinite scroll
+    async loadMoreImages() {
+      if (this.isLoading || !this.hasMore) return;
+      
+      this.isLoading = true;
+      const loader = this.container.querySelector('.infinite-scroll-loader');
+      if (loader) loader.style.display = 'flex';
+      
+      try {
+        //simulate API call - replace with actual implementation
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        //add more images (placeholder implementation)
+        const newImages = this.generatePlaceholderImages(10);
+        this.addImages(newImages);
+        
+        this.currentPage++;
+        
+        //simulate end of data after 5 pages
+        if (this.currentPage > 5) {
+          this.hasMore = false;
+        }
+        
+      } catch (error) {
+        console.error('Failed to load more images:', error);
+      } finally {
+        this.isLoading = false;
+        if (loader) loader.style.display = 'none';
+      }
+    }
+    
+    //setup lightbox functionality
+    setupLightbox() {
+      window.openLightbox = (index) => {
+        const modal = document.getElementById('gallery-lightbox');
+        const img = modal.querySelector('.lightbox-image');
+        const caption = modal.querySelector('.lightbox-caption');
+        const currentIndex = modal.querySelector('.current-index');
+        
+        if (modal && img) {
+          const item = this.images[index];
+          
+          img.src = item.src;
+          img.alt = `Gallery image ${index + 1}`;
+          
+          if (caption) {
+            caption.textContent = item.caption || '';
+          }
+          
+          if (currentIndex) {
+            currentIndex.textContent = index + 1;
+          }
+          
+          modal.style.display = 'block';
+          modal.dataset.currentIndex = index;
+          
+          //prevent body scroll
+          document.body.style.overflow = 'hidden';
+        }
+      };
+      
+      window.closeLightbox = () => {
+        const modal = document.getElementById('gallery-lightbox');
+        if (modal) {
+          modal.style.display = 'none';
+          document.body.style.overflow = '';
+        }
+      };
+      
+      window.navigateLightbox = (direction) => {
+        const modal = document.getElementById('gallery-lightbox');
+        if (!modal) return;
+        
+        const currentIndex = parseInt(modal.dataset.currentIndex) || 0;
+        let newIndex = currentIndex + direction;
+        
+        if (newIndex < 0) newIndex = this.images.length - 1;
+        if (newIndex >= this.images.length) newIndex = 0;
+        
+        window.openLightbox(newIndex);
+      };
+    }
+    
+    //setup keyboard navigation
+    setupKeyboardNavigation() {
+      document.addEventListener('keydown', (e) => {
+        const modal = document.getElementById('gallery-lightbox');
+        if (!modal || modal.style.display === 'none') return;
+        
+        switch (e.key) {
+          case 'Escape':
+            window.closeLightbox();
+            break;
+          case 'ArrowLeft':
+            window.navigateLightbox(-1);
+            break;
+          case 'ArrowRight':
+            window.navigateLightbox(1);
+            break;
+        }
+      });
+    }
+    
+    //setup intelligent preloading
+    setupPreloading() {
+      this.preloadCount = parseInt(this.container.dataset.preloadCount) || 3;
+    }
+    
+    //schedule preload for adjacent images
+    schedulePreload(currentIndex) {
+      for (let i = 1; i <= this.preloadCount; i++) {
+        const nextIndex = currentIndex + i;
+        if (nextIndex < this.images.length && !this.loadedImages.has(nextIndex)) {
+          this.preloadQueue.push(nextIndex);
+        }
+      }
+      
+      //process preload queue
+      this.processPreloadQueue();
+    }
+    
+    //process preload queue
+    processPreloadQueue() {
+      if (this.preloadQueue.length === 0) return;
+      
+      const index = this.preloadQueue.shift();
+      const item = this.images[index];
+      
+      if (item && !item.loaded) {
+        const img = new Image();
+        img.onload = () => {
+          item.loaded = true;
+          this.loadedImages.add(index);
+          
+          //continue processing queue
+          setTimeout(() => this.processPreloadQueue(), 100);
+        };
+        img.src = item.src;
+      }
+    }
+    
+    //setup performance monitoring
+    setupPerformanceMonitoring() {
+      this.performanceMetrics = [];
+    }
+    
+    //track image performance
+    trackImagePerformance(name, value, metadata = {}) {
+      if (typeof window.vitalsMonitor !== 'undefined') {
+        window.vitalsMonitor.recordImageMetric(name, value, metadata);
+      }
+      
+      this.performanceMetrics.push({
+        name,
+        value,
+        metadata,
+        timestamp: Date.now(),
+      });
+    }
+    
+    //utility methods
+    generateThumbnail(src, width = 400) {
+      if (src.includes('imagedelivery.net')) {
+        return `${src}/w=${width},q=85,f=webp`;
+      }
+      return src;
+    }
+    
+    generateLQIP(src) {
+      if (src.includes('imagedelivery.net')) {
+        return `${src}/w=40,q=10,f=jpeg`;
+      }
+      return src;
+    }
+    
+    throttle(func, limit) {
+      let inThrottle;
+      return function() {
+        const args = arguments;
+        const context = this;
+        if (!inThrottle) {
+          func.apply(context, args);
+          inThrottle = true;
+          setTimeout(() => inThrottle = false, limit);
+        }
+      };
+    }
+    
+    //cleanup
+    destroy() {
+      if (this.observer) {
+        this.observer.disconnect();
+      }
+      
+      if (this.resizeObserver) {
+        this.resizeObserver.disconnect();
+      }
+      
+      //remove event listeners
+      if (this.scrollContainer) {
+        this.scrollContainer.removeEventListener('scroll', this.updateVisibleItems);
+      }
+    }
+  }
+  
+  //initialize galleries on DOM ready
+  document.addEventListener('DOMContentLoaded', () => {
+    const galleries = document.querySelectorAll('.optimized-gallery[data-gallery="true"]');
+    
+    galleries.forEach(gallery => {
+      const instance = new OptimizedGallery(gallery);
+      
+      //expose instance for debugging
+      gallery._galleryInstance = instance;
+    });
+  });
+  
+  //cleanup on page unload
+  window.addEventListener('beforeunload', () => {
+    const galleries = document.querySelectorAll('.optimized-gallery[data-gallery="true"]');
+    
+    galleries.forEach(gallery => {
+      if (gallery._galleryInstance) {
+        gallery._galleryInstance.destroy();
+      }
+    });
+  });
+</script>

@@ -1,19 +1,35 @@
 // =============================================================================
-// CORE WEB VITALS MONITORING - Performance tracking and optimization
-// Tracks CLS, LCP, FID, TTFB and other performance metrics
+// ENHANCED PERFORMANCE TRACKER - Plan 7 Implementation
+// Advanced Core Web Vitals tracking with real user metrics, regression detection,
+// and comprehensive performance monitoring capabilities
 // =============================================================================
 
-//core web vitals thresholds (in milliseconds)
+import { getCLS, getFID, getFCP, getLCP, getTTFB, onINP, type Metric } from 'web-vitals';
+
+//core web vitals thresholds (in milliseconds/units)
 const VITALS_THRESHOLDS = {
-  LCP: { good: 2500, poor: 4000 },      // Largest Contentful Paint
-  FID: { good: 100, poor: 300 },        // First Input Delay  
-  CLS: { good: 0.1, poor: 0.25 },       // Cumulative Layout Shift
-  TTFB: { good: 800, poor: 1800 },      // Time to First Byte
-  FCP: { good: 1800, poor: 3000 },      // First Contentful Paint
-  INP: { good: 200, poor: 500 },        // Interaction to Next Paint
+  LCP: { good: 2500, poor: 4000 },      // Largest Contentful Paint (ms)
+  FID: { good: 100, poor: 300 },        // First Input Delay (ms)
+  CLS: { good: 0.1, poor: 0.25 },       // Cumulative Layout Shift (unitless)
+  TTFB: { good: 800, poor: 1800 },      // Time to First Byte (ms)
+  FCP: { good: 1800, poor: 3000 },      // First Contentful Paint (ms)
+  INP: { good: 200, poor: 500 },        // Interaction to Next Paint (ms)
 };
 
-interface VitalsData {
+//performance budgets for regression detection
+const PERFORMANCE_BUDGETS = {
+  LCP: 2500,     // ms
+  FID: 100,      // ms
+  CLS: 0.1,      // unitless
+  TTFB: 800,     // ms
+  FCP: 1800,     // ms
+  INP: 200,      // ms
+  MEMORY_USAGE: 70,  // percentage
+  RESOURCE_SIZE: 2048,  // KB
+  JS_BUNDLE_SIZE: 100,  // KB
+};
+
+interface EnhancedVitalsData extends Omit<Metric, 'entries'> {
   name: string;
   value: number;
   id: string;
@@ -23,38 +39,121 @@ interface VitalsData {
   timestamp: number;
   url: string;
   userAgent: string;
+  connectionType?: string;
+  deviceMemory?: number;
+  hardwareConcurrency?: number;
+  sessionId: string;
+  userId?: string;
+  pageLoadTime?: number;
+  domContentLoadedTime?: number;
+  entries?: any[];
+}
+
+interface ResourceMetric {
+  name: string;
+  type: string;
+  size: number;
+  duration: number;
+  transferSize: number;
+  encodedBodySize: number;
+  decodedBodySize: number;
+  initiatorType: string;
+  timestamp: number;
+  isCritical: boolean;
+}
+
+interface MemoryMetric {
+  usedJSHeapSize: number;
+  totalJSHeapSize: number;
+  jsHeapSizeLimit: number;
+  usagePercentage: number;
+  timestamp: number;
+}
+
+interface UserInteractionMetric {
+  interactionType: string;
+  target: string;
+  startTime: number;
+  processingTime: number;
+  presentationTime: number;
+  duration: number;
+  timestamp: number;
+}
+
+interface PerformanceAlert {
+  metric: string;
+  value: number;
+  threshold: number;
+  severity: 'warning' | 'critical';
+  url: string;
+  timestamp: number;
+  sessionId: string;
+  userId?: string;
 }
 
 interface PerformanceData {
-  vitals: VitalsData[];
-  resources: PerformanceResourceTiming[];
+  vitals: EnhancedVitalsData[];
+  resources: ResourceMetric[];
   navigation: PerformanceNavigationTiming | null;
-  memory?: any;
+  memory: MemoryMetric[];
+  userInteractions: UserInteractionMetric[];
   connection?: any;
   timestamp: number;
   sessionId: string;
+  userId?: string;
+  pageUrl: string;
+  referrer: string;
+  deviceInfo: {
+    userAgent: string;
+    viewport: { width: number; height: number };
+    deviceMemory?: number;
+    hardwareConcurrency?: number;
+    connectionType?: string;
+  };
+  performanceScore: number;
+  regressions: PerformanceAlert[];
 }
 
-class VitalsMonitor {
-  private vitalsData: VitalsData[] = [];
+class PerformanceTracker {
+  private vitalsData: EnhancedVitalsData[] = [];
+  private resourceMetrics: ResourceMetric[] = [];
+  private memoryMetrics: MemoryMetric[] = [];
+  private userInteractions: UserInteractionMetric[] = [];
+  private alerts: PerformanceAlert[] = [];
   private sessionId: string;
+  private userId?: string;
   private reportingEndpoint: string;
+  private dashboardEndpoint: string;
   private isReporting: boolean = false;
+  private isOnline: boolean = true;
+  private retryQueue: any[] = [];
+  private performanceObserver?: PerformanceObserver;
+  private memoryMonitorInterval?: NodeJS.Timeout;
+  private baselineMetrics: Record<string, number> = {};
+  private isInitialized: boolean = false;
 
   constructor(options: {
     reportingEndpoint?: string;
+    dashboardEndpoint?: string;
     enableAutoReporting?: boolean;
     sampleRate?: number;
+    userId?: string;
+    enableRegressionDetection?: boolean;
+    enableMemoryMonitoring?: boolean;
+    enableUserInteractionTracking?: boolean;
   } = {}) {
     this.sessionId = this.generateSessionId();
-    this.reportingEndpoint = options.reportingEndpoint || '/api/vitals';
+    this.userId = options.userId;
+    this.reportingEndpoint = options.reportingEndpoint || '/api/analytics/performance';
+    this.dashboardEndpoint = options.dashboardEndpoint || '/api/analytics/dashboard';
     this.isReporting = options.enableAutoReporting ?? true;
 
     //only initialize in browser environment
     if (typeof window !== 'undefined') {
-      this.initializeVitalsTracking();
-      this.trackPageVisibility();
-      this.trackResourceLoading();
+      this.initializeEnhancedTracking(options);
+      this.setupNetworkDetection();
+      this.setupRetryMechanism();
+      this.loadBaselineMetrics();
     }
   }
 
@@ -62,195 +161,452 @@ class VitalsMonitor {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   }
 
-  private initializeVitalsTracking(): void {
-    //track Core Web Vitals using web-vitals library pattern
-    this.trackLCP();
-    this.trackFID();
-    this.trackCLS();
-    this.trackTTFB();
-    this.trackFCP();
-    this.trackINP();
-  }
-
-  private trackLCP(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          const lastEntry = entries[entries.length - 1] as any;
-          
-          if (lastEntry) {
-            this.recordVital('LCP', lastEntry.startTime, lastEntry.id);
-          }
-        });
-        
-        observer.observe({ type: 'largest-contentful-paint', buffered: true });
-      } catch (error) {
-        console.warn('LCP tracking failed:', error);
-      }
-    }
-  }
-
-  private trackFID(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            this.recordVital('FID', entry.processingStart - entry.startTime, entry.name);
-          });
-        });
-        
-        observer.observe({ type: 'first-input', buffered: true });
-      } catch (error) {
-        console.warn('FID tracking failed:', error);
-      }
-    }
-  }
-
-  private trackCLS(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        let clsValue = 0;
-        let clsEntries: any[] = [];
-        let sessionValue = 0;
-        let sessionEntries: any[] = [];
-
-        const observer = new PerformanceObserver((list) => {
-          for (const entry of list.getEntries() as any[]) {
-            if (!entry.hadRecentInput) {
-              const firstSessionEntry = sessionEntries[0];
-              const lastSessionEntry = sessionEntries[sessionEntries.length - 1];
-
-              //check if entry belongs to current session
-              if (sessionValue && 
-                  entry.startTime - lastSessionEntry.startTime < 1000 &&
-                  entry.startTime - firstSessionEntry.startTime < 5000) {
-                sessionValue += entry.value;
-                sessionEntries.push(entry);
-              } else {
-                sessionValue = entry.value;
-                sessionEntries = [entry];
-              }
-
-              if (sessionValue > clsValue) {
-                clsValue = sessionValue;
-                clsEntries = [...sessionEntries];
-                
-                this.recordVital('CLS', clsValue, clsEntries.map(e => e.name).join(','));
-              }
-            }
-          }
-        });
-        
-        observer.observe({ type: 'layout-shift', buffered: true });
-      } catch (error) {
-        console.warn('CLS tracking failed:', error);
-      }
-    }
-  }
-
-  private trackTTFB(): void {
-    if ('performance' in window && 'getEntriesByType' in performance) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (entry.responseStart > 0) {
-              this.recordVital('TTFB', entry.responseStart - entry.fetchStart, entry.name);
-            }
-          });
-        });
-        
-        observer.observe({ type: 'navigation', buffered: true });
-      } catch (error) {
-        //fallback to navigation timing
-        this.trackTTFBFallback();
-      }
-    }
-  }
-
-  private trackTTFBFallback(): void {
-    window.addEventListener('load', () => {
-      const navTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      if (navTiming && navTiming.responseStart > 0) {
-        const ttfb = navTiming.responseStart - navTiming.fetchStart;
-        this.recordVital('TTFB', ttfb, 'navigation');
-      }
-    });
-  }
-
-  private trackFCP(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (entry.name === 'first-contentful-paint') {
-              this.recordVital('FCP', entry.startTime, entry.name);
-            }
-          });
-        });
-        
-        observer.observe({ type: 'paint', buffered: true });
-      } catch (error) {
-        console.warn('FCP tracking failed:', error);
-      }
-    }
-  }
-
-  private trackINP(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries();
-          entries.forEach((entry: any) => {
-            if (entry.duration) {
-              this.recordVital('INP', entry.duration, entry.name);
-            }
-          });
-        });
-        
-        observer.observe({ type: 'event', buffered: true });
-      } catch (error) {
-        console.warn('INP tracking failed:', error);
-      }
-    }
-  }
-
-  private recordVital(name: string, value: number, id: string): void {
-    const threshold = VITALS_THRESHOLDS[name as keyof typeof VITALS_THRESHOLDS];
-    let rating: 'good' | 'needs-improvement' | 'poor' = 'good';
+  private async initializeEnhancedTracking(options: any): Promise<void> {
+    if (this.isInitialized) return;
     
-    if (threshold) {
-      if (value > threshold.poor) {
-        rating = 'poor';
-      } else if (value > threshold.good) {
-        rating = 'needs-improvement';
+    try {
+      //initialize Core Web Vitals with web-vitals library
+      this.initializeWebVitalsTracking();
+      
+      //initialize additional tracking systems
+      this.trackPageVisibility();
+      this.trackResourceLoading();
+      
+      if (options.enableMemoryMonitoring !== false) {
+        this.startMemoryMonitoring();
       }
+      
+      if (options.enableUserInteractionTracking !== false) {
+        this.trackUserInteractions();
+      }
+      
+      //setup periodic reporting
+      setInterval(() => this.sendMetricsIfReady(), 30000);
+      
+      //setup page unload handler
+      window.addEventListener('beforeunload', () => this.handlePageUnload());
+      
+      this.isInitialized = true;
+      console.log('Enhanced Performance Tracker initialized');
+    } catch (error) {
+      console.error('Failed to initialize performance tracking:', error);
     }
+  }
 
-    const vitalData: VitalsData = {
-      name,
-      value,
-      id,
-      delta: value, // For simplicity, using value as delta
-      rating,
+  private initializeWebVitalsTracking(): void {
+    //use official web-vitals library for accurate measurements
+    getCLS(this.handleWebVital.bind(this), { reportAllChanges: true });
+    getFID(this.handleWebVital.bind(this));
+    getFCP(this.handleWebVital.bind(this));
+    getLCP(this.handleWebVital.bind(this), { reportAllChanges: true });
+    getTTFB(this.handleWebVital.bind(this));
+    onINP(this.handleWebVital.bind(this), { reportAllChanges: true });
+  }
+
+  private handleWebVital(metric: Metric): void {
+    const enhancedMetric: EnhancedVitalsData = {
+      ...metric,
+      rating: this.getRating(metric.name, metric.value),
       navigationType: this.getNavigationType(),
       timestamp: Date.now(),
       url: window.location.href,
       userAgent: navigator.userAgent,
+      connectionType: this.getConnectionType(),
+      deviceMemory: (navigator as any).deviceMemory,
+      hardwareConcurrency: navigator.hardwareConcurrency,
+      sessionId: this.sessionId,
+      userId: this.userId,
+      pageLoadTime: this.getPageLoadTime(),
+      domContentLoadedTime: this.getDOMContentLoadedTime(),
+      entries: metric.entries as any[]
     };
 
-    this.vitalsData.push(vitalData);
-
-    //report immediately for poor ratings
-    if (rating === 'poor' && this.isReporting) {
-      this.reportVital(vitalData);
+    this.vitalsData.push(enhancedMetric);
+    
+    //check for regressions and alerts
+    this.checkForRegressions(enhancedMetric);
+    
+    //emit custom event for external listeners
+    this.emitVitalEvent(enhancedMetric);
+    
+    //report critical metrics immediately
+    if (enhancedMetric.rating === 'poor' || this.isCriticalMetric(metric.name)) {
+      this.sendMetricsIfReady();
     }
+  }
 
-    //emit custom event for external tracking
-    this.emitVitalEvent(vitalData);
+  private setupNetworkDetection(): void {
+    this.isOnline = navigator.onLine;
+    
+    window.addEventListener('online', () => {
+      this.isOnline = true;
+      this.processRetryQueue();
+    });
+    
+    window.addEventListener('offline', () => {
+      this.isOnline = false;
+    });
+  }
+
+  private setupRetryMechanism(): void {
+    //process retry queue every 30 seconds when online
+    setInterval(() => {
+      if (this.isOnline && this.retryQueue.length > 0) {
+        this.processRetryQueue();
+      }
+    }, 30000);
+  }
+
+  private async processRetryQueue(): Promise<void> {
+    const queue = [...this.retryQueue];
+    this.retryQueue = [];
+    
+    for (const item of queue) {
+      try {
+        await this.sendToEndpoint(item.endpoint, item.data);
+      } catch (error) {
+        //re-queue if still failing
+        if (this.retryQueue.length < 50) { // max queue size
+          this.retryQueue.push(item);
+        }
+      }
+    }
+  }
+
+  private async loadBaselineMetrics(): Promise<void> {
+    try {
+      const response = await fetch('/api/analytics/baseline');
+      if (response.ok) {
+        this.baselineMetrics = await response.json();
+      }
+    } catch (error) {
+      //use default baselines if API fails
+      this.baselineMetrics = { ...PERFORMANCE_BUDGETS };
+    }
+  }
+
+  private checkForRegressions(metric: EnhancedVitalsData): void {
+    const baseline = this.baselineMetrics[metric.name] || PERFORMANCE_BUDGETS[metric.name as keyof typeof PERFORMANCE_BUDGETS];
+    
+    if (baseline && metric.value > baseline * 1.2) { // 20% regression threshold
+      const alert: PerformanceAlert = {
+        metric: metric.name,
+        value: metric.value,
+        threshold: baseline,
+        severity: metric.value > baseline * 1.5 ? 'critical' : 'warning',
+        url: metric.url,
+        timestamp: metric.timestamp,
+        sessionId: this.sessionId,
+        userId: this.userId
+      };
+      
+      this.alerts.push(alert);
+      this.sendAlert(alert);
+    }
+  }
+
+  private async sendAlert(alert: PerformanceAlert): Promise<void> {
+    try {
+      await this.sendToEndpoint('/api/analytics/alerts', { alert });
+      console.warn('Performance regression detected:', alert);
+    } catch (error) {
+      console.error('Failed to send performance alert:', error);
+    }
+  }
+
+  private startMemoryMonitoring(): void {
+    if (!(performance as any).memory) return;
+    
+    const trackMemory = () => {
+      const memory = (performance as any).memory;
+      const memoryMetric: MemoryMetric = {
+        usedJSHeapSize: memory.usedJSHeapSize,
+        totalJSHeapSize: memory.totalJSHeapSize,
+        jsHeapSizeLimit: memory.jsHeapSizeLimit,
+        usagePercentage: (memory.usedJSHeapSize / memory.jsHeapSizeLimit) * 100,
+        timestamp: Date.now()
+      };
+      
+      this.memoryMetrics.push(memoryMetric);
+      
+      //alert on high memory usage
+      if (memoryMetric.usagePercentage > 80) {
+        const alert: PerformanceAlert = {
+          metric: 'MEMORY_USAGE',
+          value: memoryMetric.usagePercentage,
+          threshold: 80,
+          severity: memoryMetric.usagePercentage > 90 ? 'critical' : 'warning',
+          url: window.location.href,
+          timestamp: Date.now(),
+          sessionId: this.sessionId,
+          userId: this.userId
+        };
+        
+        this.alerts.push(alert);
+        this.sendAlert(alert);
+      }
+      
+      //keep only last 50 memory readings
+      if (this.memoryMetrics.length > 50) {
+        this.memoryMetrics = this.memoryMetrics.slice(-50);
+      }
+    };
+    
+    //track memory every 5 seconds
+    this.memoryMonitorInterval = setInterval(trackMemory, 5000);
+    trackMemory(); // initial reading
+  }
+
+  private trackUserInteractions(): void {
+    const interactionTypes = ['click', 'keydown', 'touchstart'];
+    
+    interactionTypes.forEach(type => {
+      document.addEventListener(type, (event) => {
+        const startTime = performance.now();
+        
+        //use requestIdleCallback to measure processing time
+        if ('requestIdleCallback' in window) {
+          (window as any).requestIdleCallback(() => {
+            const processingTime = performance.now() - startTime;
+            
+            const interaction: UserInteractionMetric = {
+              interactionType: type,
+              target: this.getElementSelector(event.target as Element),
+              startTime,
+              processingTime,
+              presentationTime: performance.now(),
+              duration: processingTime,
+              timestamp: Date.now()
+            };
+            
+            this.userInteractions.push(interaction);
+            
+            //alert on slow interactions
+            if (processingTime > 100) {
+              const alert: PerformanceAlert = {
+                metric: 'SLOW_INTERACTION',
+                value: processingTime,
+                threshold: 100,
+                severity: processingTime > 300 ? 'critical' : 'warning',
+                url: `${window.location.href}#${interaction.target}`,
+                timestamp: Date.now(),
+                sessionId: this.sessionId,
+                userId: this.userId
+              };
+              
+              this.alerts.push(alert);
+            }
+            
+            //keep only last 100 interactions
+            if (this.userInteractions.length > 100) {
+              this.userInteractions = this.userInteractions.slice(-100);
+            }
+          });
+        }
+      }, { passive: true });
+    });
+  }
+
+  private getElementSelector(element: Element): string {
+    if (!element) return 'unknown';
+    
+    if (element.id) return `#${element.id}`;
+    if (element.className) return `.${element.className.split(' ')[0]}`;
+    return element.tagName.toLowerCase();
+  }
+
+  private isCriticalMetric(metricName: string): boolean {
+    return ['LCP', 'FID', 'CLS'].includes(metricName);
+  }
+
+  private getPageLoadTime(): number {
+    const navTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    return navTiming ? navTiming.loadEventEnd - navTiming.fetchStart : 0;
+  }
+
+  private getDOMContentLoadedTime(): number {
+    const navTiming = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+    return navTiming ? navTiming.domContentLoadedEventEnd - navTiming.fetchStart : 0;
+  }
+
+  private trackResourceLoading(): void {
+    if (!('PerformanceObserver' in window)) return;
+    
+    try {
+      this.performanceObserver = new PerformanceObserver((list) => {
+        const entries = list.getEntries() as PerformanceResourceTiming[];
+        
+        entries.forEach(entry => {
+          const resourceMetric: ResourceMetric = {
+            name: entry.name,
+            type: this.getResourceType(entry.name),
+            size: entry.transferSize || 0,
+            duration: entry.responseEnd - entry.startTime,
+            transferSize: entry.transferSize || 0,
+            encodedBodySize: entry.encodedBodySize || 0,
+            decodedBodySize: entry.decodedBodySize || 0,
+            initiatorType: entry.initiatorType,
+            timestamp: Date.now(),
+            isCritical: this.isCriticalResource(entry.name)
+          };
+          
+          this.resourceMetrics.push(resourceMetric);
+          
+          //alert on slow resources
+          if (resourceMetric.duration > 3000 || resourceMetric.size > 2048 * 1024) {
+            const alert: PerformanceAlert = {
+              metric: resourceMetric.duration > 3000 ? 'SLOW_RESOURCE' : 'LARGE_RESOURCE',
+              value: resourceMetric.duration > 3000 ? resourceMetric.duration : resourceMetric.size,
+              threshold: resourceMetric.duration > 3000 ? 3000 : 2048 * 1024,
+              severity: 'warning',
+              url: resourceMetric.name,
+              timestamp: Date.now(),
+              sessionId: this.sessionId,
+              userId: this.userId
+            };
+            
+            this.alerts.push(alert);
+          }
+        });
+        
+        //keep only last 200 resource metrics
+        if (this.resourceMetrics.length > 200) {
+          this.resourceMetrics = this.resourceMetrics.slice(-200);
+        }
+      });
+      
+      this.performanceObserver.observe({ type: 'resource', buffered: true });
+    } catch (error) {
+      console.warn('Resource tracking failed:', error);
+    }
+  }
+
+  private getResourceType(url: string): string {
+    const extension = url.split('.').pop()?.toLowerCase() || '';
+    
+    if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg'].includes(extension)) return 'image';
+    if (['js', 'mjs'].includes(extension)) return 'script';
+    if (['css'].includes(extension)) return 'stylesheet';
+    if (['woff', 'woff2', 'ttf', 'otf'].includes(extension)) return 'font';
+    if (['mp4', 'webm', 'ogg'].includes(extension)) return 'video';
+    if (['mp3', 'wav', 'ogg'].includes(extension)) return 'audio';
+    
+    return 'other';
+  }
+
+  private isCriticalResource(url: string): boolean {
+    //consider resources critical if they're CSS, fonts, or above-the-fold images
+    const type = this.getResourceType(url);
+    return ['stylesheet', 'font'].includes(type) || url.includes('critical');
+  }
+
+  private calculatePerformanceScore(): number {
+    if (this.vitalsData.length === 0) return 100;
+    
+    const weights = {
+      LCP: 25,
+      FID: 25,
+      CLS: 25,
+      TTFB: 10,
+      FCP: 10,
+      INP: 5
+    };
+    
+    let totalScore = 0;
+    let totalWeight = 0;
+    
+    this.vitalsData.forEach(vital => {
+      const weight = weights[vital.name as keyof typeof weights] || 0;
+      if (weight > 0) {
+        const score = vital.rating === 'good' ? 100 : 
+                     vital.rating === 'needs-improvement' ? 50 : 0;
+        totalScore += score * weight;
+        totalWeight += weight;
+      }
+    });
+    
+    return totalWeight > 0 ? Math.round(totalScore / totalWeight) : 100;
+  }
+
+  private async sendMetricsIfReady(): Promise<void> {
+    if (!this.isReporting || 
+        (this.vitalsData.length === 0 && this.resourceMetrics.length === 0 && 
+         this.memoryMetrics.length === 0 && this.userInteractions.length === 0)) {
+      return;
+    }
+    
+    const performanceData: PerformanceData = {
+      vitals: [...this.vitalsData],
+      resources: [...this.resourceMetrics],
+      navigation: this.getNavigationTiming(),
+      memory: [...this.memoryMetrics],
+      userInteractions: [...this.userInteractions],
+      connection: this.getConnectionInfo(),
+      timestamp: Date.now(),
+      sessionId: this.sessionId,
+      userId: this.userId,
+      pageUrl: window.location.href,
+      referrer: document.referrer,
+      deviceInfo: {
+        userAgent: navigator.userAgent,
+        viewport: {
+          width: window.innerWidth,
+          height: window.innerHeight
+        },
+        deviceMemory: (navigator as any).deviceMemory,
+        hardwareConcurrency: navigator.hardwareConcurrency,
+        connectionType: this.getConnectionType()
+      },
+      performanceScore: this.calculatePerformanceScore(),
+      regressions: [...this.alerts]
+    };
+    
+    try {
+      await this.sendToEndpoint(this.reportingEndpoint, performanceData);
+      
+      //clear sent data
+      this.vitalsData = [];
+      this.resourceMetrics = [];
+      this.memoryMetrics = [];
+      this.userInteractions = [];
+      this.alerts = [];
+    } catch (error) {
+      console.warn('Failed to send performance metrics:', error);
+      
+      //queue for retry if offline
+      if (!this.isOnline && this.retryQueue.length < 50) {
+        this.retryQueue.push({
+          endpoint: this.reportingEndpoint,
+          data: performanceData
+        });
+      }
+    }
+  }
+
+  private async sendToEndpoint(endpoint: string, data: any): Promise<void> {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+      keepalive: true
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+  }
+
+  private handlePageUnload(): void {
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+    }
+    
+    if (this.performanceObserver) {
+      this.performanceObserver.disconnect();
+    }
+    
+    //send final metrics using sendBeacon
+    this.sendBeacon();
   }
 
   private getNavigationType(): string {
@@ -261,68 +617,53 @@ class VitalsMonitor {
     return 'unknown';
   }
 
-  private emitVitalEvent(data: VitalsData): void {
+  private emitVitalEvent(data: EnhancedVitalsData): void {
     const event = new CustomEvent('web-vital', { detail: data });
     window.dispatchEvent(event);
+    
+    //also emit performance event for dashboard integration
+    const performanceEvent = new CustomEvent('performance-update', {
+      detail: {
+        metric: data,
+        score: this.calculatePerformanceScore(),
+        alerts: this.alerts.length
+      }
+    });
+    window.dispatchEvent(performanceEvent);
   }
 
   private trackPageVisibility(): void {
     let isHidden = document.hidden;
+    let visibilityStartTime = Date.now();
     
     const handleVisibilityChange = () => {
+      const now = Date.now();
+      
       if (isHidden && !document.hidden) {
         //page became visible, track return time
-        this.recordCustomMetric('page-return', Date.now());
+        this.recordCustomMetric('page-return', now);
+        visibilityStartTime = now;
+      } else if (!isHidden && document.hidden) {
+        //page became hidden, track visibility duration
+        const visibilityDuration = now - visibilityStartTime;
+        this.recordCustomMetric('page-visibility-duration', visibilityDuration);
       }
+      
       isHidden = document.hidden;
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    //track when user leaves page
-    window.addEventListener('beforeunload', () => {
-      if (this.isReporting) {
-        this.sendBeacon();
-      }
-    });
-  }
-
-  private trackResourceLoading(): void {
-    if ('PerformanceObserver' in window) {
-      try {
-        const observer = new PerformanceObserver((list) => {
-          const entries = list.getEntries() as PerformanceResourceTiming[];
-          
-          //track slow loading resources
-          entries.forEach(entry => {
-            const loadTime = entry.responseEnd - entry.startTime;
-            
-            //flag resources taking longer than 2 seconds
-            if (loadTime > 2000) {
-              this.recordCustomMetric('slow-resource', loadTime, {
-                name: entry.name,
-                type: entry.initiatorType,
-                size: entry.transferSize,
-              });
-            }
-          });
-        });
-        
-        observer.observe({ type: 'resource', buffered: true });
-      } catch (error) {
-        console.warn('Resource tracking failed:', error);
-      }
-    }
   }
 
   private recordCustomMetric(name: string, value: number, metadata?: any): void {
     const customData = {
-      name,
+      name: `CUSTOM_${name.toUpperCase()}`,
       value,
       metadata,
       timestamp: Date.now(),
       url: window.location.href,
       sessionId: this.sessionId,
+      userId: this.userId
     };
 
     //emit custom event
@@ -330,25 +671,36 @@ class VitalsMonitor {
     window.dispatchEvent(event);
   }
 
-  private async reportVital(data: VitalsData): Promise<void> {
-    try {
-      await fetch(this.reportingEndpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ vital: data, sessionId: this.sessionId }),
-        keepalive: true,
-      });
-    } catch (error) {
-      console.warn('Failed to report vital:', error);
-      
-      //queue for service worker sync
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.controller?.postMessage({
-          type: 'CACHE_ANALYTICS',
-          payload: { vital: data, sessionId: this.sessionId }
-        });
-      }
+
+  private getRating(name: string, value: number): 'good' | 'needs-improvement' | 'poor' {
+    const threshold = VITALS_THRESHOLDS[name as keyof typeof VITALS_THRESHOLDS];
+    if (!threshold) return 'good';
+    
+    if (value > threshold.poor) return 'poor';
+    if (value > threshold.good) return 'needs-improvement';
+    return 'good';
+  }
+
+  private getNavigationType(): string {
+    if ('navigation' in performance) {
+      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      return navEntry?.type || 'unknown';
     }
+    return 'unknown';
+  }
+
+  private getConnectionType(): string | undefined {
+    const connection = (navigator as any).connection;
+    return connection?.effectiveType || connection?.type;
+  }
+
+  private getNavigationTiming(): PerformanceNavigationTiming | null {
+    const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
+    return entries[0] || null;
+  }
+
+  private getConnectionInfo(): any {
+    return (navigator as any).connection || null;
   }
 
   private sendBeacon(): void {
@@ -395,41 +747,111 @@ class VitalsMonitor {
     return (navigator as any).connection || null;
   }
 
-  //public API methods
-  public getVitalsData(): VitalsData[] {
+  //public API methods for external usage
+  public setUserId(userId: string): void {
+    this.userId = userId;
+  }
+
+  public trackCustomMetric(name: string, value: number, rating?: 'good' | 'needs-improvement' | 'poor'): void {
+    this.recordCustomMetric(name, value, { rating });
+  }
+
+  public trackUserInteraction(action: string, duration: number, target?: string): void {
+    const interaction: UserInteractionMetric = {
+      interactionType: action,
+      target: target || 'unknown',
+      startTime: performance.now() - duration,
+      processingTime: duration,
+      presentationTime: performance.now(),
+      duration,
+      timestamp: Date.now()
+    };
+    
+    this.userInteractions.push(interaction);
+  }
+
+  public async measureAsyncOperation<T>(name: string, operation: () => Promise<T>): Promise<T> {
+    const start = performance.now();
+    
+    try {
+      const result = await operation();
+      const duration = performance.now() - start;
+      
+      this.recordCustomMetric(`async-operation-${name}`, duration);
+      
+      return result;
+    } catch (error) {
+      const duration = performance.now() - start;
+      this.recordCustomMetric(`async-operation-${name}-error`, duration);
+      throw error;
+    }
+  }
+
+  public forceMetricsSend(): Promise<void> {
+    return this.sendMetricsIfReady();
+  }
+
+  public getVitalsData(): EnhancedVitalsData[] {
     return [...this.vitalsData];
   }
 
-  public getPerformanceSummary(): {
-    vitals: Record<string, { value: number; rating: string }>;
-    overallScore: number;
-  } {
-    const summary: Record<string, { value: number; rating: string }> = {};
-    let totalScore = 0;
-    let metricCount = 0;
+  public getResourceMetrics(): ResourceMetric[] {
+    return [...this.resourceMetrics];
+  }
 
+  public getMemoryMetrics(): MemoryMetric[] {
+    return [...this.memoryMetrics];
+  }
+
+  public getUserInteractions(): UserInteractionMetric[] {
+    return [...this.userInteractions];
+  }
+
+  public getAlerts(): PerformanceAlert[] {
+    return [...this.alerts];
+  }
+
+  public getPerformanceSummary(): {
+    vitals: Record<string, { value: number; rating: string; timestamp: number }>;
+    overallScore: number;
+    resourceCount: number;
+    memoryUsage: number;
+    alertCount: number;
+    sessionDuration: number;
+  } {
+    const summary: Record<string, { value: number; rating: string; timestamp: number }> = {};
+    
+    //get latest value for each vital
     this.vitalsData.forEach(vital => {
-      if (!summary[vital.name]) {
-        summary[vital.name] = { value: vital.value, rating: vital.rating };
-        
-        //calculate score (good=100, needs-improvement=50, poor=0)
-        const score = vital.rating === 'good' ? 100 : 
-                     vital.rating === 'needs-improvement' ? 50 : 0;
-        totalScore += score;
-        metricCount++;
+      if (!summary[vital.name] || vital.timestamp > summary[vital.name].timestamp) {
+        summary[vital.name] = { 
+          value: vital.value, 
+          rating: vital.rating,
+          timestamp: vital.timestamp
+        };
       }
     });
 
+    const latestMemory = this.memoryMetrics[this.memoryMetrics.length - 1];
+    const sessionDuration = Date.now() - parseInt(this.sessionId.split('-')[1]);
+
     return {
       vitals: summary,
-      overallScore: metricCount > 0 ? Math.round(totalScore / metricCount) : 0,
+      overallScore: this.calculatePerformanceScore(),
+      resourceCount: this.resourceMetrics.length,
+      memoryUsage: latestMemory?.usagePercentage || 0,
+      alertCount: this.alerts.length,
+      sessionDuration
     };
   }
 
-  public enableReporting(endpoint?: string): void {
+  public enableReporting(endpoint?: string, dashboardEndpoint?: string): void {
     this.isReporting = true;
     if (endpoint) {
       this.reportingEndpoint = endpoint;
+    }
+    if (dashboardEndpoint) {
+      this.dashboardEndpoint = dashboardEndpoint;
     }
   }
 
@@ -437,40 +859,83 @@ class VitalsMonitor {
     this.isReporting = false;
   }
 
-  public clearData(): void {
+  public clearAllData(): void {
     this.vitalsData = [];
+    this.resourceMetrics = [];
+    this.memoryMetrics = [];
+    this.userInteractions = [];
+    this.alerts = [];
+  }
+
+  public setBaselineMetrics(baselines: Record<string, number>): void {
+    this.baselineMetrics = { ...this.baselineMetrics, ...baselines };
+  }
+
+  public getSessionId(): string {
+    return this.sessionId;
+  }
+
+  public destroy(): void {
+    this.isReporting = false;
+    
+    if (this.memoryMonitorInterval) {
+      clearInterval(this.memoryMonitorInterval);
+    }
+    
+    if (this.performanceObserver) {
+      this.performanceObserver.disconnect();
+    }
+    
+    this.clearAllData();
   }
 }
 
-//singleton instance
-export const vitalsMonitor = new VitalsMonitor({
+//create enhanced performance tracker instance
+export const performanceTracker = new PerformanceTracker({
   enableAutoReporting: true,
-  sampleRate: 1.0, // Report all metrics in development
+  enableRegressionDetection: true,
+  enableMemoryMonitoring: true,
+  enableUserInteractionTracking: true
 });
 
-//helper functions for performance optimization
+//backward compatibility
+export const vitalsMonitor = performanceTracker;
+
+//enhanced performance utilities
 export const performanceUtils = {
   /**
-   * Measure and log performance of async operations
+   * Measure and log performance of async operations with enhanced tracking
    */
   async measureAsync<T>(name: string, operation: () => Promise<T>): Promise<T> {
-    const start = performance.now();
+    return performanceTracker.measureAsyncOperation(name, operation);
+  },
+
+  /**
+   * Track custom business metrics
+   */
+  trackBusinessMetric(name: string, value: number, metadata?: any): void {
+    performanceTracker.trackCustomMetric(`business-${name}`, value);
     
-    try {
-      const result = await operation();
-      const duration = performance.now() - start;
-      
-      console.log(`Performance: ${name} took ${duration.toFixed(2)}ms`);
-      
-      //record custom metric
-      vitalsMonitor['recordCustomMetric']('operation-timing', duration, { operation: name });
-      
-      return result;
-    } catch (error) {
-      const duration = performance.now() - start;
-      console.warn(`Performance: ${name} failed after ${duration.toFixed(2)}ms`, error);
-      throw error;
+    if (metadata) {
+      console.log(`Business Metric: ${name} = ${value}`, metadata);
     }
+  },
+
+  /**
+   * Measure DOM manipulation performance
+   */
+  measureDOMOperation(name: string, operation: () => void): number {
+    const start = performance.now();
+    operation();
+    const duration = performance.now() - start;
+    
+    performanceTracker.trackCustomMetric(`dom-${name}`, duration);
+    
+    if (duration > 16) { // Over one frame at 60fps
+      console.warn(`Slow DOM operation: ${name} took ${duration.toFixed(2)}ms`);
+    }
+    
+    return duration;
   },
 
   /**
@@ -556,52 +1021,203 @@ export const performanceUtils = {
   },
 
   /**
-   * Get performance recommendations
+   * Get detailed performance recommendations based on current metrics
    */
-  getRecommendations(): string[] {
-    const summary = vitalsMonitor.getPerformanceSummary();
-    const recommendations: string[] = [];
+  getRecommendations(): {
+    critical: string[];
+    important: string[];
+    minor: string[];
+    score: number;
+  } {
+    const summary = performanceTracker.getPerformanceSummary();
+    const alerts = performanceTracker.getAlerts();
+    const recommendations = {
+      critical: [] as string[],
+      important: [] as string[],
+      minor: [] as string[],
+      score: summary.overallScore
+    };
     
+    //analyze core web vitals
     Object.entries(summary.vitals).forEach(([metric, data]) => {
-      if (data.rating === 'poor') {
-        switch (metric) {
-          case 'LCP':
-            recommendations.push('Optimize images and critical resources for faster loading');
-            recommendations.push('Consider using a CDN for better content delivery');
-            break;
-          case 'FID':
-            recommendations.push('Reduce JavaScript execution time');
-            recommendations.push('Break up long-running tasks');
-            break;
-          case 'CLS':
-            recommendations.push('Set explicit dimensions for images and ads');
-            recommendations.push('Avoid inserting content above existing content');
-            break;
-          case 'TTFB':
-            recommendations.push('Optimize server response time');
-            recommendations.push('Use caching to improve response speed');
-            break;
-        }
+      const category = data.rating === 'poor' ? 'critical' : 
+                      data.rating === 'needs-improvement' ? 'important' : 'minor';
+      
+      switch (metric) {
+        case 'LCP':
+          if (data.rating !== 'good') {
+            recommendations[category].push(
+              data.value > 4000 ? 
+              'Critical: LCP is very slow. Optimize critical resources and consider CDN' :
+              'Improve LCP by optimizing images and preloading critical resources'
+            );
+          }
+          break;
+        case 'FID':
+          if (data.rating !== 'good') {
+            recommendations[category].push(
+              'Reduce JavaScript execution time and break up long tasks'
+            );
+          }
+          break;
+        case 'CLS':
+          if (data.rating !== 'good') {
+            recommendations[category].push(
+              'Fix layout shifts by setting dimensions for images and avoiding DOM insertion'
+            );
+          }
+          break;
+        case 'TTFB':
+          if (data.rating !== 'good') {
+            recommendations[category].push(
+              'Optimize server response time and implement caching'
+            );
+          }
+          break;
+        case 'INP':
+          if (data.rating !== 'good') {
+            recommendations[category].push(
+              'Improve interaction responsiveness by optimizing event handlers'
+            );
+          }
+          break;
       }
     });
     
-    if (summary.overallScore < 70) {
-      recommendations.push('Consider implementing service worker for caching');
-      recommendations.push('Optimize bundle size and use code splitting');
+    //analyze memory usage
+    if (summary.memoryUsage > 80) {
+      recommendations.critical.push('High memory usage detected - investigate memory leaks');
+    } else if (summary.memoryUsage > 60) {
+      recommendations.important.push('Monitor memory usage - consider optimization');
+    }
+    
+    //analyze alerts
+    const criticalAlerts = alerts.filter(a => a.severity === 'critical').length;
+    if (criticalAlerts > 0) {
+      recommendations.critical.push(`${criticalAlerts} critical performance issues detected`);
+    }
+    
+    //overall score recommendations
+    if (summary.overallScore < 50) {
+      recommendations.critical.push('Overall performance is poor - immediate optimization needed');
+      recommendations.critical.push('Consider performance audit and major optimizations');
+    } else if (summary.overallScore < 80) {
+      recommendations.important.push('Performance could be improved with targeted optimizations');
     }
     
     return recommendations;
   },
+
+  /**
+   * Create performance budget checker
+   */
+  createBudgetChecker(budgets: Record<string, number>) {
+    return {
+      check(): { passed: boolean; violations: string[] } {
+        const summary = performanceTracker.getPerformanceSummary();
+        const violations: string[] = [];
+        
+        Object.entries(budgets).forEach(([metric, budget]) => {
+          const vital = summary.vitals[metric];
+          if (vital && vital.value > budget) {
+            violations.push(`${metric}: ${vital.value} > ${budget} (budget)`);
+          }
+        });
+        
+        return {
+          passed: violations.length === 0,
+          violations
+        };
+      }
+    };
+  },
+
+  /**
+   * Setup performance monitoring for specific components
+   */
+  monitorComponent(componentName: string) {
+    const startTime = performance.now();
+    
+    return {
+      markRender(): void {
+        const renderTime = performance.now() - startTime;
+        performanceTracker.trackCustomMetric(`component-render-${componentName}`, renderTime);
+      },
+      
+      markMount(): void {
+        const mountTime = performance.now() - startTime;
+        performanceTracker.trackCustomMetric(`component-mount-${componentName}`, mountTime);
+      },
+      
+      markUnmount(): void {
+        const totalTime = performance.now() - startTime;
+        performanceTracker.trackCustomMetric(`component-lifecycle-${componentName}`, totalTime);
+      }
+    };
+  }
 };
 
-//initialize vitals monitoring automatically
+//export types for external usage
+export type {
+  EnhancedVitalsData,
+  ResourceMetric,
+  MemoryMetric,
+  UserInteractionMetric,
+  PerformanceAlert,
+  PerformanceData
+};
+
+//export main class
+export { PerformanceTracker };
+
+//global performance monitoring setup
 if (typeof window !== 'undefined') {
-  //wait for DOM to be ready
+  //monitor long tasks
+  if ('PerformanceObserver' in window) {
+    const longTaskObserver = new PerformanceObserver((list) => {
+      list.getEntries().forEach((entry) => {
+        if (entry.duration > 50) {
+          performanceTracker.trackCustomMetric('long-task', entry.duration);
+          console.warn(`Long task detected: ${entry.duration.toFixed(2)}ms`);
+        }
+      });
+    });
+    
+    try {
+      longTaskObserver.observe({ type: 'longtask', buffered: true });
+    } catch (error) {
+      //longtask observer not supported
+    }
+  }
+  
+  //monitor unhandled errors that might impact performance
+  window.addEventListener('error', (event) => {
+    performanceTracker.trackCustomMetric('js-error', 1, {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno
+    });
+  });
+  
+  //monitor unhandled promise rejections
+  window.addEventListener('unhandledrejection', (event) => {
+    performanceTracker.trackCustomMetric('promise-rejection', 1, {
+      reason: event.reason?.toString?.()
+    });
+  });
+  
+  //initialize enhanced performance tracking automatically
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      console.log('Core Web Vitals monitoring initialized');
+      console.log('Enhanced Performance Tracker initialized');
     });
   } else {
-    console.log('Core Web Vitals monitoring initialized');
+    console.log('Enhanced Performance Tracker initialized');
+  }
+  
+  //add performance debugging in development
+  if (import.meta.env?.DEV) {
+    (window as any).performanceTracker = performanceTracker;
+    (window as any).performanceUtils = performanceUtils;
   }
 }
