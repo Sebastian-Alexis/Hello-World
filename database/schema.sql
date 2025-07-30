@@ -470,8 +470,10 @@ CREATE TABLE media_files (
 -- analytics events for tracking
 CREATE TABLE analytics_events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    event_type TEXT NOT NULL, -- page_view, click, download, etc.
-    page_path TEXT NOT NULL,
+    event_type TEXT NOT NULL, -- page_view, project_view, skill_interaction, download, etc.
+    entity_type TEXT, -- project, skill, page, etc.
+    entity_id INTEGER, -- id of the related entity
+    page_path TEXT,
     page_title TEXT,
     referrer TEXT,
     user_agent TEXT,
@@ -645,9 +647,11 @@ CREATE INDEX idx_media_files_created ON media_files(created_at DESC);
 
 -- analytics indexes
 CREATE INDEX idx_analytics_events_type ON analytics_events(event_type);
+CREATE INDEX idx_analytics_events_entity ON analytics_events(entity_type, entity_id);
 CREATE INDEX idx_analytics_events_page_path ON analytics_events(page_path);
 CREATE INDEX idx_analytics_events_created ON analytics_events(created_at DESC);
 CREATE INDEX idx_analytics_events_session ON analytics_events(session_id);
+CREATE INDEX idx_analytics_events_type_created ON analytics_events(event_type, created_at DESC);
 
 CREATE INDEX idx_page_views_path_date ON page_views(page_path, view_date DESC);
 CREATE INDEX idx_page_views_date ON page_views(view_date DESC);

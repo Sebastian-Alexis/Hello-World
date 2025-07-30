@@ -1227,6 +1227,520 @@ export class DatabaseQueries {
   }
 
   // =============================================================================
+  // ENHANCED PORTFOLIO SYSTEM - Plan 6 Extensions
+  // =============================================================================
+
+  //creates a new skill
+  async createSkill(skillData: Omit<Skill, 'id' | 'created_at' | 'updated_at'>): Promise<Skill> {
+    const query = `
+      INSERT INTO skills (
+        name, category, proficiency_level, years_experience, last_used_date,
+        certification_level, description, priority_level
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      skillData.name,
+      skillData.category,
+      skillData.proficiency_level,
+      skillData.years_experience || null,
+      skillData.last_used_date || null,
+      skillData.certification_level || null,
+      skillData.description || null,
+      skillData.priority_level,
+    ];
+
+    const result = await executeQuery<Skill>(query, params);
+    return result.rows[0];
+  }
+
+  //gets all skills with optional category filter
+  async getAllSkills(category?: string): Promise<Skill[]> {
+    let query = 'SELECT * FROM skills';
+    const params: unknown[] = [];
+    
+    if (category) {
+      query += ' WHERE category = ?';
+      params.push(category);
+    }
+    
+    query += ' ORDER BY priority_level DESC, proficiency_level DESC, name ASC';
+    
+    const result = await executeQuery<Skill>(query, params);
+    
+    return result.rows.map(skill => ({
+      ...skill,
+      learning_resources: skill.learning_resources ? JSON.parse(skill.learning_resources) : []
+    }));
+  }
+
+  //gets skill categories with counts
+  async getSkillCategories(): Promise<{category: string, count: number}[]> {
+    const query = `
+      SELECT category, COUNT(*) as count
+      FROM skills
+      GROUP BY category
+      ORDER BY count DESC, category ASC
+    `;
+    
+    const result = await executeQuery<{category: string, count: number}>(query);
+    return result.rows;
+  }
+
+  //gets skill by ID
+  async getSkillById(id: number): Promise<Skill | null> {
+    const query = 'SELECT * FROM skills WHERE id = ? LIMIT 1';
+    const result = await executeQuery<Skill>(query, [id]);
+    
+    if (!result.rows[0]) return null;
+    
+    const skill = result.rows[0];
+    return {
+      ...skill,
+      learning_resources: skill.learning_resources ? JSON.parse(skill.learning_resources) : []
+    };
+  }
+
+  //updates skill
+  async updateSkill(id: number, skillData: Partial<Omit<Skill, 'id' | 'created_at' | 'updated_at'>>): Promise<void> {
+    const updates = [];
+    const values = [];
+    
+    Object.entries(skillData).forEach(([key, value]) => {
+      if (value !== undefined) {
+        if (key === 'learning_resources') {
+          updates.push(`${key} = ?`);
+          values.push(JSON.stringify(value));
+        } else {
+          updates.push(`${key} = ?`);
+          values.push(value);
+        }
+      }
+    });
+    
+    if (updates.length > 0) {
+      values.push(id);
+      await executeQuery(
+        `UPDATE skills SET ${updates.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
+        values
+      );
+    }
+  }
+
+  //links project to skills
+  async updateProjectSkills(projectId: number, skillsData: Array<{skill_id: number, usage_level: 'primary' | 'secondary' | 'minor'}>): Promise<void> {
+    const queries = [
+      { query: 'DELETE FROM project_skills WHERE project_id = ?', params: [projectId] },
+      ...skillsData.map(skill => ({
+        query: 'INSERT INTO project_skills (project_id, skill_id, usage_level) VALUES (?, ?, ?)',
+        params: [projectId, skill.skill_id, skill.usage_level],
+      })),
+    ];
+    
+    await executeTransaction(queries);
+  }
+
+  //gets skills for a project
+  async getProjectSkills(projectId: number): Promise<Array<Skill & {usage_level: string}>> {
+    const query = `
+      SELECT s.*, ps.usage_level
+      FROM skills s
+      JOIN project_skills ps ON s.id = ps.skill_id
+      WHERE ps.project_id = ?
+      ORDER BY 
+        CASE ps.usage_level 
+          WHEN 'primary' THEN 1 
+          WHEN 'secondary' THEN 2 
+          WHEN 'minor' THEN 3 
+        END,
+        s.name ASC
+    `;
+    
+    const result = await executeQuery<Skill & {usage_level: string}>(query, [projectId]);
+    
+    return result.rows.map(skill => ({
+      ...skill,
+      learning_resources: skill.learning_resources ? JSON.parse(skill.learning_resources) : []
+    }));
+  }
+
+  //creates a new testimonial
+  async createTestimonial(testimonialData: Omit<Testimonial, 'id' | 'created_at'>): Promise<Testimonial> {
+    const query = `
+      INSERT INTO testimonials (
+        client_name, client_position, client_company, client_email,
+        project_id, testimonial_text, rating, date_given,
+        permission_to_display, featured, testimonial_type, work_relationship
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      testimonialData.client_name,
+      testimonialData.client_position || null,
+      testimonialData.client_company || null,
+      testimonialData.client_email || null,
+      testimonialData.project_id || null,
+      testimonialData.testimonial_text,
+      testimonialData.rating,
+      testimonialData.date_given,
+      testimonialData.permission_to_display,
+      testimonialData.featured,
+      testimonialData.testimonial_type,
+      testimonialData.work_relationship || null,
+    ];
+
+    const result = await executeQuery<Testimonial>(query, params);
+    return result.rows[0];
+  }
+
+  //gets testimonial by ID
+  async getTestimonialById(id: number): Promise<Testimonial | null> {
+    const query = `
+      SELECT t.*, p.title as project_title, p.slug as project_slug
+      FROM testimonials t
+      LEFT JOIN portfolio_projects p ON t.project_id = p.id
+      WHERE t.id = ?
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<Testimonial>(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  //gets featured testimonials
+  async getFeaturedTestimonials(limit = 5): Promise<Testimonial[]> {
+    const query = `
+      SELECT t.*, p.title as project_title, p.slug as project_slug
+      FROM testimonials t
+      LEFT JOIN portfolio_projects p ON t.project_id = p.id
+      WHERE t.permission_to_display = TRUE AND t.featured = TRUE
+      ORDER BY t.rating DESC, t.date_given DESC
+      LIMIT ?
+    `;
+    
+    const result = await executeQuery<Testimonial>(query, [limit]);
+    return result.rows;
+  }
+
+  //gets all testimonials with pagination
+  async getTestimonials(options: QueryOptions & {featured?: boolean, project_id?: number} = {}): Promise<PaginatedResponse<Testimonial>> {
+    const { page = 1, limit = 10, featured, project_id } = options;
+    const offset = (page - 1) * limit;
+    
+    let baseQuery = `
+      FROM testimonials t
+      LEFT JOIN portfolio_projects p ON t.project_id = p.id
+    `;
+    
+    const conditions: string[] = ['t.permission_to_display = TRUE'];
+    const params: unknown[] = [];
+    
+    if (featured !== undefined) {
+      conditions.push('t.featured = ?');
+      params.push(featured);
+    }
+    
+    if (project_id) {
+      conditions.push('t.project_id = ?');
+      params.push(project_id);
+    }
+    
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    
+    // Count query
+    const countQuery = `SELECT COUNT(*) as total ${baseQuery} ${whereClause}`;
+    const countResult = await executeQuery<{ total: number }>(countQuery, params);
+    const total = Number(countResult.rows[0].total);
+    
+    // Data query
+    const dataQuery = `
+      SELECT t.*, p.title as project_title, p.slug as project_slug
+      ${baseQuery}
+      ${whereClause}
+      ORDER BY t.featured DESC, t.rating DESC, t.date_given DESC
+      LIMIT ? OFFSET ?
+    `;
+    
+    const dataResult = await executeQuery<Testimonial>(dataQuery, [...params, limit, offset]);
+    
+    return {
+      data: dataResult.rows,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page < Math.ceil(total / limit),
+        hasPrev: page > 1,
+      },
+    };
+  }
+
+  //creates case study section
+  async createCaseStudySection(sectionData: Omit<CaseStudySection, 'id' | 'created_at'>): Promise<CaseStudySection> {
+    const query = `
+      INSERT INTO case_study_sections (
+        project_id, section_type, section_title, section_content,
+        section_order, media_items, code_examples, metrics
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      sectionData.project_id,
+      sectionData.section_type,
+      sectionData.section_title,
+      sectionData.section_content,
+      sectionData.section_order,
+      sectionData.media_items ? JSON.stringify(sectionData.media_items) : null,
+      sectionData.code_examples ? JSON.stringify(sectionData.code_examples) : null,
+      sectionData.metrics ? JSON.stringify(sectionData.metrics) : null,
+    ];
+
+    const result = await executeQuery<CaseStudySection>(query, params);
+    const section = result.rows[0];
+    
+    return {
+      ...section,
+      media_items: section.media_items ? JSON.parse(section.media_items) : [],
+      code_examples: section.code_examples ? JSON.parse(section.code_examples) : [],
+      metrics: section.metrics ? JSON.parse(section.metrics) : {}
+    };
+  }
+
+  //gets case study sections for a project
+  async getProjectCaseStudySections(projectId: number): Promise<CaseStudySection[]> {
+    const query = `
+      SELECT * FROM case_study_sections
+      WHERE project_id = ?
+      ORDER BY section_order ASC, created_at ASC
+    `;
+    
+    const result = await executeQuery<CaseStudySection>(query, [projectId]);
+    
+    return result.rows.map(section => ({
+      ...section,
+      media_items: section.media_items ? JSON.parse(section.media_items) : [],
+      code_examples: section.code_examples ? JSON.parse(section.code_examples) : [],
+      metrics: section.metrics ? JSON.parse(section.metrics) : {}
+    }));
+  }
+
+  //gets comprehensive portfolio statistics for Plan 6
+  async getPortfolioStatistics(): Promise<{
+    totalProjects: number;
+    completedProjects: number;
+    totalSkills: number;
+    yearsExperience: number;
+    averageProjectRating: number;
+    totalTestimonials: number;
+    topSkills: string[];
+    recentProjects: PortfolioProject[];
+  }> {
+    const [statsResult, skillsResult, projectsResult] = await Promise.all([
+      executeQuery<{total_projects: number, completed_projects: number}>(`
+        SELECT 
+          COUNT(*) as total_projects,
+          SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed_projects
+        FROM portfolio_projects
+      `),
+      executeQuery<{name: string}>(`
+        SELECT name FROM skills 
+        WHERE priority_level = 'high' 
+        ORDER BY proficiency_level DESC, years_experience DESC 
+        LIMIT 8
+      `),
+      executeQuery<PortfolioProject>(`
+        SELECT * FROM portfolio_projects 
+        WHERE status IN ('completed', 'active')
+        ORDER BY CASE WHEN status = 'completed' THEN end_date ELSE created_at END DESC
+        LIMIT 6
+      `)
+    ]);
+
+    const stats = statsResult.rows[0];
+    const topSkills = skillsResult.rows.map(row => row.name);
+    const recentProjects = projectsResult.rows.map(row => ({
+      ...row,
+      gallery_images: row.gallery_images ? JSON.parse(row.gallery_images) : []
+    }));
+
+    // Calculate years of experience from work experience
+    const experienceResult = await executeQuery<{first_job: string}>(`
+      SELECT MIN(start_date) as first_job FROM work_experience
+    `);
+    
+    const firstJob = experienceResult.rows[0]?.first_job;
+    const yearsExperience = firstJob ? 
+      Math.floor((new Date().getTime() - new Date(firstJob).getTime()) / (1000 * 60 * 60 * 24 * 365)) : 0;
+
+    // Get average testimonial rating
+    const ratingResult = await executeQuery<{avg_rating: number, total_testimonials: number}>(`
+      SELECT AVG(rating) as avg_rating, COUNT(*) as total_testimonials
+      FROM testimonials 
+      WHERE permission_to_display = TRUE
+    `);
+    
+    const ratings = ratingResult.rows[0];
+
+    // Get total skills count
+    const skillsCountResult = await executeQuery<{count: number}>('SELECT COUNT(*) as count FROM skills');
+
+    return {
+      totalProjects: Number(stats?.total_projects || 0),
+      completedProjects: Number(stats?.completed_projects || 0),
+      totalSkills: Number(skillsCountResult.rows[0]?.count || 0),
+      yearsExperience,
+      averageProjectRating: Math.round((ratings?.avg_rating || 0) * 10) / 10,
+      totalTestimonials: Number(ratings?.total_testimonials || 0),
+      topSkills,
+      recentProjects
+    };
+  }
+
+  //gets enhanced portfolio project by slug with all related data
+  async getEnhancedPortfolioProjectBySlug(slug: string): Promise<(PortfolioProject & {
+    skills_used?: Array<Skill & {usage_level: string}>;
+    testimonials?: Testimonial[];
+    case_study_sections?: CaseStudySection[];
+    testimonial_count?: number;
+  }) | null> {
+    const project = await this.getPortfolioProjectBySlug(slug);
+    if (!project) return null;
+
+    // Get related data in parallel
+    const [skills, testimonials, caseSections] = await Promise.all([
+      this.getProjectSkills(project.id),
+      this.getTestimonials({project_id: project.id, limit: 50}),
+      this.getProjectCaseStudySections(project.id)
+    ]);
+
+    return {
+      ...project,
+      skills_used: skills,
+      testimonials: testimonials.data,
+      case_study_sections: caseSections,
+      testimonial_count: testimonials.pagination.total
+    };
+  }
+
+  //gets work experience with enhanced formatting
+  async getAllWorkExperience(): Promise<WorkExperience[]> {
+    const query = `
+      SELECT * FROM work_experience
+      ORDER BY is_current DESC, 
+               CASE WHEN end_date IS NULL THEN '9999-12-31' ELSE end_date END DESC,
+               start_date DESC
+    `;
+    
+    const result = await executeQuery<WorkExperience>(query);
+    
+    return result.rows.map(exp => ({
+      ...exp,
+      achievements: exp.achievements ? JSON.parse(exp.achievements) : [],
+      technologies_used: exp.technologies_used ? JSON.parse(exp.technologies_used) : []
+    }));
+  }
+
+  //creates work experience
+  async createWorkExperience(experienceData: Omit<WorkExperience, 'id' | 'created_at' | 'updated_at'>): Promise<WorkExperience> {
+    const query = `
+      INSERT INTO work_experience (
+        company, position, employment_type, location, description,
+        achievements, technologies_used, company_logo_url, is_current,
+        start_date, end_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      experienceData.company,
+      experienceData.position,
+      experienceData.employment_type,
+      experienceData.location || null,
+      experienceData.description || null,
+      experienceData.achievements ? JSON.stringify(experienceData.achievements) : null,
+      experienceData.technologies_used ? JSON.stringify(experienceData.technologies_used) : null,
+      experienceData.company_logo_url || null,
+      experienceData.is_current,
+      experienceData.start_date || null,
+      experienceData.end_date || null,
+    ];
+
+    const result = await executeQuery<WorkExperience>(query, params);
+    const experience = result.rows[0];
+    
+    return {
+      ...experience,
+      achievements: experience.achievements ? JSON.parse(experience.achievements) : [],
+      technologies_used: experience.technologies_used ? JSON.parse(experience.technologies_used) : []
+    };
+  }
+
+  //gets work experience by ID
+  async getWorkExperienceById(id: number): Promise<WorkExperience | null> {
+    const query = 'SELECT * FROM work_experience WHERE id = ? LIMIT 1';
+    const result = await executeQuery<WorkExperience>(query, [id]);
+    
+    if (!result.rows[0]) return null;
+    
+    const experience = result.rows[0];
+    return {
+      ...experience,
+      achievements: experience.achievements ? JSON.parse(experience.achievements) : [],
+      technologies_used: experience.technologies_used ? JSON.parse(experience.technologies_used) : []
+    };
+  }
+
+  //creates education record
+  async createEducation(educationData: Omit<Education, 'id' | 'created_at' | 'updated_at'>): Promise<Education> {
+    const query = `
+      INSERT INTO education (
+        institution, degree, field_of_study, grade, description,
+        logo_url, is_current, start_date, end_date
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      RETURNING *
+    `;
+    
+    const params = [
+      educationData.institution,
+      educationData.degree,
+      educationData.field_of_study || null,
+      educationData.grade || null,
+      educationData.description || null,
+      educationData.logo_url || null,
+      educationData.is_current,
+      educationData.start_date || null,
+      educationData.end_date || null,
+    ];
+
+    const result = await executeQuery<Education>(query, params);
+    return result.rows[0];
+  }
+
+  //gets education by ID
+  async getEducationById(id: number): Promise<Education | null> {
+    const query = 'SELECT * FROM education WHERE id = ? LIMIT 1';
+    const result = await executeQuery<Education>(query, [id]);
+    return result.rows[0] || null;
+  }
+
+  //gets all education records
+  async getAllEducation(): Promise<Education[]> {
+    const query = `
+      SELECT * FROM education
+      ORDER BY is_current DESC,
+               CASE WHEN end_date IS NULL THEN '9999-12-31' ELSE end_date END DESC,
+               start_date DESC
+    `;
+    
+    const result = await executeQuery<Education>(query);
+    return result.rows;
+  }
+
+  // =============================================================================
   // FLIGHT TRACKING SYSTEM
   // =============================================================================
 
@@ -2299,6 +2813,321 @@ export class DatabaseQueries {
     }
     
     return Array.from(suggestions).slice(0, 10);
+  }
+
+  // =============================================================================
+  // ANALYTICS & TRACKING METHODS
+  // =============================================================================
+
+  //logs analytics events
+  async logAnalyticsEvent(eventData: {
+    event_type: string;
+    entity_type?: string;
+    entity_id?: number;
+    page_path?: string;
+    page_title?: string;
+    referrer?: string;
+    user_agent?: string;
+    ip_address?: string;
+    session_id?: string;
+    user_id?: number;
+    metadata?: any;
+  }): Promise<void> {
+    const query = `
+      INSERT INTO analytics_events (
+        event_type, entity_type, entity_id, page_path, page_title,
+        referrer, user_agent, ip_address, session_id, user_id, metadata
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    
+    const params = [
+      eventData.event_type,
+      eventData.entity_type || null,
+      eventData.entity_id || null,
+      eventData.page_path || null,
+      eventData.page_title || null,
+      eventData.referrer || null,
+      eventData.user_agent || null,
+      eventData.ip_address || null,
+      eventData.session_id || null,
+      eventData.user_id || null,
+      eventData.metadata ? JSON.stringify(eventData.metadata) : null
+    ];
+    
+    await executeQuery(query, params);
+  }
+
+  //increments project view count
+  async incrementProjectViews(projectId: number): Promise<void> {
+    const query = `
+      UPDATE portfolio_projects 
+      SET view_count = view_count + 1 
+      WHERE id = ?
+    `;
+    await executeQuery(query, [projectId]);
+  }
+
+  //gets analytics dashboard data
+  async getAnalyticsDashboard(
+    startDate: string,
+    endDate: string
+  ): Promise<{
+    overview: {
+      totalProjectViews: number;
+      uniqueProjectsViewed: number;
+      totalPageViews: number;
+      totalSkillInteractions: number;
+    };
+    topProjects: Array<{
+      id: number;
+      title: string;
+      slug: string;
+      total_views: number;
+      period_views: number;
+    }>;
+    dailyViews: Record<string, { project_views: number; page_views: number; total: number }>;
+  }> {
+    const [
+      totalProjectViews,
+      uniqueProjects,
+      totalPageViews,
+      skillInteractions,
+      topProjects,
+      dailyViews
+    ] = await Promise.all([
+      // Total project views in period
+      executeQuery<{ count: number }>(`
+        SELECT COUNT(*) as count
+        FROM analytics_events 
+        WHERE event_type = 'project_view' 
+        AND created_at BETWEEN ? AND ?
+      `, [startDate, endDate]),
+
+      // Unique projects viewed
+      executeQuery<{ count: number }>(`
+        SELECT COUNT(DISTINCT entity_id) as count
+        FROM analytics_events 
+        WHERE event_type = 'project_view' 
+        AND entity_id IS NOT NULL
+        AND created_at BETWEEN ? AND ?
+      `, [startDate, endDate]),
+
+      // Total page views
+      executeQuery<{ count: number }>(`
+        SELECT COUNT(*) as count
+        FROM analytics_events 
+        WHERE event_type = 'page_view'
+        AND created_at BETWEEN ? AND ?
+      `, [startDate, endDate]),
+
+      // Skill interactions
+      executeQuery<{ count: number }>(`
+        SELECT COUNT(*) as count
+        FROM analytics_events 
+        WHERE event_type = 'skill_interaction'
+        AND created_at BETWEEN ? AND ?
+      `, [startDate, endDate]),
+
+      // Top projects by views
+      executeQuery<{
+        id: number;
+        title: string;
+        slug: string;
+        total_views: number;
+        period_views: number;
+      }>(`
+        SELECT 
+          p.id,
+          p.title,
+          p.slug,
+          p.view_count as total_views,
+          COUNT(ae.id) as period_views
+        FROM portfolio_projects p
+        LEFT JOIN analytics_events ae ON ae.entity_id = p.id 
+          AND ae.event_type = 'project_view'
+          AND ae.created_at BETWEEN ? AND ?
+        GROUP BY p.id, p.title, p.slug, p.view_count
+        ORDER BY period_views DESC, total_views DESC
+        LIMIT 10
+      `, [startDate, endDate]),
+
+      // Daily views breakdown
+      executeQuery<{
+        date: string;
+        event_type: string;
+        count: number;
+      }>(`
+        SELECT 
+          DATE(created_at) as date,
+          event_type,
+          COUNT(*) as count
+        FROM analytics_events
+        WHERE created_at BETWEEN ? AND ?
+        AND event_type IN ('project_view', 'page_view')
+        GROUP BY DATE(created_at), event_type
+        ORDER BY date DESC
+      `, [startDate, endDate])
+    ]);
+
+    // Process daily views
+    const processedDailyViews: Record<string, any> = {};
+    dailyViews.rows.forEach(view => {
+      if (!processedDailyViews[view.date]) {
+        processedDailyViews[view.date] = {
+          project_views: 0,
+          page_views: 0,
+          total: 0
+        };
+      }
+      
+      if (view.event_type === 'project_view') {
+        processedDailyViews[view.date].project_views = view.count;
+      } else if (view.event_type === 'page_view') {
+        processedDailyViews[view.date].page_views = view.count;
+      }
+      
+      processedDailyViews[view.date].total += view.count;
+    });
+
+    return {
+      overview: {
+        totalProjectViews: totalProjectViews.rows[0]?.count || 0,
+        uniqueProjectsViewed: uniqueProjects.rows[0]?.count || 0,
+        totalPageViews: totalPageViews.rows[0]?.count || 0,
+        totalSkillInteractions: skillInteractions.rows[0]?.count || 0
+      },
+      topProjects: topProjects.rows,
+      dailyViews: processedDailyViews
+    };
+  }
+
+  //gets popular content analytics
+  async getPopularContent(
+    days = 30,
+    limit = 10
+  ): Promise<{
+    projects: Array<{
+      id: number;
+      title: string;
+      slug: string;
+      views: number;
+    }>;
+    pages: Array<{
+      path: string;
+      views: number;
+    }>;
+  }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const [projects, pages] = await Promise.all([
+      executeQuery<{
+        id: number;
+        title: string;
+        slug: string;
+        views: number;
+      }>(`
+        SELECT 
+          p.id,
+          p.title,
+          p.slug,
+          COUNT(ae.id) as views
+        FROM portfolio_projects p
+        LEFT JOIN analytics_events ae ON ae.entity_id = p.id 
+          AND ae.event_type = 'project_view'
+          AND ae.created_at >= ?
+        GROUP BY p.id, p.title, p.slug
+        HAVING views > 0
+        ORDER BY views DESC
+        LIMIT ?
+      `, [startDate.toISOString(), limit]),
+
+      executeQuery<{
+        path: string;
+        views: number;
+      }>(`
+        SELECT 
+          page_path as path,
+          COUNT(*) as views
+        FROM analytics_events
+        WHERE event_type = 'page_view'
+        AND created_at >= ?
+        AND page_path IS NOT NULL
+        GROUP BY page_path
+        ORDER BY views DESC
+        LIMIT ?
+      `, [startDate.toISOString(), limit])
+    ]);
+
+    return {
+      projects: projects.rows,
+      pages: pages.rows
+    };
+  }
+
+  //gets traffic sources analytics
+  async getTrafficSources(
+    days = 30
+  ): Promise<{
+    direct: number;
+    search: number;
+    social: number;
+    referral: number;
+    details: Array<{ referrer: string; count: number }>;
+  }> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    const query = `
+      SELECT 
+        metadata,
+        COUNT(*) as count
+      FROM analytics_events
+      WHERE event_type IN ('project_view', 'page_view')
+      AND created_at >= ?
+      AND metadata IS NOT NULL
+      GROUP BY metadata
+      ORDER BY count DESC
+    `;
+
+    const results = await executeQuery<{
+      metadata: string;
+      count: number;
+    }>(query, [startDate.toISOString()]);
+
+    const trafficSources = {
+      direct: 0,
+      search: 0,
+      social: 0,
+      referral: 0,
+      details: [] as Array<{ referrer: string; count: number }>
+    };
+
+    results.rows.forEach(row => {
+      let metadata;
+      try {
+        metadata = JSON.parse(row.metadata);
+      } catch {
+        return;
+      }
+
+      if (!metadata.referrer) {
+        trafficSources.direct += row.count;
+      } else if (metadata.referrer.includes('google') || metadata.referrer.includes('bing')) {
+        trafficSources.search += row.count;
+      } else if (metadata.referrer.includes('twitter') || metadata.referrer.includes('linkedin')) {
+        trafficSources.social += row.count;
+      } else {
+        trafficSources.referral += row.count;
+      }
+
+      trafficSources.details.push({
+        referrer: metadata.referrer || 'Direct',
+        count: row.count
+      });
+    });
+
+    return trafficSources;
   }
 }
 

@@ -1,0 +1,760 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import type { PortfolioProject, CaseStudySection, Testimonial } from '../../lib/db/types';
+
+export async function getStaticPaths() {
+  // In a real implementation, you'd fetch all project slugs from your database
+  // For now, we'll handle this dynamically in the page component
+  return [];
+}
+
+const { slug } = Astro.params;
+
+// Fetch project data
+let project: PortfolioProject | null = null;
+let caseStudySections: CaseStudySection[] = [];
+let testimonials: Testimonial[] = [];
+let relatedProjects: PortfolioProject[] = [];
+let error = '';
+
+try {
+  const baseUrl = import.meta.env.PROD 
+    ? 'https://your-domain.com' 
+    : `http://localhost:${import.meta.env.PORT || 4321}`;
+  
+  const response = await fetch(`${baseUrl}/api/portfolio/${slug}`);
+  const data = await response.json();
+  
+  if (data.success) {
+    project = data.data.project;
+    caseStudySections = data.data.caseStudySections || [];
+    testimonials = data.data.testimonials || [];
+    relatedProjects = data.data.relatedProjects || [];
+  } else {
+    error = data.error || 'Project not found';
+  }
+} catch (err) {
+  error = 'Failed to load project data';
+  console.error('Error fetching project:', err);
+}
+
+// Handle 404 if project not found
+if (!project && !error) {
+  return Astro.redirect('/404');
+}
+
+// SEO and meta data
+const title = project ? `${project.title} - Portfolio` : 'Project Not Found';
+const description = project?.short_description || 'Project details and case study';
+const image = project?.featured_image || '';
+
+// Calculate project duration
+function calculateDuration(start: string, end: string): string {
+  const startDate = new Date(start);
+  const endDate = new Date(end);
+  const months = (endDate.getFullYear() - startDate.getFullYear()) * 12 + 
+                 (endDate.getMonth() - startDate.getMonth());
+  
+  if (months < 1) return '< 1 month';
+  if (months === 1) return '1 month';
+  if (months < 12) return `${months} months`;
+  
+  const years = Math.floor(months / 12);
+  const remainingMonths = months % 12;
+  
+  if (remainingMonths === 0) return `${years} year${years > 1 ? 's' : ''}`;
+  return `${years}y ${remainingMonths}m`;
+}
+---
+
+<BaseLayout title={title} description={description} image={image}>
+  <main class="project-detail-page">
+    {error ? (
+      <!-- Error State -->
+      <div class="error-container">
+        <div class="error-content">
+          <h1>Project Not Found</h1>
+          <p>{error}</p>
+          <a href="/portfolio" class="back-link">← Back to Portfolio</a>
+        </div>
+      </div>
+    ) : project && (
+      <>
+        <!-- Project Hero Section -->
+        <section class="project-hero">
+          <div class="container">
+            <div class="hero-content">
+              <!-- Breadcrumb -->
+              <nav class="breadcrumb">
+                <a href="/">Home</a>
+                <span class="separator">›</span>
+                <a href="/portfolio">Portfolio</a>
+                <span class="separator">›</span>
+                <span class="current">{project.title}</span>
+              </nav>
+
+              <!-- Project Header -->
+              <div class="project-header">
+                <div class="header-content">
+                  <h1 class="project-title">{project.title}</h1>
+                  <p class="project-subtitle">{project.short_description}</p>
+                  
+                  <!-- Project Meta -->
+                  <div class="project-meta">
+                    <div class="meta-item">
+                      <span class="meta-label">Status:</span>
+                      <span class={`status-badge status-${project.status}`}>
+                        {project.status.replace('-', ' ')}
+                      </span>
+                    </div>
+                    
+                    {project.start_date && project.end_date && (
+                      <div class="meta-item">
+                        <span class="meta-label">Duration:</span>
+                        <span class="meta-value">
+                          {calculateDuration(project.start_date, project.end_date)}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {project.difficulty_level && (
+                      <div class="meta-item">
+                        <span class="meta-label">Complexity:</span>
+                        <span class={`difficulty-badge difficulty-${project.difficulty_level}`}>
+                          {project.difficulty_level}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {project.client_name && (
+                      <div class="meta-item">
+                        <span class="meta-label">Client:</span>
+                        <span class="meta-value">{project.client_name}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <!-- Project Links -->
+                  <div class="project-actions">
+                    {project.demo_url && (
+                      <a href={project.demo_url} target="_blank" rel="noopener noreferrer" class="action-btn primary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                          <polyline points="15,3 21,3 21,9"/>
+                          <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
+                        View Live Demo
+                      </a>
+                    )}
+                    
+                    {project.source_url && (
+                      <a href={project.source_url} target="_blank" rel="noopener noreferrer" class="action-btn secondary">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        View Source
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <!-- Featured Image -->
+                {project.featured_image && (
+                  <div class="hero-image">
+                    <img 
+                      src={project.featured_image} 
+                      alt={project.title} 
+                      class="project-image"
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- Project Content -->
+        <section class="project-content">
+          <div class="container">
+            <div class="content-grid">
+              <!-- Main Content -->
+              <div class="main-content">
+                <!-- Project Description -->
+                {project.description && (
+                  <div class="content-section">
+                    <h2>Project Overview</h2>
+                    <div class="prose" set:html={project.description}></div>
+                  </div>
+                )}
+
+                <!-- Case Study Sections -->
+                {caseStudySections.length > 0 && (
+                  <div class="content-section">
+                    <h2>Case Study</h2>
+                    <div class="case-study">
+                      {caseStudySections.map((section, index) => (
+                        <div class="case-study-section">
+                          <h3>{section.title}</h3>
+                          <div class="prose" set:html={section.content}></div>
+                          {section.image_url && (
+                            <div class="section-image">
+                              <img 
+                                src={section.image_url} 
+                                alt={section.title}
+                                loading="lazy"
+                              />
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <!-- Challenges and Solutions -->
+                {project.challenges_faced && (
+                  <div class="content-section">
+                    <h2>Challenges & Solutions</h2>
+                    <div class="prose" set:html={project.challenges_faced}></div>
+                  </div>
+                )}
+
+                <!-- Key Learnings -->
+                {project.key_learnings && (
+                  <div class="content-section">
+                    <h2>Key Learnings</h2>
+                    <div class="prose" set:html={project.key_learnings}></div>
+                  </div>
+                )}
+
+                <!-- Testimonials -->
+                {testimonials.length > 0 && (
+                  <div class="content-section">
+                    <h2>Client Testimonials</h2>
+                    <div class="testimonials">
+                      {testimonials.map((testimonial) => (
+                        <div class="testimonial">
+                          <div class="testimonial-content">
+                            <blockquote>{testimonial.content}</blockquote>
+                          </div>
+                          <div class="testimonial-author">
+                            <div class="author-info">
+                              <cite class="author-name">{testimonial.author_name}</cite>
+                              {testimonial.author_title && (
+                                <span class="author-title">{testimonial.author_title}</span>
+                              )}
+                              {testimonial.company_name && (
+                                <span class="author-company">{testimonial.company_name}</span>
+                              )}
+                            </div>
+                            {testimonial.rating && (
+                              <div class="testimonial-rating">
+                                {Array.from({ length: 5 }, (_, i) => (
+                                  <span class={`star ${i < testimonial.rating! ? 'filled' : ''}`}>★</span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <!-- Sidebar -->
+              <aside class="sidebar">
+                <!-- Technology Stack -->
+                {project.technologies && project.technologies.length > 0 && (
+                  <div class="sidebar-section">
+                    <h3>Technology Stack</h3>
+                    <div class="tech-stack">
+                      {project.technologies.map((tech) => (
+                        <span class="tech-tag" title={tech.description}>
+                          {tech.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <!-- Project Categories -->
+                {project.categories && project.categories.length > 0 && (
+                  <div class="sidebar-section">
+                    <h3>Categories</h3>
+                    <div class="categories">
+                      {project.categories.map((category) => (
+                        <span class="category-tag" style={`color: ${category.color};`}>
+                          {category.icon && <span class="category-icon">{category.icon}</span>}
+                          {category.name}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <!-- Project Stats -->
+                <div class="sidebar-section">
+                  <h3>Project Stats</h3>
+                  <div class="project-stats">
+                    {project.view_count > 0 && (
+                      <div class="stat-item">
+                        <span class="stat-label">Views</span>
+                        <span class="stat-value">{project.view_count}</span>
+                      </div>
+                    )}
+                    
+                    {project.start_date && (
+                      <div class="stat-item">
+                        <span class="stat-label">Started</span>
+                        <span class="stat-value">
+                          {new Date(project.start_date).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {project.end_date && (
+                      <div class="stat-item">
+                        <span class="stat-label">Completed</span>
+                        <span class="stat-value">
+                          {new Date(project.end_date).toLocaleDateString('en-US', { 
+                            year: 'numeric', 
+                            month: 'long' 
+                          })}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <!-- Share Section -->
+                <div class="sidebar-section">
+                  <h3>Share Project</h3>
+                  <div class="share-buttons">
+                    <a 
+                      href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(project.title)}&url=${encodeURIComponent(Astro.url.href)}`}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="share-btn twitter"
+                      title="Share on Twitter"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M23 3a10.9 10.9 0 0 1-3.14 1.53 4.48 4.48 0 0 0-7.86 3v1A10.66 10.66 0 0 1 3 4s-4 9 5 13a11.64 11.64 0 0 1-7 2c9 5 20 0 20-11.5a4.5 4.5 0 0 0-.08-.83A7.72 7.72 0 0 0 23 3z"/>
+                      </svg>
+                      Twitter
+                    </a>
+                    
+                    <a 
+                      href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(Astro.url.href)}`}
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      class="share-btn linkedin"
+                      title="Share on LinkedIn"
+                    >
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/>
+                        <rect x="2" y="9" width="4" height="12"/>
+                        <circle cx="4" cy="4" r="2"/>
+                      </svg>
+                      LinkedIn
+                    </a>
+                  </div>
+                </div>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <!-- Related Projects -->
+        {relatedProjects.length > 0 && (
+          <section class="related-projects">
+            <div class="container">
+              <h2>Related Projects</h2>
+              <div class="related-grid">
+                {relatedProjects.map((relatedProject) => (
+                  <div class="related-card">
+                    {relatedProject.featured_image && (
+                      <div class="related-image">
+                        <img 
+                          src={relatedProject.featured_image} 
+                          alt={relatedProject.title}
+                          loading="lazy"
+                        />
+                      </div>
+                    )}
+                    <div class="related-content">
+                      <h3 class="related-title">
+                        <a href={`/portfolio/${relatedProject.slug}`}>
+                          {relatedProject.title}
+                        </a>
+                      </h3>
+                      <p class="related-description">
+                        {relatedProject.short_description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+      </>
+    )}
+  </main>
+</BaseLayout>
+
+<style>
+  .project-detail-page {
+    @apply min-h-screen;
+  }
+
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Error State */
+  .error-container {
+    @apply flex items-center justify-center min-h-[60vh];
+  }
+
+  .error-content {
+    @apply text-center;
+  }
+
+  .error-content h1 {
+    @apply text-3xl font-bold text-gray-900 dark:text-white mb-4;
+  }
+
+  .error-content p {
+    @apply text-gray-600 dark:text-gray-400 mb-6;
+  }
+
+  .back-link {
+    @apply text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium;
+  }
+
+  /* Project Hero */
+  .project-hero {
+    @apply bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 py-12;
+  }
+
+  .hero-content {
+    @apply space-y-8;
+  }
+
+  .breadcrumb {
+    @apply flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400;
+  }
+
+  .breadcrumb a {
+    @apply hover:text-gray-900 dark:hover:text-white transition-colors;
+  }
+
+  .breadcrumb .separator {
+    @apply text-gray-400;
+  }
+
+  .breadcrumb .current {
+    @apply text-gray-900 dark:text-white font-medium;
+  }
+
+  .project-header {
+    @apply grid grid-cols-1 lg:grid-cols-2 gap-12 items-start;
+  }
+
+  .project-title {
+    @apply text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4;
+  }
+
+  .project-subtitle {
+    @apply text-xl text-gray-600 dark:text-gray-300 mb-6;
+  }
+
+  .project-meta {
+    @apply flex flex-wrap gap-6 mb-8;
+  }
+
+  .meta-item {
+    @apply flex items-center space-x-2;
+  }
+
+  .meta-label {
+    @apply text-sm font-medium text-gray-600 dark:text-gray-400;
+  }
+
+  .meta-value {
+    @apply text-sm text-gray-900 dark:text-white;
+  }
+
+  .status-badge {
+    @apply px-3 py-1 text-xs font-medium rounded-full capitalize;
+  }
+
+  .status-completed {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+
+  .status-planning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .difficulty-badge {
+    @apply px-3 py-1 text-xs font-medium rounded-full capitalize;
+  }
+
+  .difficulty-beginner {
+    @apply bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300;
+  }
+
+  .difficulty-intermediate {
+    @apply bg-yellow-100 text-yellow-700 dark:bg-yellow-900 dark:text-yellow-300;
+  }
+
+  .difficulty-advanced {
+    @apply bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300;
+  }
+
+  .project-actions {
+    @apply flex flex-wrap gap-4;
+  }
+
+  .action-btn {
+    @apply inline-flex items-center space-x-2 px-6 py-3 rounded-lg font-medium transition-colors text-sm;
+  }
+
+  .action-btn.primary {
+    @apply bg-blue-600 hover:bg-blue-700 text-white;
+  }
+
+  .action-btn.secondary {
+    @apply bg-gray-100 hover:bg-gray-200 text-gray-900 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white;
+  }
+
+  .hero-image {
+    @apply aspect-video rounded-xl overflow-hidden shadow-lg;
+  }
+
+  .project-image {
+    @apply w-full h-full object-cover;
+  }
+
+  /* Project Content */
+  .project-content {
+    @apply py-16;
+  }
+
+  .content-grid {
+    @apply grid grid-cols-1 lg:grid-cols-3 gap-12;
+  }
+
+  .main-content {
+    @apply lg:col-span-2 space-y-12;
+  }
+
+  .content-section h2 {
+    @apply text-2xl font-bold text-gray-900 dark:text-white mb-6;
+  }
+
+  .content-section h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-4;
+  }
+
+  .prose {
+    @apply text-gray-700 dark:text-gray-300 leading-relaxed;
+  }
+
+  .prose :global(p) {
+    @apply mb-4;
+  }
+
+  .prose :global(ul) {
+    @apply list-disc list-inside mb-4 space-y-2;
+  }
+
+  .prose :global(ol) {
+    @apply list-decimal list-inside mb-4 space-y-2;
+  }
+
+  .prose :global(blockquote) {
+    @apply border-l-4 border-blue-500 pl-4 italic my-6;
+  }
+
+  .prose :global(code) {
+    @apply bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded text-sm font-mono;
+  }
+
+  .prose :global(pre) {
+    @apply bg-gray-100 dark:bg-gray-800 p-4 rounded-lg overflow-x-auto mb-4;
+  }
+
+  /* Case Study */
+  .case-study {
+    @apply space-y-12;
+  }
+
+  .case-study-section {
+    @apply space-y-6;
+  }
+
+  .section-image {
+    @apply rounded-lg overflow-hidden shadow-md;
+  }
+
+  .section-image img {
+    @apply w-full h-auto;
+  }
+
+  /* Testimonials */
+  .testimonials {
+    @apply space-y-8;
+  }
+
+  .testimonial {
+    @apply bg-gray-50 dark:bg-gray-800 rounded-xl p-6;
+  }
+
+  .testimonial-content blockquote {
+    @apply text-lg text-gray-700 dark:text-gray-300 mb-6 italic;
+  }
+
+  .testimonial-author {
+    @apply flex items-center justify-between;
+  }
+
+  .author-name {
+    @apply font-semibold text-gray-900 dark:text-white;
+  }
+
+  .author-title {
+    @apply text-sm text-gray-600 dark:text-gray-400 block;
+  }
+
+  .author-company {
+    @apply text-sm text-blue-600 dark:text-blue-400 block;
+  }
+
+  .testimonial-rating {
+    @apply flex space-x-1;
+  }
+
+  .star {
+    @apply text-gray-300;
+  }
+
+  .star.filled {
+    @apply text-yellow-400;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    @apply space-y-8;
+  }
+
+  .sidebar-section {
+    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6;
+  }
+
+  .sidebar-section h3 {
+    @apply text-lg font-semibold text-gray-900 dark:text-white mb-4;
+  }
+
+  .tech-stack {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tech-tag {
+    @apply bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-sm px-3 py-1 rounded-full font-medium;
+  }
+
+  .categories {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .category-tag {
+    @apply bg-gray-50 dark:bg-gray-700/50 px-3 py-1 rounded-full text-sm font-medium flex items-center space-x-1;
+  }
+
+  .category-icon {
+    @apply text-sm;
+  }
+
+  .project-stats {
+    @apply space-y-3;
+  }
+
+  .stat-item {
+    @apply flex justify-between items-center;
+  }
+
+  .stat-label {
+    @apply text-sm text-gray-600 dark:text-gray-400;
+  }
+
+  .stat-value {
+    @apply text-sm font-medium text-gray-900 dark:text-white;
+  }
+
+  .share-buttons {
+    @apply space-y-2;
+  }
+
+  .share-btn {
+    @apply w-full inline-flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors;
+  }
+
+  .share-btn.twitter {
+    @apply bg-blue-500 hover:bg-blue-600 text-white;
+  }
+
+  .share-btn.linkedin {
+    @apply bg-blue-700 hover:bg-blue-800 text-white;
+  }
+
+  /* Related Projects */
+  .related-projects {
+    @apply bg-gray-50 dark:bg-gray-900 py-16;
+  }
+
+  .related-projects h2 {
+    @apply text-3xl font-bold text-gray-900 dark:text-white mb-12 text-center;
+  }
+
+  .related-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8;
+  }
+
+  .related-card {
+    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-lg transition-shadow;
+  }
+
+  .related-image {
+    @apply aspect-video overflow-hidden;
+  }
+
+  .related-image img {
+    @apply w-full h-full object-cover;
+  }
+
+  .related-content {
+    @apply p-6;
+  }
+
+  .related-title {
+    @apply text-lg font-semibold mb-2;
+  }
+
+  .related-title a {
+    @apply text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors;
+  }
+
+  .related-description {
+    @apply text-gray-600 dark:text-gray-400 text-sm;
+  }
+</style>

@@ -1,0 +1,420 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import PortfolioGrid from '../../components/portfolio/PortfolioGrid.svelte';
+
+// Fetch initial portfolio data for SSR
+let initialProjects = [];
+let featuredProjects = [];
+let portfolioStats = null;
+let error = '';
+
+try {
+  const baseUrl = import.meta.env.PROD 
+    ? 'https://your-domain.com' 
+    : `http://localhost:${import.meta.env.PORT || 4321}`;
+  
+  // Fetch initial projects (first page)
+  const [projectsResponse, featuredResponse, statsResponse] = await Promise.all([
+    fetch(`${baseUrl}/api/portfolio?limit=12&page=1`),
+    fetch(`${baseUrl}/api/portfolio/featured?limit=3`),
+    fetch(`${baseUrl}/api/portfolio/statistics`)
+  ]);
+
+  const [projectsData, featuredData, statsData] = await Promise.all([
+    projectsResponse.json(),
+    featuredResponse.json(),
+    statsResponse.json()
+  ]);
+
+  if (projectsData.success) {
+    initialProjects = projectsData.data.data || [];
+  }
+
+  if (featuredData.success) {
+    featuredProjects = featuredData.data || [];
+  }
+
+  if (statsData.success) {
+    portfolioStats = statsData.data;
+  }
+} catch (err) {
+  console.error('Error fetching portfolio data:', err);
+  error = 'Failed to load portfolio data';
+}
+
+// SEO data
+const title = 'Portfolio - Professional Projects & Case Studies';
+const description = 'Explore my portfolio of web development projects, case studies, and professional work. Built with modern technologies and focused on user experience.';
+---
+
+<BaseLayout title={title} description={description}>
+  <main class="portfolio-page">
+    <!-- Portfolio Hero -->
+    <section class="portfolio-hero">
+      <div class="container">
+        <div class="hero-content">
+          <h1 class="hero-title">My Portfolio</h1>
+          <p class="hero-subtitle">
+            A collection of projects, case studies, and professional work showcasing my expertise in web development, 
+            design, and problem-solving.
+          </p>
+          
+          <!-- Portfolio Statistics -->
+          {portfolioStats && (
+            <div class="portfolio-stats">
+              <div class="stat-item">
+                <div class="stat-value">{portfolioStats.totalProjects || 0}</div>
+                <div class="stat-label">Projects</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{portfolioStats.totalTechnologies || 0}</div>
+                <div class="stat-label">Technologies</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{portfolioStats.totalCategories || 0}</div>
+                <div class="stat-label">Categories</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">{portfolioStats.clientProjects || 0}</div>
+                <div class="stat-label">Client Work</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+
+    <!-- Featured Projects -->
+    {featuredProjects.length > 0 && (
+      <section class="featured-section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Featured Projects</h2>
+            <p class="section-subtitle">Highlighting some of my best work and most impactful projects</p>
+          </div>
+          
+          <div class="featured-grid">
+            {featuredProjects.map((project) => (
+              <div class="featured-card">
+                {project.featured_image && (
+                  <div class="featured-image">
+                    <img 
+                      src={project.featured_image} 
+                      alt={project.title}
+                      loading="lazy"
+                    />
+                    <div class="featured-overlay">
+                      <a href={`/portfolio/${project.slug}`} class="view-project">
+                        View Project
+                      </a>
+                    </div>
+                  </div>
+                )}
+                
+                <div class="featured-content">
+                  <div class="featured-header">
+                    <h3 class="featured-title">
+                      <a href={`/portfolio/${project.slug}`}>
+                        {project.title}
+                      </a>
+                    </h3>
+                    <span class="featured-badge">Featured</span>
+                  </div>
+                  
+                  <p class="featured-description">
+                    {project.short_description}
+                  </p>
+                  
+                  {project.technologies && project.technologies.length > 0 && (
+                    <div class="featured-tech-stack">
+                      {project.technologies.slice(0, 4).map((tech) => (
+                        <span class="tech-badge">{tech.name}</span>
+                      ))}
+                      {project.technologies.length > 4 && (
+                        <span class="tech-more">+{project.technologies.length - 4}</span>
+                      )}
+                    </div>
+                  )}
+                  
+                  <div class="featured-meta">
+                    <span class={`status-badge status-${project.status}`}>
+                      {project.status.replace('-', ' ')}
+                    </span>
+                    
+                    {project.view_count > 0 && (
+                      <div class="view-count">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                          <circle cx="12" cy="12" r="3"/>
+                        </svg>
+                        {project.view_count} views
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- All Projects -->
+    <section class="all-projects-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">All Projects</h2>
+          <p class="section-subtitle">Browse through all my projects with advanced filtering and search</p>
+        </div>
+        
+        {error ? (
+          <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <div class="error-content">
+              <h3>Unable to Load Projects</h3>
+              <p>{error}</p>
+              <button onclick="window.location.reload()" class="retry-button">
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : (
+          <PortfolioGrid 
+            client:load
+            initialProjects={initialProjects}
+            showFilters={true}
+            limit={12}
+            layout="grid"
+          />
+        )}
+      </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="cta-section">
+      <div class="container">
+        <div class="cta-content">
+          <h2 class="cta-title">Interested in working together?</h2>
+          <p class="cta-subtitle">
+            I'm always open to discussing new projects, creative ideas, and opportunities to be part of your vision.
+          </p>
+          <div class="cta-actions">
+            <a href="/contact" class="cta-btn primary">
+              Get In Touch
+            </a>
+            <a href="/about" class="cta-btn secondary">
+              Learn More About Me
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .portfolio-page {
+    @apply min-h-screen;
+  }
+
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Portfolio Hero */
+  .portfolio-hero {
+    @apply bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 py-20;
+  }
+
+  .hero-content {
+    @apply text-center max-w-4xl mx-auto;
+  }
+
+  .hero-title {
+    @apply text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6;
+  }
+
+  .hero-subtitle {
+    @apply text-xl text-gray-600 dark:text-gray-300 mb-12 leading-relaxed;
+  }
+
+  .portfolio-stats {
+    @apply grid grid-cols-2 md:grid-cols-4 gap-8 max-w-2xl mx-auto;
+  }
+
+  .stat-item {
+    @apply text-center;
+  }
+
+  .stat-value {
+    @apply text-3xl lg:text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2;
+  }
+
+  .stat-label {
+    @apply text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide;
+  }
+
+  /* Featured Section */
+  .featured-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  .section-header {
+    @apply text-center mb-16;
+  }
+
+  .section-title {
+    @apply text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4;
+  }
+
+  .section-subtitle {
+    @apply text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto;
+  }
+
+  .featured-grid {
+    @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+  }
+
+  .featured-card {
+    @apply bg-white dark:bg-gray-800 rounded-2xl shadow-lg border border-gray-200 dark:border-gray-700 overflow-hidden hover:shadow-xl transition-shadow duration-300;
+  }
+
+  .featured-image {
+    @apply relative aspect-video overflow-hidden;
+  }
+
+  .featured-image img {
+    @apply w-full h-full object-cover transition-transform duration-300 hover:scale-105;
+  }
+
+  .featured-overlay {
+    @apply absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-60 transition-all duration-300 flex items-center justify-center opacity-0 hover:opacity-100;
+  }
+
+  .view-project {
+    @apply bg-white text-gray-900 px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition-colors;
+  }
+
+  .featured-content {
+    @apply p-6 space-y-4;
+  }
+
+  .featured-header {
+    @apply flex items-start justify-between gap-3;
+  }
+
+  .featured-title {
+    @apply text-xl font-bold text-gray-900 dark:text-white flex-1;
+  }
+
+  .featured-title a {
+    @apply hover:text-blue-600 dark:hover:text-blue-400 transition-colors;
+  }
+
+  .featured-badge {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 text-xs font-medium px-2 py-1 rounded-full flex-shrink-0;
+  }
+
+  .featured-description {
+    @apply text-gray-600 dark:text-gray-300 text-sm leading-relaxed;
+  }
+
+  .featured-tech-stack {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tech-badge {
+    @apply bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-xs px-2 py-1 rounded-full font-medium;
+  }
+
+  .tech-more {
+    @apply bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400 text-xs px-2 py-1 rounded-full font-medium;
+  }
+
+  .featured-meta {
+    @apply flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700;
+  }
+
+  .status-badge {
+    @apply px-2 py-1 text-xs font-medium rounded-full capitalize;
+  }
+
+  .status-completed {
+    @apply bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200;
+  }
+
+  .status-in-progress {
+    @apply bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200;
+  }
+
+  .status-planning {
+    @apply bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200;
+  }
+
+  .view-count {
+    @apply inline-flex items-center space-x-1 text-xs text-gray-500 dark:text-gray-500;
+  }
+
+  /* All Projects Section */
+  .all-projects-section {
+    @apply py-20 bg-gray-50 dark:bg-gray-800;
+  }
+
+  /* Error State */
+  .error-state {
+    @apply flex items-center justify-center py-16;
+  }
+
+  .error-icon {
+    @apply text-6xl mr-6;
+  }
+
+  .error-content {
+    @apply text-center;
+  }
+
+  .error-content h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .error-content p {
+    @apply text-gray-600 dark:text-gray-400 mb-4;
+  }
+
+  .retry-button {
+    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+
+  /* Call to Action */
+  .cta-section {
+    @apply py-20 bg-gradient-to-r from-blue-600 to-indigo-600;
+  }
+
+  .cta-content {
+    @apply text-center text-white;
+  }
+
+  .cta-title {
+    @apply text-3xl lg:text-4xl font-bold mb-4;
+  }
+
+  .cta-subtitle {
+    @apply text-xl text-blue-100 mb-8 max-w-2xl mx-auto;
+  }
+
+  .cta-actions {
+    @apply flex flex-col sm:flex-row gap-4 justify-center;
+  }
+
+  .cta-btn {
+    @apply px-8 py-3 rounded-lg font-medium transition-colors text-sm;
+  }
+
+  .cta-btn.primary {
+    @apply bg-white text-blue-600 hover:bg-gray-100;
+  }
+
+  .cta-btn.secondary {
+    @apply bg-transparent text-white border-2 border-white hover:bg-white hover:text-blue-600;
+  }
+</style>

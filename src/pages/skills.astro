@@ -1,0 +1,402 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import SkillsDashboard from '../components/skills/SkillsDashboard.svelte';
+
+// Fetch initial skills data for SSR
+let initialSkills = [];
+let error = '';
+
+try {
+  const baseUrl = import.meta.env.PROD 
+    ? 'https://your-domain.com' 
+    : `http://localhost:${import.meta.env.PORT || 4321}`;
+  
+  const response = await fetch(`${baseUrl}/api/portfolio/skills`);
+  const data = await response.json();
+  
+  if (data.success) {
+    initialSkills = data.data.skills || [];
+  } else {
+    error = data.error || 'Failed to load skills';
+  }
+} catch (err) {
+  console.error('Error fetching skills:', err);
+  error = 'Network error loading skills';
+}
+
+// SEO data
+const title = 'Skills & Expertise - Technical Competencies & Proficiencies';
+const description = 'Explore my technical skills, expertise levels, and professional competencies across programming languages, frameworks, databases, and tools.';
+---
+
+<BaseLayout title={title} description={description}>
+  <main class="skills-page">
+    <!-- Skills Hero -->
+    <section class="skills-hero">
+      <div class="container">
+        <div class="hero-content">
+          <h1 class="hero-title">Skills & Expertise</h1>
+          <p class="hero-subtitle">
+            A comprehensive overview of my technical skills, proficiency levels, and professional expertise 
+            across various domains of software development and technology.
+          </p>
+          
+          <div class="hero-highlights">
+            <div class="highlight-item">
+              <div class="highlight-icon">💻</div>
+              <div class="highlight-content">
+                <h3>Programming Languages</h3>
+                <p>Proficient in multiple programming languages with varying expertise levels</p>
+              </div>
+            </div>
+            
+            <div class="highlight-item">
+              <div class="highlight-icon">🛠️</div>
+              <div class="highlight-content">
+                <h3>Frameworks & Tools</h3>
+                <p>Experience with modern frameworks, libraries, and development tools</p>
+              </div>
+            </div>
+            
+            <div class="highlight-item">
+              <div class="highlight-icon">🗄️</div>
+              <div class="highlight-content">
+                <h3>Databases & Systems</h3>
+                <p>Knowledge of various database systems and cloud platforms</p>
+              </div>
+            </div>
+            
+            <div class="highlight-item">
+              <div class="highlight-icon">🤝</div>
+              <div class="highlight-content">
+                <h3>Soft Skills</h3>
+                <p>Strong communication, problem-solving, and collaboration abilities</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Skills Dashboard -->
+    <section class="skills-dashboard-section">
+      <div class="container">
+        {error ? (
+          <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <div class="error-content">
+              <h3>Unable to Load Skills</h3>
+              <p>{error}</p>
+              <button onclick="window.location.reload()" class="retry-button">
+                Try Again
+              </button>
+            </div>
+          </div>
+        ) : (
+          <SkillsDashboard 
+            client:load
+            initialSkills={initialSkills}
+            showChart={true}
+            showCategories={true}
+            expandedCategories={[]}
+          />
+        )}
+      </div>
+    </section>
+
+    <!-- Skills Philosophy -->
+    <section class="philosophy-section">
+      <div class="container">
+        <div class="philosophy-content">
+          <h2 class="philosophy-title">My Learning Philosophy</h2>
+          <div class="philosophy-grid">
+            <div class="philosophy-item">
+              <div class="philosophy-icon">🎯</div>
+              <h3>Continuous Learning</h3>
+              <p>
+                I believe in staying current with emerging technologies and constantly expanding my skill set 
+                to meet evolving industry demands.
+              </p>
+            </div>
+            
+            <div class="philosophy-item">
+              <div class="philosophy-icon">🔧</div>
+              <h3>Practical Application</h3>
+              <p>
+                Every skill I develop is applied to real-world projects, ensuring practical experience 
+                and deep understanding beyond theoretical knowledge.
+              </p>
+            </div>
+            
+            <div class="philosophy-item">
+              <div class="philosophy-icon">📈</div>
+              <h3>Quality Over Quantity</h3>
+              <p>
+                Rather than superficial knowledge of many technologies, I focus on building deep expertise 
+                in core areas while maintaining awareness of the broader ecosystem.
+              </p>
+            </div>
+            
+            <div class="philosophy-item">
+              <div class="philosophy-icon">🌟</div>
+              <h3>Best Practices</h3>
+              <p>
+                I prioritize learning and implementing industry best practices, focusing on clean code, 
+                testing, security, and maintainable architecture.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Certifications & Learning -->
+    <section class="certifications-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Certifications & Continuous Learning</h2>
+          <p class="section-subtitle">
+            Professional certifications and ongoing education that validate my expertise
+          </p>
+        </div>
+        
+        <div class="learning-categories">
+          <div class="learning-category">
+            <div class="category-header">
+              <div class="category-icon">🎓</div>
+              <h3>Professional Certifications</h3>
+            </div>
+            <p class="category-description">
+              Industry-recognized certifications that demonstrate validated expertise in specific technologies and methodologies.
+            </p>
+          </div>
+          
+          <div class="learning-category">
+            <div class="category-header">
+              <div class="category-icon">📚</div>
+              <h3>Online Courses & Bootcamps</h3>
+            </div>
+            <p class="category-description">
+              Comprehensive courses and intensive programs that provide structured learning and hands-on experience.
+            </p>
+          </div>
+          
+          <div class="learning-category">
+            <div class="category-header">
+              <div class="category-icon">🔬</div>
+              <h3>Experimentation & Projects</h3>
+            </div>
+            <p class="category-description">
+              Personal projects and experiments that allow me to explore new technologies and push the boundaries of my knowledge.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action -->
+    <section class="skills-cta-section">
+      <div class="container">
+        <div class="cta-content">
+          <h2 class="cta-title">Let's Build Something Amazing Together</h2>
+          <p class="cta-subtitle">
+            My diverse skill set and passion for technology can help bring your ideas to life. 
+            Whether you need web development, system architecture, or technical consultation.
+          </p>
+          <div class="cta-actions">
+            <a href="/portfolio" class="cta-btn primary">
+              View My Work
+            </a>
+            <a href="/contact" class="cta-btn secondary">
+              Discuss Your Project
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .skills-page {
+    @apply min-h-screen;
+  }
+
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Skills Hero */
+  .skills-hero {
+    @apply bg-gradient-to-br from-purple-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 py-20;
+  }
+
+  .hero-content {
+    @apply text-center max-w-4xl mx-auto;
+  }
+
+  .hero-title {
+    @apply text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6;
+  }
+
+  .hero-subtitle {
+    @apply text-xl text-gray-600 dark:text-gray-300 mb-16 leading-relaxed;
+  }
+
+  .hero-highlights {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8;
+  }
+
+  .highlight-item {
+    @apply bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .highlight-icon {
+    @apply text-4xl mb-4;
+  }
+
+  .highlight-content h3 {
+    @apply text-lg font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .highlight-content p {
+    @apply text-sm text-gray-600 dark:text-gray-400;
+  }
+
+  /* Skills Dashboard Section */
+  .skills-dashboard-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  /* Error State */
+  .error-state {
+    @apply flex items-center justify-center py-16;
+  }
+
+  .error-icon {
+    @apply text-6xl mr-6;
+  }
+
+  .error-content {
+    @apply text-center;
+  }
+
+  .error-content h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .error-content p {
+    @apply text-gray-600 dark:text-gray-400 mb-4;
+  }
+
+  .retry-button {
+    @apply bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+  }
+
+  /* Philosophy Section */
+  .philosophy-section {
+    @apply py-20 bg-gray-50 dark:bg-gray-800;
+  }
+
+  .philosophy-content {
+    @apply text-center;
+  }
+
+  .philosophy-title {
+    @apply text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-16;
+  }
+
+  .philosophy-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-8;
+  }
+
+  .philosophy-item {
+    @apply bg-white dark:bg-gray-900 rounded-xl p-8 shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .philosophy-icon {
+    @apply text-4xl mb-4;
+  }
+
+  .philosophy-item h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-4;
+  }
+
+  .philosophy-item p {
+    @apply text-gray-600 dark:text-gray-300 leading-relaxed;
+  }
+
+  /* Certifications Section */
+  .certifications-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  .section-header {
+    @apply text-center mb-16;
+  }
+
+  .section-title {
+    @apply text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4;
+  }
+
+  .section-subtitle {
+    @apply text-lg text-gray-600 dark:text-gray-300 max-w-2xl mx-auto;
+  }
+
+  .learning-categories {
+    @apply grid grid-cols-1 lg:grid-cols-3 gap-8;
+  }
+
+  .learning-category {
+    @apply bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-8;
+  }
+
+  .category-header {
+    @apply flex items-center space-x-4 mb-4;
+  }
+
+  .category-icon {
+    @apply text-3xl;
+  }
+
+  .category-header h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white;
+  }
+
+  .category-description {
+    @apply text-gray-600 dark:text-gray-300 leading-relaxed;
+  }
+
+  /* Skills CTA Section */
+  .skills-cta-section {
+    @apply py-20 bg-gradient-to-r from-purple-600 to-blue-600;
+  }
+
+  .cta-content {
+    @apply text-center text-white;
+  }
+
+  .cta-title {
+    @apply text-3xl lg:text-4xl font-bold mb-4;
+  }
+
+  .cta-subtitle {
+    @apply text-xl text-purple-100 mb-8 max-w-3xl mx-auto;
+  }
+
+  .cta-actions {
+    @apply flex flex-col sm:flex-row gap-4 justify-center;
+  }
+
+  .cta-btn {
+    @apply px-8 py-3 rounded-lg font-medium transition-colors text-sm;
+  }
+
+  .cta-btn.primary {
+    @apply bg-white text-purple-600 hover:bg-gray-100;
+  }
+
+  .cta-btn.secondary {
+    @apply bg-transparent text-white border-2 border-white hover:bg-white hover:text-purple-600;
+  }
+</style>

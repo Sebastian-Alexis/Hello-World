@@ -1,0 +1,709 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+// Fetch experience and education data
+let workExperience = [];
+let education = [];
+let error = '';
+
+try {
+  const baseUrl = import.meta.env.PROD 
+    ? 'https://your-domain.com' 
+    : `http://localhost:${import.meta.env.PORT || 4321}`;
+  
+  const response = await fetch(`${baseUrl}/api/portfolio/experience`);
+  const data = await response.json();
+  
+  if (data.success) {
+    workExperience = data.data.workExperience || [];
+    education = data.data.education || [];
+  }
+} catch (err) {
+  console.error('Error fetching experience data:', err);
+  // Don't show error to user for this non-critical data
+}
+
+// SEO data
+const title = 'About Me - Professional Background & Expertise';
+const description = 'Learn about my professional journey, technical expertise, and passion for creating innovative digital solutions. Discover my background, experience, and what drives me as a developer.';
+---
+
+<BaseLayout title={title} description={description}>
+  <main class="about-page">
+    <!-- Hero Section -->
+    <section class="about-hero">
+      <div class="container">
+        <div class="hero-content">
+          <div class="hero-text">
+            <h1 class="hero-title">About Me</h1>
+            <p class="hero-subtitle">
+              I'm a passionate web developer and problem-solver who loves creating 
+              digital experiences that make a difference.
+            </p>
+            <p class="hero-description">
+              With a strong foundation in modern web technologies and a keen eye for user experience, 
+              I specialize in building scalable, performant applications that users love to interact with.
+            </p>
+            
+            <!-- Quick Stats -->
+            <div class="hero-stats">
+              <div class="stat-item">
+                <div class="stat-value">5+</div>
+                <div class="stat-label">Years Experience</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">50+</div>
+                <div class="stat-label">Projects Completed</div>
+              </div>
+              <div class="stat-item">
+                <div class="stat-value">100%</div>
+                <div class="stat-label">Client Satisfaction</div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="hero-image">
+            <div class="image-placeholder">
+              <div class="profile-image">
+                <!-- Placeholder for profile image -->
+                <div class="image-content">
+                  <svg width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+                    <circle cx="12" cy="7" r="4"/>
+                  </svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Values & Philosophy -->
+    <section class="values-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">My Core Values</h2>
+          <p class="section-subtitle">
+            The principles that guide my work and drive my passion for creating exceptional digital experiences
+          </p>
+        </div>
+        
+        <div class="values-grid">
+          <div class="value-card">
+            <div class="value-icon">🎯</div>
+            <h3 class="value-title">User-Centric Design</h3>
+            <p class="value-description">
+              Every project starts with understanding user needs. I believe in creating solutions that 
+              are intuitive, accessible, and genuinely helpful to the people who use them.
+            </p>
+          </div>
+          
+          <div class="value-card">
+            <div class="value-icon">⚡</div>
+            <h3 class="value-title">Performance First</h3>
+            <p class="value-description">
+              Fast, responsive applications aren't just nice to have—they're essential. I optimize for 
+              performance from day one, ensuring smooth experiences across all devices.
+            </p>
+          </div>
+          
+          <div class="value-card">
+            <div class="value-icon">🔧</div>
+            <h3 class="value-title">Clean, Maintainable Code</h3>
+            <p class="value-description">
+              Code is written once but read many times. I prioritize clean, well-documented code that 
+              future developers (including myself) can easily understand and extend.
+            </p>
+          </div>
+          
+          <div class="value-card">
+            <div class="value-icon">🌱</div>
+            <h3 class="value-title">Continuous Learning</h3>
+            <p class="value-description">
+              Technology evolves rapidly, and so do I. I'm committed to staying current with industry 
+              best practices and emerging technologies to deliver cutting-edge solutions.
+            </p>
+          </div>
+          
+          <div class="value-card">
+            <div class="value-icon">🤝</div>
+            <h3 class="value-title">Collaborative Approach</h3>
+            <p class="value-description">
+              Great projects are built by great teams. I believe in open communication, knowledge 
+              sharing, and working together to achieve common goals.
+            </p>
+          </div>
+          
+          <div class="value-card">
+            <div class="value-icon">🔒</div>
+            <h3 class="value-title">Security Mindset</h3>
+            <p class="value-description">
+              Security isn't an afterthought—it's built into every layer of my applications. I follow 
+              security best practices to protect user data and maintain trust.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experience Timeline -->
+    {workExperience.length > 0 && (
+      <section class="experience-section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Professional Experience</h2>
+            <p class="section-subtitle">
+              My journey through various roles and organizations that have shaped my expertise
+            </p>
+          </div>
+          
+          <div class="timeline">
+            {workExperience.map((job, index) => (
+              <div class="timeline-item">
+                <div class="timeline-marker"></div>
+                <div class="timeline-content">
+                  <div class="job-header">
+                    <h3 class="job-title">{job.position}</h3>
+                    <div class="job-company">{job.company_name}</div>
+                    <div class="job-duration">
+                      {new Date(job.start_date).getFullYear()} - 
+                      {job.end_date ? new Date(job.end_date).getFullYear() : 'Present'}
+                    </div>
+                  </div>
+                  
+                  {job.description && (
+                    <div class="job-description" set:html={job.description}></div>
+                  )}
+                  
+                  {job.key_achievements && (
+                    <div class="job-achievements">
+                      <h4>Key Achievements:</h4>
+                      <div set:html={job.key_achievements}></div>
+                    </div>
+                  )}
+                  
+                  {job.technologies_used && job.technologies_used.length > 0 && (
+                    <div class="job-technologies">
+                      <h4>Technologies Used:</h4>
+                      <div class="tech-tags">
+                        {job.technologies_used.map((tech) => (
+                          <span class="tech-tag">{tech}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- Education -->
+    {education.length > 0 && (
+      <section class="education-section">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Education & Certifications</h2>
+            <p class="section-subtitle">
+              Academic background and professional certifications that form the foundation of my expertise
+            </p>
+          </div>
+          
+          <div class="education-grid">
+            {education.map((edu) => (
+              <div class="education-card">
+                <div class="education-icon">
+                  {edu.degree_type === 'Bachelor' && '🎓'}
+                  {edu.degree_type === 'Master' && '📚'}
+                  {edu.degree_type === 'Certificate' && '📜'}
+                  {edu.degree_type === 'Bootcamp' && '💻'}
+                  {!['Bachelor', 'Master', 'Certificate', 'Bootcamp'].includes(edu.degree_type) && '🏫'}
+                </div>
+                <div class="education-content">
+                  <h3 class="education-degree">{edu.degree_type} {edu.field_of_study && `in ${edu.field_of_study}`}</h3>
+                  <div class="education-institution">{edu.institution_name}</div>
+                  <div class="education-duration">
+                    {new Date(edu.start_date).getFullYear()} - 
+                    {edu.end_date ? new Date(edu.end_date).getFullYear() : 'Present'}
+                  </div>
+                  
+                  {edu.description && (
+                    <p class="education-description">{edu.description}</p>
+                  )}
+                  
+                  {edu.gpa && (
+                    <div class="education-gpa">GPA: {edu.gpa}</div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    )}
+
+    <!-- Skills Preview -->
+    <section class="skills-preview-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Technical Expertise</h2>
+          <p class="section-subtitle">
+            A snapshot of my core technical skills and areas of expertise
+          </p>
+        </div>
+        
+        <div class="skills-categories">
+          <div class="skill-category">
+            <div class="category-header">
+              <div class="category-icon">💻</div>
+              <h3>Programming Languages</h3>
+            </div>
+            <div class="skills-list">
+              <span class="skill-item">JavaScript</span>
+              <span class="skill-item">TypeScript</span>
+              <span class="skill-item">Python</span>
+              <span class="skill-item">Go</span>
+              <span class="skill-item">SQL</span>
+            </div>
+          </div>
+          
+          <div class="skill-category">
+            <div class="category-header">
+              <div class="category-icon">🛠️</div>
+              <h3>Frameworks & Libraries</h3>
+            </div>
+            <div class="skills-list">
+              <span class="skill-item">React</span>
+              <span class="skill-item">Svelte</span>
+              <span class="skill-item">Astro</span>
+              <span class="skill-item">Node.js</span>
+              <span class="skill-item">Express</span>
+            </div>
+          </div>
+          
+          <div class="skill-category">
+            <div class="category-header">
+              <div class="category-icon">🗄️</div>
+              <h3>Databases & Cloud</h3>
+            </div>
+            <div class="skills-list">
+              <span class="skill-item">PostgreSQL</span>
+              <span class="skill-item">SQLite</span>
+              <span class="skill-item">Cloudflare</span>
+              <span class="skill-item">Vercel</span>
+              <span class="skill-item">AWS</span>
+            </div>
+          </div>
+          
+          <div class="skill-category">
+            <div class="category-header">
+              <div class="category-icon">⚡</div>
+              <h3>Tools & Technologies</h3>
+            </div>
+            <div class="skills-list">
+              <span class="skill-item">Git</span>
+              <span class="skill-item">Docker</span>
+              <span class="skill-item">Tailwind CSS</span>
+              <span class="skill-item">Vite</span>
+              <span class="skill-item">ESLint</span>
+            </div>
+          </div>
+        </div>
+        
+        <div class="skills-cta">
+          <a href="/skills" class="skills-cta-btn">
+            View Complete Skills Breakdown
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14"/>
+              <path d="m12 5 7 7-7 7"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Personal Interests -->
+    <section class="interests-section">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title">Beyond Code</h2>
+          <p class="section-subtitle">
+            When I'm not coding, you'll find me exploring these passions and interests
+          </p>
+        </div>
+        
+        <div class="interests-grid">
+          <div class="interest-card">
+            <div class="interest-icon">📚</div>
+            <h3>Continuous Learning</h3>
+            <p>
+              I'm always reading about new technologies, design patterns, and industry trends. 
+              Currently exploring AI/ML applications in web development.
+            </p>
+          </div>
+          
+          <div class="interest-card">
+            <div class="interest-icon">🎯</div>
+            <h3>Open Source</h3>
+            <p>
+              Contributing to open source projects and maintaining my own tools. 
+              I believe in giving back to the community that has given me so much.
+            </p>
+          </div>
+          
+          <div class="interest-card">
+            <div class="interest-icon">🌍</div>
+            <h3>Sustainability</h3>
+            <p>
+              Passionate about green web development and creating energy-efficient applications. 
+              Every byte saved is a step toward a more sustainable internet.
+            </p>
+          </div>
+          
+          <div class="interest-card">
+            <div class="interest-icon">🎨</div>
+            <h3>Design & UX</h3>
+            <p>
+              Fascinated by the intersection of design and technology. I love creating 
+              interfaces that are both beautiful and highly functional.
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact CTA -->
+    <section class="contact-cta-section">
+      <div class="container">
+        <div class="cta-content">
+          <h2 class="cta-title">Let's Work Together</h2>
+          <p class="cta-subtitle">
+            I'm always interested in hearing about new projects and opportunities. 
+            Whether you have a specific project in mind or just want to chat about technology, I'd love to hear from you.
+          </p>
+          <div class="cta-actions">
+            <a href="/contact" class="cta-btn primary">
+              Get In Touch
+            </a>
+            <a href="/portfolio" class="cta-btn secondary">
+              View My Work
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</BaseLayout>
+
+<style>
+  .about-page {
+    @apply min-h-screen;
+  }
+
+  .container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  /* Hero Section */
+  .about-hero {
+    @apply bg-gradient-to-br from-indigo-50 to-blue-100 dark:from-gray-900 dark:to-gray-800 py-20;
+  }
+
+  .hero-content {
+    @apply grid grid-cols-1 lg:grid-cols-2 gap-12 items-center;
+  }
+
+  .hero-title {
+    @apply text-5xl lg:text-6xl font-bold text-gray-900 dark:text-white mb-6;
+  }
+
+  .hero-subtitle {
+    @apply text-2xl text-gray-700 dark:text-gray-300 mb-6 font-medium;
+  }
+
+  .hero-description {
+    @apply text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed;
+  }
+
+  .hero-stats {
+    @apply grid grid-cols-3 gap-6;
+  }
+
+  .stat-item {
+    @apply text-center;
+  }
+
+  .stat-value {
+    @apply text-3xl font-bold text-indigo-600 dark:text-indigo-400 mb-1;
+  }
+
+  .stat-label {
+    @apply text-sm font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide;
+  }
+
+  .hero-image {
+    @apply flex justify-center lg:justify-end;
+  }
+
+  .image-placeholder {
+    @apply relative;
+  }
+
+  .profile-image {
+    @apply w-80 h-80 bg-gradient-to-br from-indigo-400 to-blue-500 rounded-2xl shadow-xl flex items-center justify-center text-white;
+  }
+
+  .image-content {
+    @apply opacity-30;
+  }
+
+  /* Values Section */
+  .values-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  .section-header {
+    @apply text-center mb-16;
+  }
+
+  .section-title {
+    @apply text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-4;
+  }
+
+  .section-subtitle {
+    @apply text-lg text-gray-600 dark:text-gray-300 max-w-3xl mx-auto;
+  }
+
+  .values-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8;
+  }
+
+  .value-card {
+    @apply bg-gray-50 dark:bg-gray-800 rounded-xl p-8 hover:shadow-lg transition-shadow;
+  }
+
+  .value-icon {
+    @apply text-4xl mb-6;
+  }
+
+  .value-title {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-4;
+  }
+
+  .value-description {
+    @apply text-gray-600 dark:text-gray-300 leading-relaxed;
+  }
+
+  /* Experience Section */
+  .experience-section {
+    @apply py-20 bg-gray-50 dark:bg-gray-800;
+  }
+
+  .timeline {
+    @apply relative max-w-4xl mx-auto;
+  }
+
+  .timeline::before {
+    @apply absolute left-8 top-0 bottom-0 w-0.5 bg-indigo-200 dark:bg-indigo-700;
+    content: '';
+  }
+
+  .timeline-item {
+    @apply relative pl-20 pb-12 last:pb-0;
+  }
+
+  .timeline-marker {
+    @apply absolute left-6 top-0 w-4 h-4 bg-indigo-600 rounded-full border-4 border-white dark:border-gray-800;
+  }
+
+  .timeline-content {
+    @apply bg-white dark:bg-gray-900 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .job-header {
+    @apply mb-4;
+  }
+
+  .job-title {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-1;
+  }
+
+  .job-company {
+    @apply text-lg text-indigo-600 dark:text-indigo-400 font-medium mb-2;
+  }
+
+  .job-duration {
+    @apply text-sm text-gray-600 dark:text-gray-400 font-medium;
+  }
+
+  .job-description {
+    @apply text-gray-600 dark:text-gray-300 mb-4 leading-relaxed;
+  }
+
+  .job-achievements {
+    @apply mb-4;
+  }
+
+  .job-achievements h4 {
+    @apply text-sm font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .job-achievements :global(ul) {
+    @apply list-disc list-inside text-gray-600 dark:text-gray-300 space-y-1;
+  }
+
+  .job-technologies h4 {
+    @apply text-sm font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .tech-tags {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .tech-tag {
+    @apply bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300 text-xs px-2 py-1 rounded-full font-medium;
+  }
+
+  /* Education Section */
+  .education-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  .education-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 gap-8;
+  }
+
+  .education-card {
+    @apply bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-700 rounded-xl p-8 flex items-start space-x-4;
+  }
+
+  .education-icon {
+    @apply text-4xl flex-shrink-0;
+  }
+
+  .education-content {
+    @apply flex-1;
+  }
+
+  .education-degree {
+    @apply text-lg font-semibold text-gray-900 dark:text-white mb-2;
+  }
+
+  .education-institution {
+    @apply text-indigo-600 dark:text-indigo-400 font-medium mb-1;
+  }
+
+  .education-duration {
+    @apply text-sm text-gray-600 dark:text-gray-400 mb-3;
+  }
+
+  .education-description {
+    @apply text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-2;
+  }
+
+  .education-gpa {
+    @apply text-sm font-medium text-gray-700 dark:text-gray-300;
+  }
+
+  /* Skills Preview Section */
+  .skills-preview-section {
+    @apply py-20 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-800 dark:to-gray-900;
+  }
+
+  .skills-categories {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mb-12;
+  }
+
+  .skill-category {
+    @apply bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700;
+  }
+
+  .category-header {
+    @apply flex items-center space-x-3 mb-4;
+  }
+
+  .category-icon {
+    @apply text-2xl;
+  }
+
+  .category-header h3 {
+    @apply text-lg font-semibold text-gray-900 dark:text-white;
+  }
+
+  .skills-list {
+    @apply flex flex-wrap gap-2;
+  }
+
+  .skill-item {
+    @apply bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 text-sm px-3 py-1 rounded-full font-medium;
+  }
+
+  .skills-cta {
+    @apply text-center;
+  }
+
+  .skills-cta-btn {
+    @apply inline-flex items-center space-x-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-colors;
+  }
+
+  /* Interests Section */
+  .interests-section {
+    @apply py-20 bg-white dark:bg-gray-900;
+  }
+
+  .interests-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8;
+  }
+
+  .interest-card {
+    @apply text-center p-6;
+  }
+
+  .interest-icon {
+    @apply text-5xl mb-6;
+  }
+
+  .interest-card h3 {
+    @apply text-xl font-semibold text-gray-900 dark:text-white mb-4;
+  }
+
+  .interest-card p {
+    @apply text-gray-600 dark:text-gray-300 leading-relaxed;
+  }
+
+  /* Contact CTA Section */
+  .contact-cta-section {
+    @apply py-20 bg-gradient-to-r from-indigo-600 to-blue-600;
+  }
+
+  .cta-content {
+    @apply text-center text-white;
+  }
+
+  .cta-title {
+    @apply text-3xl lg:text-4xl font-bold mb-4;
+  }
+
+  .cta-subtitle {
+    @apply text-xl text-indigo-100 mb-8 max-w-3xl mx-auto;
+  }
+
+  .cta-actions {
+    @apply flex flex-col sm:flex-row gap-4 justify-center;
+  }
+
+  .cta-btn {
+    @apply px-8 py-3 rounded-lg font-medium transition-colors text-sm;
+  }
+
+  .cta-btn.primary {
+    @apply bg-white text-indigo-600 hover:bg-gray-100;
+  }
+
+  .cta-btn.secondary {
+    @apply bg-transparent text-white border-2 border-white hover:bg-white hover:text-indigo-600;
+  }
+</style>
