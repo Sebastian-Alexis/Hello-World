@@ -82,18 +82,23 @@ const DDOS_CONFIG = {
 
 //get client ip address with proxy support
 function getClientIP(context: APIContext): string {
-  //check for forwarded headers (cloudflare, nginx, etc.)
-  const forwarded = context.request.headers.get('cf-connecting-ip') ||
-                   context.request.headers.get('x-forwarded-for') ||
-                   context.request.headers.get('x-real-ip');
-  
-  if (forwarded) {
-    //get first ip in case of multiple proxies
-    return forwarded.split(',')[0].trim();
+  try {
+    //check for forwarded headers (cloudflare, nginx, etc.)
+    const forwarded = context.request.headers.get('cf-connecting-ip') ||
+                     context.request.headers.get('x-forwarded-for') ||
+                     context.request.headers.get('x-real-ip');
+    
+    if (forwarded) {
+      //get first ip in case of multiple proxies
+      return forwarded.split(',')[0].trim();
+    }
+    
+    //fallback to direct connection (may not be available during prerendering)
+    return context.clientAddress || 'prerender';
+  } catch (error) {
+    //handle prerendering scenarios where clientAddress is not available
+    return 'prerender';
   }
-  
-  //fallback to direct connection
-  return context.clientAddress || 'unknown';
 }
 
 //generate rate limit key
@@ -244,6 +249,11 @@ export async function rateLimitMiddleware(
 }> {
   const ip = getClientIP(context);
   const pathname = context.url.pathname;
+  
+  //skip rate limiting for prerendered pages
+  if (ip === 'prerender') {
+    return { allowed: true };
+  }
   
   //skip rate limiting for whitelisted ips in development
   if (isWhitelisted(ip) && import.meta.env.DEV) {

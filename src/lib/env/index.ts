@@ -27,18 +27,30 @@ const envSchema = z.object({
 
   // Email Configuration (optional)
   SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.string().transform(Number).pipe(z.number().int().min(1).max(65535)).optional(),
+  SMTP_PORT: z.preprocess(
+    val => val === undefined || val === '' ? undefined : Number(val),
+    z.number().int().min(1).max(65535).optional()
+  ),
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
-  FROM_EMAIL: z.string().email().optional(),
+  FROM_EMAIL: z.preprocess(
+    val => val === undefined || val === '' ? undefined : val,
+    z.string().email().optional()
+  ),
 
   // Analytics (optional)
   GOOGLE_ANALYTICS_ID: z.string().optional(),
   UMAMI_WEBSITE_ID: z.string().optional(),
-  UMAMI_URL: z.string().url().optional(),
+  UMAMI_URL: z.preprocess(
+    val => val === undefined || val === '' ? undefined : val,
+    z.string().url().optional()
+  ),
 
   // CDN & Assets (optional)
-  CDN_URL: z.string().url().optional(),
+  CDN_URL: z.preprocess(
+    val => val === undefined || val === '' ? undefined : val,
+    z.string().url().optional()
+  ),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
@@ -66,7 +78,20 @@ export function validateEnv(): Env {
   if (_env) return _env;
 
   try {
-    _env = envSchema.parse(import.meta.env);
+    //merge with default values for development
+    const envWithDefaults = {
+      ...import.meta.env,
+      //development defaults
+      NODE_ENV: import.meta.env.NODE_ENV || 'development',
+      DEBUG: import.meta.env.DEBUG || 'false',
+      VERBOSE_LOGGING: import.meta.env.VERBOSE_LOGGING || 'false',
+      BCRYPT_ROUNDS: import.meta.env.BCRYPT_ROUNDS || '12',
+      RATE_LIMIT_WINDOW: import.meta.env.RATE_LIMIT_WINDOW || '15',
+      RATE_LIMIT_MAX_REQUESTS: import.meta.env.RATE_LIMIT_MAX_REQUESTS || '100',
+      CACHE_TTL: import.meta.env.CACHE_TTL || '3600',
+    };
+
+    _env = envSchema.parse(envWithDefaults);
     return _env;
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -130,5 +155,9 @@ try {
   validateEnv();
 } catch (error) {
   console.error('Failed to initialize environment:', error);
-  process.exit(1);
+  if (import.meta.env.NODE_ENV === 'production') {
+    process.exit(1);
+  } else {
+    console.warn('Environment validation failed in development mode. Some features may not work correctly.');
+  }
 }

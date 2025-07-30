@@ -612,5 +612,5 @@ if (typeof window !== 'undefined') {
   });
 }
 
-export { StructuredLogger, Logger, LogLevel };
+export { StructuredLogger, Logger };
 export type { LogEntry, LogQuery, LogConfig };

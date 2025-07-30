@@ -111,53 +111,58 @@ function detectSuspiciousActivity(context: APIContext): {
 } {
   const reasons: string[] = [];
   
-  //check user agent
-  const userAgent = context.request.headers.get('user-agent') || '';
-  for (const pattern of THREAT_PATTERNS.SUSPICIOUS_USER_AGENTS) {
-    if (pattern.test(userAgent)) {
-      reasons.push(`Suspicious user agent: ${userAgent}`);
-      break;
-    }
-  }
-  
-  //check path
-  const path = context.url.pathname;
-  for (const pattern of THREAT_PATTERNS.SUSPICIOUS_PATHS) {
-    if (pattern.test(path)) {
-      reasons.push(`Suspicious path: ${path}`);
-      break;
-    }
-  }
-  
-  //check query parameters
-  const query = context.url.search;
-  if (query) {
-    for (const pattern of THREAT_PATTERNS.SUSPICIOUS_PARAMS) {
-      if (pattern.test(query)) {
-        reasons.push(`Suspicious query: ${query}`);
+  try {
+    //check user agent
+    const userAgent = context.request.headers.get('user-agent') || '';
+    for (const pattern of THREAT_PATTERNS.SUSPICIOUS_USER_AGENTS) {
+      if (pattern.test(userAgent)) {
+        reasons.push(`Suspicious user agent: ${userAgent}`);
         break;
       }
     }
-  }
-  
-  //check for common attack patterns in headers
-  const headers = context.request.headers;
-  const suspiciousHeaders = ['x-forwarded-for', 'x-real-ip', 'host'];
-  
-  suspiciousHeaders.forEach(headerName => {
-    const headerValue = headers.get(headerName);
-    if (headerValue) {
-      //check for header injection attempts
-      if (headerValue.includes('\n') || headerValue.includes('\r')) {
-        reasons.push(`Header injection attempt in ${headerName}`);
-      }
-      
-      //check for suspicious host headers
-      if (headerName === 'host' && !headerValue.includes(context.url.hostname)) {
-        reasons.push(`Suspicious host header: ${headerValue}`);
+    
+    //check path
+    const path = context.url.pathname;
+    for (const pattern of THREAT_PATTERNS.SUSPICIOUS_PATHS) {
+      if (pattern.test(path)) {
+        reasons.push(`Suspicious path: ${path}`);
+        break;
       }
     }
-  });
+    
+    //check query parameters
+    const query = context.url.search;
+    if (query) {
+      for (const pattern of THREAT_PATTERNS.SUSPICIOUS_PARAMS) {
+        if (pattern.test(query)) {
+          reasons.push(`Suspicious query: ${query}`);
+          break;
+        }
+      }
+    }
+    
+    //check for common attack patterns in headers
+    const headers = context.request.headers;
+    const suspiciousHeaders = ['x-forwarded-for', 'x-real-ip', 'host'];
+    
+    suspiciousHeaders.forEach(headerName => {
+      const headerValue = headers.get(headerName);
+      if (headerValue) {
+        //check for header injection attempts
+        if (headerValue.includes('\n') || headerValue.includes('\r')) {
+          reasons.push(`Header injection attempt in ${headerName}`);
+        }
+        
+        //check for suspicious host headers
+        if (headerName === 'host' && !headerValue.includes(context.url.hostname)) {
+          reasons.push(`Suspicious host header: ${headerValue}`);
+        }
+      }
+    });
+  } catch (error) {
+    //during static rendering, request data isn't available - skip detection
+    return { suspicious: false, reasons: [] };
+  }
   
   return {
     suspicious: reasons.length > 0,
@@ -264,10 +269,29 @@ export async function loggingMiddleware(
   context: APIContext,
   next: MiddlewareNext
 ): Promise<void> {
+  //skip logging during static build (when clientAddress/headers aren't available)
+  try {
+    const testAccess = context.clientAddress;
+  } catch (error) {
+    //during static rendering, just pass through
+    return await next();
+  }
+  
   const requestId = generateRequestId();
   const startTime = Date.now();
-  const ip = context.clientAddress || 'unknown';
-  const userAgent = context.request.headers.get('user-agent') || '';
+  
+  //safely get client address and headers
+  let ip = 'unknown';
+  let userAgent = '';
+  
+  try {
+    ip = context.clientAddress || 'unknown';
+    userAgent = context.request.headers.get('user-agent') || '';
+  } catch (error) {
+    //fallback values
+    ip = 'static';
+    userAgent = 'static-build';
+  }
   
   //store request info for tracking
   requestTracking.set(requestId, {
@@ -380,6 +404,19 @@ export function logSecurityEvent(
   level: LogLevel = LogLevel.WARN,
   extra?: Record<string, any>
 ): void {
+  //safely get request data (not available during static rendering)
+  let ip = 'prerender';
+  let userAgent = '';
+  let method = 'GET';
+  
+  try {
+    ip = context.clientAddress || 'unknown';
+    userAgent = context.request.headers.get('user-agent') || '';
+    method = context.request.method;
+  } catch (error) {
+    //during static rendering, these aren't available
+  }
+  
   const entry: LogEntry = {
     timestamp: new Date().toISOString(),
     level,
@@ -387,10 +424,10 @@ export function logSecurityEvent(
     message,
     context: {
       requestId: context.locals.requestId || 'unknown',
-      method: context.request.method,
+      method,
       path: context.url.pathname,
-      ip: context.clientAddress || 'unknown',
-      userAgent: context.request.headers.get('user-agent') || '',
+      ip,
+      userAgent,
       userId: context.locals.user?.userId,
       sessionId: context.locals.session?.id,
       extra

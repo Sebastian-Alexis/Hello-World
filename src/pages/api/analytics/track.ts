@@ -1,7 +1,10 @@
 import type { APIRoute } from 'astro';
 import { DatabaseQueries } from '../../../lib/db/queries';
 
-// Track page views and events
+//prevent prerendering for server-side API endpoint
+export const prerender = false;
+
+//track page views and events
 export const POST: APIRoute = async ({ request }) => {
   try {
     const body = await request.json();
