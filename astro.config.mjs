@@ -6,7 +6,7 @@ import compress from 'astro-compress';
 
 export default defineConfig({
   site: 'https://yoursite.com',
-  output: 'static',
+  output: 'server',
   integrations: [
     svelte(),
     tailwind({

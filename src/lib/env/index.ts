@@ -78,17 +78,28 @@ export function validateEnv(): Env {
   if (_env) return _env;
 
   try {
+    //merge import.meta.env with process.env for compatibility
+    const env = { ...import.meta.env, ...process.env };
+    
+    // Debug logging
+    console.log('🔍 Environment loading debug:', {
+      hasTursoUrl: !!env.TURSO_DATABASE_URL,
+      tursoUrl: env.TURSO_DATABASE_URL?.substring(0, 30) + '...',
+      hasAuthToken: !!env.TURSO_AUTH_TOKEN,
+      nodeEnv: env.NODE_ENV
+    });
+    
     //merge with default values for development
     const envWithDefaults = {
-      ...import.meta.env,
+      ...env,
       //development defaults
-      NODE_ENV: import.meta.env.NODE_ENV || 'development',
-      DEBUG: import.meta.env.DEBUG || 'false',
-      VERBOSE_LOGGING: import.meta.env.VERBOSE_LOGGING || 'false',
-      BCRYPT_ROUNDS: import.meta.env.BCRYPT_ROUNDS || '12',
-      RATE_LIMIT_WINDOW: import.meta.env.RATE_LIMIT_WINDOW || '15',
-      RATE_LIMIT_MAX_REQUESTS: import.meta.env.RATE_LIMIT_MAX_REQUESTS || '100',
-      CACHE_TTL: import.meta.env.CACHE_TTL || '3600',
+      NODE_ENV: env.NODE_ENV || 'development',
+      DEBUG: env.DEBUG || 'false',
+      VERBOSE_LOGGING: env.VERBOSE_LOGGING || 'false',
+      BCRYPT_ROUNDS: env.BCRYPT_ROUNDS || '12',
+      RATE_LIMIT_WINDOW: env.RATE_LIMIT_WINDOW || '15',
+      RATE_LIMIT_MAX_REQUESTS: env.RATE_LIMIT_MAX_REQUESTS || '100',
+      CACHE_TTL: env.CACHE_TTL || '3600',
     };
 
     _env = envSchema.parse(envWithDefaults);

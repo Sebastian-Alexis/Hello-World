@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { onCLS, onFCP, onLCP, onTTFB, onINP, type Metric } from 'web-vitals';
-import { FontOptimizer, fontPerformanceUtils } from './font-optimization.js';
+import { fontOptimizer, fontPerformanceUtils } from './font-optimization.js';
 
 //core web vitals thresholds (in milliseconds/units)
 const VITALS_THRESHOLDS = {
@@ -135,7 +135,7 @@ class PerformanceTracker {
   private memoryMonitorInterval?: NodeJS.Timeout;
   private baselineMetrics: Record<string, number> = {};
   private isInitialized: boolean = false;
-  private fontOptimizer?: FontOptimizer;
+  private fontOptimizer?: typeof fontOptimizer;
 
   constructor(options: {
     reportingEndpoint?: string;
@@ -244,14 +244,8 @@ class PerformanceTracker {
 
   private initializeFontOptimization(): void {
     try {
-      //create font optimizer for monospace fonts
-      this.fontOptimizer = new FontOptimizer({
-        primaryFont: 'Courier New',
-        fallbackStack: ['Consolas', 'Lucida Console', 'Monaco', 'Liberation Mono', 'DejaVu Sans Mono', 'monospace'],
-        enableCLSPrevention: true,
-        enableFontDisplay: true,
-        monitorFallbacks: true
-      });
+      //use the singleton font optimizer instance
+      this.fontOptimizer = fontOptimizer;
 
       //listen for font optimization events
       window.addEventListener('fontOptimizationComplete', (event: any) => {

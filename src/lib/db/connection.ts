@@ -14,6 +14,14 @@ export function getDbClient(): Client {
 
   const config = getDbConfig();
   
+  // Debug logging
+  console.log('🔍 Database config:', {
+    url: config.url?.substring(0, 50) + '...',
+    hasAuthToken: !!config.authToken,
+    syncUrl: config.syncUrl,
+    isDev: isDev()
+  });
+  
   _client = createClient({
     url: config.url,
     authToken: config.authToken,
