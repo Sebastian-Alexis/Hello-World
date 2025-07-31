@@ -4,7 +4,7 @@
 // and comprehensive performance monitoring capabilities
 // =============================================================================
 
-import { getCLS, getFID, getFCP, getLCP, onTTFB, onINP, type Metric } from 'web-vitals';
+import { onCLS, onFCP, onLCP, onTTFB, onINP, type Metric } from 'web-vitals';
 import { FontOptimizer, fontPerformanceUtils } from './font-optimization.js';
 
 //core web vitals thresholds (in milliseconds/units)
@@ -203,10 +203,9 @@ class PerformanceTracker {
 
   private initializeWebVitalsTracking(): void {
     //use official web-vitals library for accurate measurements
-    getCLS(this.handleWebVital.bind(this), { reportAllChanges: true });
-    getFID(this.handleWebVital.bind(this));
-    getFCP(this.handleWebVital.bind(this));
-    getLCP(this.handleWebVital.bind(this), { reportAllChanges: true });
+    onCLS(this.handleWebVital.bind(this), { reportAllChanges: true });
+    onFCP(this.handleWebVital.bind(this));
+    onLCP(this.handleWebVital.bind(this), { reportAllChanges: true });
     onTTFB(this.handleWebVital.bind(this));
     onINP(this.handleWebVital.bind(this), { reportAllChanges: true });
   }

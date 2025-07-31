@@ -55,6 +55,10 @@ try {
   }
 } catch (error) {
   console.error('Failed to fetch blog posts:', error);
+  //fallback to empty state when database is not set up
+  posts = [];
+  totalPosts = 0;
+  totalPages = 0;
 }
 
 //fetch categories and tags for filters
@@ -68,6 +72,9 @@ try {
   ]);
 } catch (error) {
   console.error('Failed to fetch categories/tags:', error);
+  //fallback to empty arrays when database is not set up
+  categories = [];
+  tags = [];
 }
 
 //build query params for pagination

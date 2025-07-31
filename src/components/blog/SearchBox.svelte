@@ -63,12 +63,16 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
     }
 
     //click outside handler
-    document.addEventListener('click', handleClickOutside);
+    if (typeof document !== 'undefined') {
+      document.addEventListener('click', handleClickOutside);
+    }
   });
 
   onDestroy(() => {
     if (debounceTimer) clearTimeout(debounceTimer);
-    document.removeEventListener('click', handleClickOutside);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('click', handleClickOutside);
+    }
   });
 
   //load recent searches from localStorage
