@@ -1,0 +1,615 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db } from '../../../lib/db/queries.js';
+
+//get airlines and airports for autocomplete
+let airlines, airports;
+
+try {
+  [airlines, airports] = await Promise.all([
+    db.getAirlines(),
+    db.getAirports()
+  ]);
+} catch (error) {
+  console.error('Flight form error:', error);
+  airlines = [];
+  airports = [];
+}
+---
+
+<AdminLayout title="Add New Flight" description="Record a new flight in your travel log">
+  <div class="max-w-4xl mx-auto">
+    <!-- Form Header -->
+    <div class="mb-8">
+      <div class="flex items-center justify-between">
+        <div>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Add New Flight</h1>
+          <p class="text-gray-500 dark:text-gray-400 mt-1">Record your flight details and travel experience</p>
+        </div>
+        <div class="flex space-x-3">
+          <a 
+            href="/admin/flights" 
+            class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Cancel
+          </a>
+          <button 
+            type="submit" 
+            form="flight-form"
+            class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Save Flight
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Flight Form -->
+    <form id="flight-form" class="space-y-8">
+      <!-- Flight Details -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Flight Details</h3>
+        </div>
+        <div class="p-6 space-y-6">
+          <!-- Flight Number and Airline -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="flight_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Flight Number *
+              </label>
+              <input 
+                type="text" 
+                name="flight_number" 
+                id="flight_number" 
+                required
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., AA1234, UA456"
+              >
+            </div>
+            
+            <div>
+              <label for="airline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Airline *
+              </label>
+              <input 
+                type="text" 
+                name="airline" 
+                id="airline" 
+                required
+                list="airlines-list"
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., American Airlines, United"
+              >
+              <datalist id="airlines-list">
+                {airlines.map(airline => (
+                  <option value={airline.name}>{airline.name}</option>
+                ))}
+              </datalist>
+            </div>
+          </div>
+          
+          <!-- Origin and Destination -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="origin_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Origin Airport *
+              </label>
+              <input 
+                type="text" 
+                name="origin_airport" 
+                id="origin_airport" 
+                required
+                list="airports-list"
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Search airport name or code..."
+              >
+            </div>
+            
+            <div>
+              <label for="destination_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Destination Airport *
+              </label>
+              <input 
+                type="text" 
+                name="destination_airport" 
+                id="destination_airport" 
+                required
+                list="airports-list"
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Search airport name or code..."
+              >
+            </div>
+          </div>
+          
+          <datalist id="airports-list">
+            {airports.map(airport => (
+              <option value={`${airport.iata_code} - ${airport.name}`}>
+                {airport.iata_code} - {airport.name}, {airport.city}, {airport.country}
+              </option>
+            ))}
+          </datalist>
+          
+          <!-- Departure and Arrival Times -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="departure_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Departure Time *
+              </label>
+              <input 
+                type="datetime-local" 
+                name="departure_time" 
+                id="departure_time" 
+                required
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+            </div>
+            
+            <div>
+              <label for="arrival_time" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Arrival Time *
+              </label>
+              <input 
+                type="datetime-local" 
+                name="arrival_time" 
+                id="arrival_time" 
+                required
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+            </div>
+          </div>
+          
+          <!-- Aircraft and Seat -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="aircraft_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Aircraft Type
+              </label>
+              <input 
+                type="text" 
+                name="aircraft_type" 
+                id="aircraft_type" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., Boeing 737, Airbus A320"
+              >
+            </div>
+            
+            <div>
+              <label for="seat_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Seat Number
+              </label>
+              <input 
+                type="text" 
+                name="seat_number" 
+                id="seat_number" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., 12A, 27F"
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Experience -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Flight Experience</h3>
+        </div>
+        <div class="p-6 space-y-6">
+          <!-- Class and Status -->
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div>
+              <label for="class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Travel Class
+              </label>
+              <select 
+                name="class" 
+                id="class" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="economy">Economy</option>
+                <option value="premium_economy">Premium Economy</option>
+                <option value="business">Business</option>
+                <option value="first">First Class</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="booking_class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Booking Class
+              </label>
+              <input 
+                type="text" 
+                name="booking_class" 
+                id="booking_class" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., Y, W, J, F"
+              >
+            </div>
+            
+            <div>
+              <label for="flight_status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Flight Status
+              </label>
+              <select 
+                name="flight_status" 
+                id="flight_status" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="scheduled">Scheduled</option>
+                <option value="completed">Completed</option>
+                <option value="cancelled">Cancelled</option>
+                <option value="delayed">Delayed</option>
+              </select>
+            </div>
+          </div>
+          
+          <!-- Miles and Price -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="distance_miles" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Distance (miles)
+              </label>
+              <input 
+                type="number" 
+                name="distance_miles" 
+                id="distance_miles" 
+                min="0"
+                step="1"
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Auto-calculated if empty"
+              >
+            </div>
+            
+            <div>
+              <label for="ticket_price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Ticket Price ($)
+              </label>
+              <input 
+                type="number" 
+                name="ticket_price" 
+                id="ticket_price" 
+                min="0"
+                step="0.01"
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="0.00"
+              >
+            </div>
+          </div>
+          
+          <!-- Purpose and Trip Type -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="purpose" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Travel Purpose
+              </label>
+              <select 
+                name="purpose" 
+                id="purpose" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="">Select purpose</option>
+                <option value="business">Business</option>
+                <option value="leisure">Leisure</option>
+                <option value="personal">Personal</option>
+                <option value="education">Education</option>
+                <option value="medical">Medical</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="trip_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Trip Type
+              </label>
+              <select 
+                name="trip_type" 
+                id="trip_type" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="one_way">One Way</option>
+                <option value="round_trip">Round Trip</option>
+                <option value="multi_city">Multi-City</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Notes & Media -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Notes & Media</h3>
+        </div>
+        <div class="p-6 space-y-6">
+          <!-- Flight Notes -->
+          <div>
+            <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Flight Notes
+            </label>
+            <textarea 
+              name="notes" 
+              id="notes" 
+              rows="4"
+              class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              placeholder="Any notes about this flight - delays, experiences, observations..."
+            ></textarea>
+          </div>
+          
+          <!-- Flight Photos -->
+          <div>
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Flight Photos
+            </label>
+            <div id="flight-photos-upload">
+              <!-- MediaUpload component will be mounted here -->
+            </div>
+            <input type="hidden" name="photos" id="photos-input">
+            
+            <!-- Photos Preview -->
+            <div id="photos-preview" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 hidden">
+              <!-- Flight photos will appear here -->
+            </div>
+          </div>
+          
+          <!-- Flight Rating -->
+          <div>
+            <label for="rating" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Overall Flight Rating
+            </label>
+            <div class="flex items-center space-x-2">
+              <div id="star-rating" class="flex space-x-1">
+                {Array.from({ length: 5 }, (_, i) => (
+                  <button
+                    type="button"
+                    class="star-btn text-2xl text-gray-300 hover:text-yellow-400 focus:outline-none"
+                    data-rating={i + 1}
+                  >
+                    ★
+                  </button>
+                ))}
+              </div>
+              <input type="hidden" name="rating" id="rating-input" value="0">
+              <span id="rating-text" class="text-sm text-gray-500 dark:text-gray-400">No rating</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Flight Tracking -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Tracking & References</h3>
+        </div>
+        <div class="p-6 space-y-6">
+          <!-- Confirmation and Record Locator -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="confirmation_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Confirmation Number
+              </label>
+              <input 
+                type="text" 
+                name="confirmation_number" 
+                id="confirmation_number" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., ABC123, XYZ789"
+              >
+            </div>
+            
+            <div>
+              <label for="record_locator" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Record Locator (PNR)
+              </label>
+              <input 
+                type="text" 
+                name="record_locator" 
+                id="record_locator" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., ABC123"
+              >
+            </div>
+          </div>
+          
+          <!-- Frequent Flyer and Gate Info -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label for="frequent_flyer_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Frequent Flyer Number
+              </label>
+              <input 
+                type="text" 
+                name="frequent_flyer_number" 
+                id="frequent_flyer_number" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="Your FF number for this airline"
+              >
+            </div>
+            
+            <div>
+              <label for="gate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Gate
+              </label>
+              <input 
+                type="text" 
+                name="gate" 
+                id="gate" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., A15, B7, C22"
+              >
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+  </div>
+</AdminLayout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', async function() {
+    //mount media upload for flight photos
+    const MediaUpload = (await import('../../components/admin/MediaUpload.svelte')).default;
+    
+    const photosUpload = new MediaUpload({
+      target: document.getElementById('flight-photos-upload'),
+      props: {
+        accept: 'image/*',
+        multiple: true,
+        maxSize: 5 * 1024 * 1024 // 5MB
+      }
+    });
+    
+    let flightPhotos = [];
+    
+    photosUpload.$on('success', (event) => {
+      flightPhotos = flightPhotos.concat(event.detail.files);
+      updatePhotosInput();
+      renderPhotosPreview();
+    });
+    
+    function updatePhotosInput() {
+      document.getElementById('photos-input').value = JSON.stringify(flightPhotos.map(photo => photo.url));
+    }
+    
+    function renderPhotosPreview() {
+      const preview = document.getElementById('photos-preview');
+      preview.innerHTML = '';
+      
+      if (flightPhotos.length > 0) {
+        preview.classList.remove('hidden');
+        flightPhotos.forEach((photo, index) => {
+          const div = document.createElement('div');
+          div.className = 'relative group';
+          div.innerHTML = `
+            <img src="${photo.url}" alt="Flight photo ${index + 1}" class="w-full h-24 object-cover rounded-lg">
+            <button type="button" onclick="removeFlightPhoto(${index})" class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
+              ×
+            </button>
+          `;
+          preview.appendChild(div);
+        });
+      } else {
+        preview.classList.add('hidden');
+      }
+    }
+    
+    window.removeFlightPhoto = function(index) {
+      flightPhotos.splice(index, 1);
+      updatePhotosInput();
+      renderPhotosPreview();
+    };
+    
+    //star rating functionality
+    const starBtns = document.querySelectorAll('.star-btn');
+    const ratingInput = document.getElementById('rating-input');
+    const ratingText = document.getElementById('rating-text');
+    
+    starBtns.forEach(btn => {
+      btn.addEventListener('click', function() {
+        const rating = parseInt(this.dataset.rating);
+        setRating(rating);
+      });
+      
+      btn.addEventListener('mouseenter', function() {
+        const rating = parseInt(this.dataset.rating);
+        highlightStars(rating);
+      });
+    });
+    
+    document.getElementById('star-rating').addEventListener('mouseleave', function() {
+      const currentRating = parseInt(ratingInput.value) || 0;
+      highlightStars(currentRating);
+    });
+    
+    function setRating(rating) {
+      ratingInput.value = rating;
+      highlightStars(rating);
+      updateRatingText(rating);
+    }
+    
+    function highlightStars(count) {
+      starBtns.forEach((btn, index) => {
+        if (index < count) {
+          btn.classList.add('text-yellow-400');
+          btn.classList.remove('text-gray-300');
+        } else {
+          btn.classList.remove('text-yellow-400');
+          btn.classList.add('text-gray-300');
+        }
+      });
+    }
+    
+    function updateRatingText(rating) {
+      const ratingTexts = {
+        0: 'No rating',
+        1: 'Poor',
+        2: 'Fair', 
+        3: 'Good',
+        4: 'Very Good',
+        5: 'Excellent'
+      };
+      ratingText.textContent = ratingTexts[rating] || 'No rating';
+    }
+    
+    //calculate flight duration and auto-populate distance
+    const departureInput = document.getElementById('departure_time');
+    const arrivalInput = document.getElementById('arrival_time');
+    const distanceInput = document.getElementById('distance_miles');
+    const originInput = document.getElementById('origin_airport');
+    const destInput = document.getElementById('destination_airport');
+    
+    //auto-calculate distance when airports change
+    function calculateDistance() {
+      const origin = originInput.value;
+      const dest = destInput.value;
+      
+      if (origin && dest && !distanceInput.value) {
+        //extract airport codes
+        const originCode = origin.split(' - ')[0];
+        const destCode = dest.split(' - ')[0];
+        
+        if (originCode && destCode && originCode !== destCode) {
+          //simulate distance calculation (in a real app, you'd use actual coordinates)
+          fetch(`/api/airports/distance?from=${originCode}&to=${destCode}`)
+            .then(response => response.json())
+            .then(data => {
+              if (data.distance) {
+                distanceInput.value = Math.round(data.distance);
+              }
+            })
+            .catch(error => console.log('Distance calculation failed:', error));
+        }
+      }
+    }
+    
+    originInput.addEventListener('change', calculateDistance);
+    destInput.addEventListener('change', calculateDistance);
+    
+    //form submission
+    document.getElementById('flight-form').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      
+      try {
+        const response = await fetch('/api/admin/flights', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          },
+          body: formData
+        });
+        
+        if (response.ok) {
+          const result = await response.json();
+          window.location.href = `/admin/flights/${result.id}`;
+        } else {
+          alert('Failed to save flight');
+        }
+      } catch (error) {
+        console.error('Form submission error:', error);
+        alert('Failed to save flight');
+      }
+    });
+  });
+</script>

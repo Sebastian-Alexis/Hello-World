@@ -1,0 +1,659 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db } from '../../../lib/db/queries.js';
+
+//get query parameters
+const url = new URL(Astro.request.url);
+const page = parseInt(url.searchParams.get('page') || '1');
+const search = url.searchParams.get('search') || '';
+const status = url.searchParams.get('status') || 'all';
+const airline = url.searchParams.get('airline') || '';
+const sortBy = url.searchParams.get('sort') || 'departure_time';
+const sortOrder = url.searchParams.get('order') || 'DESC';
+
+let flights, totalFlights, airlines, stats;
+
+try {
+  //get flights with filters
+  const result = await db.getFlights({
+    page,
+    limit: 20,
+    search,
+    status: status !== 'all' ? status : undefined,
+    airline: airline || undefined,
+    sortBy,
+    sortOrder
+  });
+  
+  flights = result.data;
+  totalFlights = result.total;
+  
+  //get airlines for filter
+  airlines = await db.getAirlines();
+  
+  //get quick stats
+  stats = await db.getFlightStatistics();
+} catch (error) {
+  console.error('Flight management error:', error);
+  flights = [];
+  totalFlights = 0;
+  airlines = [];
+  stats = { 
+    totalFlights: 0, 
+    completedFlights: 0, 
+    totalDistance: 0, 
+    uniqueAirports: 0,
+    uniqueAirlines: 0,
+    totalHours: 0
+  };
+}
+
+const totalPages = Math.ceil(totalFlights / 20);
+---
+
+<AdminLayout title="Flight Log" description="Manage your flight history and travel records">
+  <!-- Header Actions -->
+  <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+    <div class="flex items-center space-x-4">
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Flight Log</h1>
+      <div class="flex space-x-2">
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+          {stats.totalFlights} Flights
+        </span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+          {Math.round(stats.totalDistance).toLocaleString()} mi
+        </span>
+        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+          {stats.uniqueAirports} Airports
+        </span>
+      </div>
+    </div>
+    <div class="flex space-x-3">
+      <a 
+        href="/admin/flights/new" 
+        class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+      >
+        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+        </svg>
+        Add Flight
+      </a>
+      <a 
+        href="/admin/flights/import" 
+        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+      >
+        <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+        </svg>
+        Import
+      </a>
+      <button 
+        id="bulk-actions-btn" 
+        class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+        disabled
+      >
+        Bulk Actions
+      </button>
+    </div>
+  </div>
+
+  <!-- Stats Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Total Distance</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(stats.totalDistance).toLocaleString()}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">miles</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Flight Hours</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(stats.totalHours).toLocaleString()}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">hours</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Unique Airports</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{stats.uniqueAirports}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">airports</div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Airlines</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{stats.uniqueAirlines}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">carriers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filters -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4 mb-6">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- Search -->
+      <div>
+        <label for="search" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Search
+        </label>
+        <input 
+          type="text" 
+          name="search" 
+          id="search" 
+          value={search}
+          placeholder="Flight number, route, airports..."
+          class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        >
+      </div>
+      
+      <!-- Status Filter -->
+      <div>
+        <label for="status" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Status
+        </label>
+        <select 
+          name="status" 
+          id="status" 
+          class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        >
+          <option value="all" selected={status === 'all'}>All Status</option>
+          <option value="completed" selected={status === 'completed'}>Completed</option>
+          <option value="scheduled" selected={status === 'scheduled'}>Scheduled</option>
+          <option value="cancelled" selected={status === 'cancelled'}>Cancelled</option>
+          <option value="delayed" selected={status === 'delayed'}>Delayed</option>
+        </select>
+      </div>
+      
+      <!-- Airline Filter -->
+      <div>
+        <label for="airline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Airline
+        </label>
+        <select 
+          name="airline" 
+          id="airline" 
+          class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+        >
+          <option value="" selected={airline === ''}>All Airlines</option>
+          {airlines.map(air => (
+            <option value={air.name} selected={airline === air.name}>
+              {air.name}
+            </option>
+          ))}
+        </select>
+      </div>
+      
+      <!-- Sort Options -->
+      <div>
+        <label for="sort" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          Sort By
+        </label>
+        <div class="flex space-x-2">
+          <select 
+            name="sort" 
+            id="sort" 
+            class="flex-1 rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          >
+            <option value="departure_time" selected={sortBy === 'departure_time'}>Departure Date</option>
+            <option value="arrival_time" selected={sortBy === 'arrival_time'}>Arrival Date</option>
+            <option value="flight_number" selected={sortBy === 'flight_number'}>Flight Number</option>
+            <option value="airline" selected={sortBy === 'airline'}>Airline</option>
+            <option value="distance_miles" selected={sortBy === 'distance_miles'}>Distance</option>
+          </select>
+          <select 
+            name="order" 
+            class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          >
+            <option value="DESC" selected={sortOrder === 'DESC'}>↓</option>
+            <option value="ASC" selected={sortOrder === 'ASC'}>↑</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Filter Actions -->
+      <div class="md:col-span-4 flex justify-end space-x-3">
+        <button 
+          type="submit" 
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Apply Filters
+        </button>
+        <a 
+          href="/admin/flights" 
+          class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Clear
+        </a>
+      </div>
+    </form>
+  </div>
+
+  <!-- Flights Table -->
+  <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+    {flights.length > 0 ? (
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+          <thead class="bg-gray-50 dark:bg-gray-700">
+            <tr>
+              <th scope="col" class="px-6 py-3 text-left">
+                <input 
+                  type="checkbox" 
+                  id="select-all"
+                  class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                >
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Flight
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Route
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Date & Time
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Status
+              </th>
+              <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                Distance
+              </th>
+              <th scope="col" class="relative px-6 py-3">
+                <span class="sr-only">Actions</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody class="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            {flights.map(flight => (
+              <tr class="hover:bg-gray-50 dark:hover:bg-gray-700">
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <input 
+                    type="checkbox" 
+                    class="flight-checkbox rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                    value={flight.id}
+                  >
+                </td>
+                <td class="px-6 py-4">
+                  <div class="flex items-center">
+                    <div>
+                      <div class="text-sm font-medium text-gray-900 dark:text-white">
+                        {flight.airline} {flight.flight_number}
+                      </div>
+                      <div class="text-sm text-gray-500 dark:text-gray-400">
+                        {flight.aircraft_type || 'Unknown aircraft'}
+                        {flight.seat_number && ` • Seat ${flight.seat_number}`}
+                      </div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900 dark:text-white">
+                    <span class="font-medium">{flight.origin_airport}</span> → 
+                    <span class="font-medium">{flight.destination_airport}</span>
+                  </div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">
+                    {flight.origin_city} → {flight.destination_city}
+                  </div>
+                </td>
+                <td class="px-6 py-4">
+                  <div class="text-sm text-gray-900 dark:text-white">
+                    {new Date(flight.departure_time).toLocaleDateString()}
+                  </div>
+                  <div class="text-sm text-gray-500 dark:text-gray-400">
+                    Dep: {new Date(flight.departure_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                    • Arr: {new Date(flight.arrival_time).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                  </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <span class={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                    flight.flight_status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                    flight.flight_status === 'scheduled' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                    flight.flight_status === 'cancelled' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200' :
+                    flight.flight_status === 'delayed' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                    'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                  }`}>
+                    {flight.flight_status}
+                  </span>
+                  {flight.class && (
+                    <div class="mt-1">
+                      <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                        {flight.class.replace('_', ' ')}
+                      </span>
+                    </div>
+                  )}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                  <div class="text-sm text-gray-900 dark:text-white">
+                    {flight.distance_miles ? flight.distance_miles.toLocaleString() + ' mi' : 'N/A'}
+                  </div>
+                  {flight.rating && (
+                    <div class="flex items-center mt-1">
+                      {Array.from({ length: 5 }, (_, i) => (
+                        <svg 
+                          class={`w-3 h-3 ${i < flight.rating ? 'text-yellow-400' : 'text-gray-300'}`}
+                          fill="currentColor" 
+                          viewBox="0 0 20 20"
+                        >
+                          <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/>
+                        </svg>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div class="flex justify-end space-x-2">
+                    <a 
+                      href={`/flights/${flight.id}`} 
+                      target="_blank"
+                      class="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-200"
+                      title="View flight details"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+                        <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+                      </svg>
+                    </a>
+                    <a 
+                      href={`/admin/flights/${flight.id}`}
+                      class="text-green-600 dark:text-green-400 hover:text-green-900 dark:hover:text-green-200"
+                      title="Edit flight"
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z"/>
+                      </svg>
+                    </a>
+                    <button 
+                      class="text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-200"
+                      title="Delete flight"
+                      onclick={`confirmDelete(${flight.id}, '${flight.flight_number}')`}
+                    >
+                      <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM8 7a1 1 0 012 0v4a1 1 0 11-2 0V7zm4 0a1 1 0 112 0v4a1 1 0 11-2 0V7z" clip-rule="evenodd"/>
+                      </svg>
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    ) : (
+      <div class="text-center py-12">
+        <svg class="w-12 h-12 mx-auto text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+          <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+        </svg>
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">No flights found</h3>
+        <p class="text-gray-500 dark:text-gray-400 mb-4">
+          {search || status !== 'all' || airline 
+            ? 'Try adjusting your filters or search terms.'
+            : 'Get started by adding your first flight.'
+          }
+        </p>
+        <a 
+          href="/admin/flights/new" 
+          class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          Add Your First Flight
+        </a>
+      </div>
+    )}
+  </div>
+
+  <!-- Pagination -->
+  {totalPages > 1 && (
+    <div class="flex items-center justify-between mt-6">
+      <div class="text-sm text-gray-700 dark:text-gray-300">
+        Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, totalFlights)} of {totalFlights} flights
+      </div>
+      <div class="flex space-x-2">
+        {page > 1 && (
+          <a 
+            href={`?page=${page - 1}&search=${search}&status=${status}&airline=${airline}&sort=${sortBy}&order=${sortOrder}`}
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Previous
+          </a>
+        )}
+        
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+          const pageNum = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
+          return pageNum <= totalPages ? (
+            <a 
+              href={`?page=${pageNum}&search=${search}&status=${status}&airline=${airline}&sort=${sortBy}&order=${sortOrder}`}
+              class={`px-3 py-2 border text-sm font-medium rounded-md ${
+                pageNum === page 
+                  ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-200' 
+                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+              }`}
+            >
+              {pageNum}
+            </a>
+          ) : null;
+        })}
+        
+        {page < totalPages && (
+          <a 
+            href={`?page=${page + 1}&search=${search}&status=${status}&airline=${airline}&sort=${sortBy}&order=${sortOrder}`}
+            class="px-3 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+          >
+            Next
+          </a>
+        )}
+      </div>
+    </div>
+  )}
+</AdminLayout>
+
+<!-- Bulk Actions Modal -->
+<div id="bulk-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+    <div class="mt-3 text-center">
+      <h3 class="text-lg font-medium text-gray-900 dark:text-white">Bulk Actions</h3>
+      <div class="mt-4 space-y-3">
+        <button id="bulk-complete" class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+          Mark as Completed
+        </button>
+        <button id="bulk-cancel" class="w-full px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+          Mark as Cancelled
+        </button>
+        <button id="bulk-export" class="w-full px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+          Export Selected
+        </button>
+        <button id="bulk-delete" class="w-full px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700">
+          Delete Selected
+        </button>
+      </div>
+      <div class="mt-4">
+        <button id="close-bulk-modal" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div id="delete-modal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
+  <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white dark:bg-gray-800">
+    <div class="mt-3 text-center">
+      <svg class="w-12 h-12 mx-auto text-red-600 mb-4" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9zM4 5a2 2 0 012-2h8a2 2 0 012 2v6a2 2 0 01-2 2H6a2 2 0 01-2-2V5zM8 7a1 1 0 012 0v4a1 1 0 11-2 0V7zm4 0a1 1 0 112 0v4a1 1 0 11-2 0V7z" clip-rule="evenodd"/>
+      </svg>
+      <h3 class="text-lg font-medium text-gray-900 dark:text-white">Delete Flight</h3>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        Are you sure you want to delete flight "<span id="delete-flight-title"></span>"? This action cannot be undone.
+      </p>
+      <div class="mt-6 flex justify-center space-x-3">
+        <button id="confirm-delete" class="px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700">
+          Delete
+        </button>
+        <button id="cancel-delete" class="px-4 py-2 bg-gray-300 dark:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-md hover:bg-gray-400 dark:hover:bg-gray-500">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  //bulk actions and delete functionality for flights
+  document.addEventListener('DOMContentLoaded', function() {
+    const selectAllCheckbox = document.getElementById('select-all');
+    const flightCheckboxes = document.querySelectorAll('.flight-checkbox');
+    const bulkActionsBtn = document.getElementById('bulk-actions-btn');
+    const bulkModal = document.getElementById('bulk-modal');
+    const deleteModal = document.getElementById('delete-modal');
+    
+    let selectedFlights = [];
+    let flightToDelete = null;
+    
+    //handle select all
+    selectAllCheckbox?.addEventListener('change', function() {
+      flightCheckboxes.forEach(checkbox => {
+        checkbox.checked = this.checked;
+      });
+      updateBulkActions();
+    });
+    
+    //handle individual selections
+    flightCheckboxes.forEach(checkbox => {
+      checkbox.addEventListener('change', updateBulkActions);
+    });
+    
+    function updateBulkActions() {
+      selectedFlights = Array.from(flightCheckboxes)
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
+      
+      bulkActionsBtn.disabled = selectedFlights.length === 0;
+      bulkActionsBtn.textContent = selectedFlights.length > 0 
+        ? `Bulk Actions (${selectedFlights.length})` 
+        : 'Bulk Actions';
+    }
+    
+    //show bulk actions modal
+    bulkActionsBtn?.addEventListener('click', function() {
+      if (selectedFlights.length > 0) {
+        bulkModal.classList.remove('hidden');
+      }
+    });
+    
+    //close bulk modal
+    document.getElementById('close-bulk-modal')?.addEventListener('click', function() {
+      bulkModal.classList.add('hidden');
+    });
+    
+    //delete confirmation
+    window.confirmDelete = function(flightId, flightNumber) {
+      flightToDelete = flightId;
+      document.getElementById('delete-flight-title').textContent = flightNumber;
+      deleteModal.classList.remove('hidden');
+    };
+    
+    //cancel delete
+    document.getElementById('cancel-delete')?.addEventListener('click', function() {
+      deleteModal.classList.add('hidden');
+      flightToDelete = null;
+    });
+    
+    //confirm delete
+    document.getElementById('confirm-delete')?.addEventListener('click', async function() {
+      if (flightToDelete) {
+        try {
+          const response = await fetch(`/api/admin/flights/${flightToDelete}`, {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            }
+          });
+          
+          if (response.ok) {
+            window.location.reload();
+          } else {
+            alert('Failed to delete flight');
+          }
+        } catch (error) {
+          console.error('Delete error:', error);
+          alert('Failed to delete flight');
+        }
+      }
+    });
+    
+    //bulk actions
+    document.getElementById('bulk-complete')?.addEventListener('click', () => performBulkAction('complete'));
+    document.getElementById('bulk-cancel')?.addEventListener('click', () => performBulkAction('cancel'));
+    document.getElementById('bulk-export')?.addEventListener('click', () => performBulkAction('export'));
+    document.getElementById('bulk-delete')?.addEventListener('click', () => performBulkAction('delete'));
+    
+    async function performBulkAction(action) {
+      try {
+        const response = await fetch('/api/admin/flights/bulk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          },
+          body: JSON.stringify({
+            action,
+            flightIds: selectedFlights
+          })
+        });
+        
+        if (response.ok) {
+          if (action === 'export') {
+            //handle export download
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'flights-export.csv';
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            bulkModal.classList.add('hidden');
+          } else {
+            window.location.reload();
+          }
+        } else {
+          alert(`Failed to ${action} flights`);
+        }
+      } catch (error) {
+        console.error('Bulk action error:', error);
+        alert(`Failed to ${action} flights`);
+      }
+    }
+  });
+</script>

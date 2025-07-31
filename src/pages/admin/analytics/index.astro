@@ -1,0 +1,423 @@
+---
+import AdminLayout from '../../../layouts/AdminLayout.astro';
+import { db } from '../../../lib/db/queries.js';
+
+//get query parameters for date range
+const url = new URL(Astro.request.url);
+const startDate = url.searchParams.get('start') || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+const endDate = url.searchParams.get('end') || new Date().toISOString().split('T')[0];
+const period = url.searchParams.get('period') || '30d';
+
+let analyticsData, contentStats, trafficStats, performanceData;
+
+try {
+  //get comprehensive analytics data
+  [analyticsData, contentStats, trafficStats, performanceData] = await Promise.all([
+    db.getAnalyticsSummary(startDate, endDate),
+    db.getContentAnalytics(startDate, endDate),
+    db.getTrafficAnalytics(startDate, endDate),
+    db.getPerformanceAnalytics(startDate, endDate)
+  ]);
+} catch (error) {
+  console.error('Analytics dashboard error:', error);
+  
+  //provide fallback data
+  analyticsData = {
+    totalPageViews: 0,
+    uniqueVisitors: 0,
+    totalSessions: 0,
+    averageSessionDuration: 0,
+    bounceRate: 0,
+    topPages: [],
+    topReferrers: [],
+    browserStats: [],
+    deviceStats: [],
+    countryStats: []
+  };
+  
+  contentStats = {
+    totalPosts: 0,
+    totalProjects: 0,
+    totalFlights: 0,
+    topPosts: [],
+    topProjects: [],
+    recentActivity: []
+  };
+  
+  trafficStats = {
+    dailyViews: [],
+    hourlyDistribution: [],
+    searchQueries: [],
+    socialTraffic: []
+  };
+  
+  performanceData = {
+    averageLoadTime: 0,
+    coreWebVitals: {
+      lcp: 0,
+      fid: 0,
+      cls: 0
+    },
+    performanceScore: 0,
+    performanceTrends: []
+  };
+}
+---
+
+<AdminLayout title="Analytics Dashboard" description="Comprehensive website analytics and performance insights">
+  <!-- Date Range Selector -->
+  <div class="mb-8">
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h1>
+      
+      <div class="flex items-center space-x-4">
+        <!-- Quick Period Buttons -->
+        <div class="flex rounded-md shadow-sm">
+          <a href="?period=7d" class={`px-3 py-2 text-sm font-medium rounded-l-md border ${period === '7d' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+            7d
+          </a>
+          <a href="?period=30d" class={`px-3 py-2 text-sm font-medium border-t border-b ${period === '30d' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+            30d
+          </a>
+          <a href="?period=90d" class={`px-3 py-2 text-sm font-medium rounded-r-md border ${period === '90d' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}>
+            90d
+          </a>
+        </div>
+        
+        <!-- Custom Date Range -->
+        <form method="GET" class="flex items-center space-x-2">
+          <input 
+            type="date" 
+            name="start" 
+            value={startDate}
+            class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          >
+          <span class="text-gray-500">to</span>
+          <input 
+            type="date" 
+            name="end" 
+            value={endDate}
+            class="rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 sm:text-sm"
+          >
+          <button 
+            type="submit" 
+            class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          >
+            Update
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Key Metrics Cards -->
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <!-- Total Page Views -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
+            <path fill-rule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Page Views</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{analyticsData.totalPageViews.toLocaleString()}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">Total views</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Unique Visitors -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Unique Visitors</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{analyticsData.uniqueVisitors.toLocaleString()}</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">Unique users</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Average Session Duration -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Avg. Session</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(analyticsData.averageSessionDuration / 60)}m</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">Duration</div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Bounce Rate -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+      <div class="flex items-center">
+        <div class="flex-shrink-0">
+          <svg class="w-8 h-8 text-orange-600" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M3 3a1 1 0 000 2v8a2 2 0 002 2h2.586l-1.293 1.293a1 1 0 101.414 1.414L10 15.414l2.293 2.293a1 1 0 001.414-1.414L12.414 15H15a2 2 0 002-2V5a1 1 0 100-2H3zm11.707 4.707a1 1 0 00-1.414-1.414L10 9.586 8.707 8.293a1 1 0 00-1.414 0l-2 2a1 1 0 001.414 1.414L8 10.414l1.293 1.293a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+        <div class="ml-4">
+          <div class="text-sm font-medium text-gray-500 dark:text-gray-400">Bounce Rate</div>
+          <div class="text-2xl font-bold text-gray-900 dark:text-white">{Math.round(analyticsData.bounceRate)}%</div>
+          <div class="text-xs text-gray-500 dark:text-gray-400">Single page visits</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Charts Row -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Traffic Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Daily Traffic</h3>
+      </div>
+      <div class="p-6">
+        <div id="traffic-chart" class="h-64"></div>
+      </div>
+    </div>
+    
+    <!-- Performance Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Core Web Vitals</h3>
+      </div>
+      <div class="p-6">
+        <div class="grid grid-cols-3 gap-4 mb-4">
+          <div class="text-center">
+            <div class="text-2xl font-bold text-blue-600">{performanceData.coreWebVitals.lcp.toFixed(1)}s</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">LCP</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-green-600">{performanceData.coreWebVitals.fid.toFixed(0)}ms</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">FID</div>
+          </div>
+          <div class="text-center">
+            <div class="text-2xl font-bold text-purple-600">{performanceData.coreWebVitals.cls.toFixed(3)}</div>
+            <div class="text-xs text-gray-500 dark:text-gray-400">CLS</div>
+          </div>
+        </div>
+        <div id="performance-chart" class="h-32"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content Stats and Top Pages -->
+  <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+    <!-- Content Statistics -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Content Stats</h3>
+      </div>
+      <div class="p-6 space-y-4">
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500 dark:text-gray-400">Blog Posts</span>
+          <span class="font-medium text-gray-900 dark:text-white">{contentStats.totalPosts}</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500 dark:text-gray-400">Portfolio Projects</span>
+          <span class="font-medium text-gray-900 dark:text-white">{contentStats.totalProjects}</span>
+        </div>
+        <div class="flex justify-between items-center">
+          <span class="text-sm text-gray-500 dark:text-gray-400">Flight Records</span>
+          <span class="font-medium text-gray-900 dark:text-white">{contentStats.totalFlights}</span>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Top Pages -->
+    <div class="lg:col-span-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Top Pages</h3>
+      </div>
+      <div class="p-6">
+        <div class="space-y-4">
+          {#each analyticsData.topPages.slice(0, 5) as page, index}
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
+                  {index + 1}
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="text-sm font-medium text-gray-900 dark:text-white truncate">
+                    {page.page_path}
+                  </p>
+                  <p class="text-xs text-gray-500 dark:text-gray-400">
+                    {page.page_title || 'Untitled'}
+                  </p>
+                </div>
+              </div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">
+                {page.view_count.toLocaleString()}
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Browser and Device Stats -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+    <!-- Browser Stats -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Browsers</h3>
+      </div>
+      <div class="p-6">
+        <div class="space-y-3">
+          {#each analyticsData.browserStats.slice(0, 5) as browser}
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{browser.name}</span>
+              <div class="flex items-center space-x-2">
+                <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div class="bg-blue-600 h-2 rounded-full" style="width: {browser.percentage}%"></div>
+                </div>
+                <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
+                  {browser.percentage.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Device Stats -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+      <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+        <h3 class="text-lg font-medium text-gray-900 dark:text-white">Devices</h3>
+      </div>
+      <div class="p-6">
+        <div class="space-y-3">
+          {#each analyticsData.deviceStats as device}
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-700 dark:text-gray-300">{device.name}</span>
+              <div class="flex items-center space-x-2">
+                <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                  <div class="bg-green-600 h-2 rounded-full" style="width: {device.percentage}%"></div>
+                </div>
+                <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
+                  {device.percentage.toFixed(1)}%
+                </span>
+              </div>
+            </div>
+          {/each}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export and Actions -->
+  <div class="flex justify-end space-x-3">
+    <button 
+      id="export-csv" 
+      class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
+    >
+      <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clip-rule="evenodd"/>
+      </svg>
+      Export CSV
+    </button>
+    <button 
+      id="export-pdf" 
+      class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+    >
+      <svg class="w-4 h-4 mr-2" fill="currentColor" viewBox="0 0 20 20">
+        <path fill-rule="evenodd" d="M6 2a2 2 0 00-2 2v12a2 2 0 002 2h8a2 2 0 002-2V7.414A2 2 0 0015.414 6L12 2.586A2 2 0 0010.586 2H6zm5 6a1 1 0 10-2 0v3.586l-1.293-1.293a1 1 0 10-1.414 1.414l3 3a1 1 0 001.414 0l3-3a1 1 0 00-1.414-1.414L11 11.586V8z" clip-rule="evenodd"/>
+      </svg>
+      Export PDF
+    </button>
+  </div>
+</AdminLayout>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    //simple chart implementation (in production, you'd use a proper charting library)
+    
+    //traffic chart data
+    const trafficData = {trafficStats.dailyViews};
+    
+    //render simple traffic chart
+    const trafficChart = document.getElementById('traffic-chart');
+    if (trafficChart && trafficData.length > 0) {
+      const maxViews = Math.max(...trafficData.map(d => d.views));
+      
+      trafficChart.innerHTML = `
+        <div class="flex items-end space-x-1 h-full">
+          ${trafficData.map(day => `
+            <div class="flex-1 bg-blue-200 dark:bg-blue-800 rounded-t" style="height: ${(day.views / maxViews) * 100}%" title="${day.date}: ${day.views} views"></div>
+          `).join('')}
+        </div>
+      `;
+    }
+    
+    //export functionality
+    document.getElementById('export-csv')?.addEventListener('click', async function() {
+      try {
+        const response = await fetch(`/api/admin/analytics/export?format=csv&start=${startDate}&end=${endDate}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `analytics-${startDate}-${endDate}.csv`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          alert('Export failed');
+        }
+      } catch (error) {
+        console.error('Export error:', error);
+        alert('Export failed');
+      }
+    });
+    
+    document.getElementById('export-pdf')?.addEventListener('click', async function() {
+      try {
+        const response = await fetch(`/api/admin/analytics/export?format=pdf&start=${startDate}&end=${endDate}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+          }
+        });
+        
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `analytics-report-${startDate}-${endDate}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+        } else {
+          alert('Export failed');
+        }
+      } catch (error) {
+        console.error('Export error:', error);
+        alert('Export failed');
+      }
+    });
+  });
+</script>

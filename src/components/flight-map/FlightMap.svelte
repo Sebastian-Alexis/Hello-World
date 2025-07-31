@@ -84,6 +84,8 @@
 
 	//mapbox token validation
 	const MAPBOX_TOKEN = import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
+	console.log('Mapbox token loaded:', MAPBOX_TOKEN ? 'Present' : 'Missing');
+	console.log('Token validation result:', validateMapboxToken(MAPBOX_TOKEN));
 	const isValidToken = validateMapboxToken(MAPBOX_TOKEN);
 
 	//theme styles
@@ -114,9 +116,11 @@
 	});
 
 	function initializeMap() {
+		console.log('initializeMap called:', { mounted, mapContainer: !!mapContainer, isValidToken });
 		if (!mounted || !mapContainer || !isValidToken) return;
 
 		try {
+			console.log('Setting Mapbox access token...');
 			mapboxgl.accessToken = MAPBOX_TOKEN!;
 
 			//calculate optimal initial bounds

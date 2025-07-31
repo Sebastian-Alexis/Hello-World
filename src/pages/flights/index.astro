@@ -1,9 +1,8 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import type { Flight, Airport } from '../../components/flight-map/types';
-
-//fetch flights and airports from API
-const siteUrl = Astro.site?.toString() || 'http://localhost:4321';
+import { DatabaseQueries } from '../../lib/db/queries';
+import FlightMap from '../../components/flight-map/FlightMap.svelte';
 
 //fetch flight statistics
 let flightStats = {
@@ -26,35 +25,17 @@ let hasError = false;
 let errorMessage = '';
 
 try {
+  const db = new DatabaseQueries();
+
   //fetch flights with high limit for map visualization
-  const flightsResponse = await fetch(`${siteUrl}/api/flights?limit=1000`);
-  const flightsData = await flightsResponse.json();
-  
-  if (flightsData.success) {
-    flights = flightsData.data;
-  } else {
-    console.error('Failed to fetch flights:', flightsData.error);
-  }
+  const flightsResponse = await db.getAllFlights(1, 1000);
+  flights = flightsResponse.data;
 
   //fetch airports
-  const airportsResponse = await fetch(`${siteUrl}/api/airports`);
-  const airportsData = await airportsResponse.json();
-  
-  if (airportsData.success) {
-    airports = airportsData.data;
-  } else {
-    console.error('Failed to fetch airports:', airportsData.error);
-  }
+  airports = await db.searchAirports(undefined, 500);
 
   //fetch flight statistics
-  const statsResponse = await fetch(`${siteUrl}/api/flights/statistics`);
-  const statsData = await statsResponse.json();
-  
-  if (statsData.success) {
-    flightStats = { ...flightStats, ...statsData.data };
-  } else {
-    console.error('Failed to fetch flight statistics:', statsData.error);
-  }
+  flightStats = await db.getFlightStatistics();
 
   //get recent flights (last 10)
   if (flights.length > 0) {
@@ -461,9 +442,6 @@ const currentYear = new Date().getFullYear();
 	</main>
 </BaseLayout>
 
-<script>
-	import FlightMap from '../../components/flight-map/FlightMap.svelte';
-</script>
 
 <style>
 	.map-wrapper {
