@@ -31,7 +31,7 @@
   --color-green-500: #22c55e;
   --color-red-500: #ef4444;
   
-  /* Semantic Colors - Pure Black & White */
+  /* Semantic Colors - Pure Black & White Only */
   --bg-primary: var(--color-white);
   --bg-secondary: var(--color-white);
   --bg-tertiary: var(--color-white);
@@ -40,9 +40,9 @@
   --text-tertiary: var(--color-black);
   --border-primary: var(--color-black);
   --border-secondary: var(--color-black);
-  --accent-primary: var(--color-white);
-  --accent-hover: var(--color-white);
-  --accent-light: var(--color-white);
+  --accent-primary: var(--color-black);
+  --accent-hover: var(--color-black);
+  --accent-light: var(--color-black);
   
   /* Spacing Scale */
   --space-0: 0;
@@ -122,7 +122,7 @@
   --font-weight-bold: 400;
 }
 
-/* Dark Mode Variables - Inverted B&W */
+/* Dark Mode Variables - Pure B&W Inverted */
 @media (prefers-color-scheme: dark) {
   :root {
     --bg-primary: var(--color-black);
@@ -133,9 +133,9 @@
     --text-tertiary: var(--color-white);
     --border-primary: var(--color-white);
     --border-secondary: var(--color-white);
-    --accent-primary: var(--color-black);
-    --accent-hover: var(--color-black);
-    --accent-light: var(--color-black);
+    --accent-primary: var(--color-white);
+    --accent-hover: var(--color-white);
+    --accent-light: var(--color-white);
   }
 }
 
@@ -149,9 +149,9 @@
   --text-tertiary: var(--color-white);
   --border-primary: var(--color-white);
   --border-secondary: var(--color-white);
-  --accent-primary: var(--color-black);
-  --accent-hover: var(--color-black);
-  --accent-light: var(--color-black);
+  --accent-primary: var(--color-white);
+  --accent-hover: var(--color-white);
+  --accent-light: var(--color-white);
 }
 
 [data-theme="light"] {
@@ -163,7 +163,7 @@
   --text-tertiary: var(--color-black);
   --border-primary: var(--color-black);
   --border-secondary: var(--color-black);
-  --accent-primary: var(--color-white);
-  --accent-hover: var(--color-white);
-  --accent-light: var(--color-white);
+  --accent-primary: var(--color-black);
+  --accent-hover: var(--color-black);
+  --accent-light: var(--color-black);
 }

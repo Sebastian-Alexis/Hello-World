@@ -15,7 +15,8 @@
   //get theme preference from localStorage or system
   function getPreferredTheme() {
     const stored = localStorage.getItem(THEME_KEY);
-    if (stored) {
+    // Security: Validate theme value against allowed themes only
+    if (stored === THEME_DARK || stored === THEME_LIGHT) {
       return stored;
     }
     
@@ -37,6 +38,9 @@
         lightIcon.classList.remove('hidden');
       }
     }
+    
+    //update aria attributes for accessibility
+    updateAriaLabel();
     
     //update meta theme-color
     updateThemeColor(theme);
@@ -129,26 +133,18 @@
     updateAriaLabel();
   }
   
-  //update button aria-label for accessibility
+  //update button aria-label and aria-pressed for accessibility
   function updateAriaLabel() {
     if (themeToggleButton) {
-      const label = currentTheme === THEME_DARK ? 'Switch to light mode' : 'Switch to dark mode';
+      const isDark = currentTheme === THEME_DARK;
+      const label = isDark ? 'Switch to light mode' : 'Switch to dark mode';
       themeToggleButton.setAttribute('aria-label', label);
       themeToggleButton.setAttribute('title', label);
+      themeToggleButton.setAttribute('aria-pressed', String(isDark));
     }
   }
   
-  //expose theme functions globally
-  window.themeToggle = {
-    toggle: toggleTheme,
-    setTheme: applyTheme,
-    getTheme: () => currentTheme,
-    reset: () => {
-      localStorage.removeItem(THEME_KEY);
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? THEME_DARK : THEME_LIGHT;
-      applyTheme(systemTheme);
-    }
-  };
+  //security: remove global exposure - use custom events if inter-script communication needed
   
   //initialize immediately to prevent flash of wrong theme
   if (document.readyState === 'loading') {

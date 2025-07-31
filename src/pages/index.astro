@@ -12,12 +12,11 @@ import Card from '../components/ui/Card.astro';
   <section class="py-20 bg-primary">
     <div class="container mx-auto text-center">
       <div class="max-w-4xl mx-auto">
-        <h1 class="text-5xl md:text-6xl font-light text-black mb-6 fade-in">
-          Hello, I'm <span class="text-black">Your Name</span>
+        <h1 class="text-5xl md:text-6xl font-light text-text-primary mb-6 fade-in">
+          Hello, World.
         </h1>
-        <p class="text-xl md:text-2xl text-black mb-8 leading-relaxed fade-in">
-          Software developer passionate about creating efficient, user-friendly applications 
-          and sharing knowledge through writing and travel.
+        <p class="text-xl md:text-2xl text-text-primary mb-8 leading-relaxed fade-in">
+          My name is Sebastian Alexis. I am a software dev who works in cybersecurity, participates in hackathons, and loves making projects.
         </p>
         <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in">
           <Button variant="primary" size="lg" href="/portfolio">
@@ -35,8 +34,8 @@ import Card from '../components/ui/Card.astro';
   <section class="py-20 bg-secondary">
     <div class="container mx-auto">
       <div class="text-center mb-16">
-        <h2 class="text-4xl font-light text-black mb-4">What I Do</h2>
-        <p class="text-xl text-black max-w-2xl mx-auto">
+        <h2 class="text-4xl font-light text-text-primary mb-4">What I Do</h2>
+        <p class="text-xl text-text-primary max-w-2xl mx-auto">
           Exploring the intersection of technology, creativity, and human experience.
         </p>
       </div>
@@ -45,7 +44,7 @@ import Card from '../components/ui/Card.astro';
         <!-- Development -->
         <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
           <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
             </svg>
           </div>
@@ -59,7 +58,7 @@ import Card from '../components/ui/Card.astro';
         <!-- Writing -->
         <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
           <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
             </svg>
           </div>
@@ -73,7 +72,7 @@ import Card from '../components/ui/Card.astro';
         <!-- Travel -->
         <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
           <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064"></path>
             </svg>
           </div>
@@ -238,22 +237,20 @@ import Card from '../components/ui/Card.astro';
   <!-- CTA Section -->
   <section class="py-20 bg-primary">
     <div class="container mx-auto">
-      <Card variant="elevated" class="max-w-4xl mx-auto text-center bg-gradient-to-r from-accent-primary to-accent-light">
-        <div class="text-white">
-          <h2 class="text-4xl font-bold mb-4">Let's Work Together</h2>
-          <p class="text-xl mb-8 opacity-90 leading-relaxed">
-            I'm always interested in new opportunities and collaborations. 
-            Whether you have a project in mind or just want to chat about technology, 
-            I'd love to hear from you.
-          </p>
-          <div class="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button variant="secondary" size="lg" href="mailto:hello@yoursite.com">
-              Get In Touch
-            </Button>
-            <Button variant="outline" size="lg" href="/resume/download" class="border-white text-white hover:bg-white hover:text-accent-primary">
-              Download Resume
-            </Button>
-          </div>
+      <Card variant="elevated" class="max-w-4xl mx-auto text-center">
+        <h2 class="text-4xl font-bold text-text-primary mb-4">Let's Work Together</h2>
+        <p class="text-xl text-text-secondary mb-8 opacity-90 leading-relaxed">
+          I'm always interested in new opportunities and collaborations. 
+          Whether you have a project in mind or just want to chat about technology, 
+          I'd love to hear from you.
+        </p>
+        <div class="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button variant="secondary" size="lg" href="mailto:hello@yoursite.com">
+            Get In Touch
+          </Button>
+          <Button variant="outline" size="lg" href="/resume/download">
+            Download Resume
+          </Button>
         </div>
       </Card>
     </div>

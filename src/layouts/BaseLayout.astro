@@ -49,6 +49,12 @@ const defaultStructuredData = {
 };
 
 const finalStructuredData = structuredData || defaultStructuredData;
+
+// Security: Sanitize JSON to prevent XSS injection
+const secureStructuredData = JSON.stringify(finalStructuredData)
+  .replace(/</g, '\\u003c')
+  .replace(/>/g, '\\u003e')
+  .replace(/&/g, '\\u0026');
 ---
 
 <!DOCTYPE html>
@@ -57,6 +63,30 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{fullTitle}</title>
+  
+  <!-- FOUC Prevention Script - MUST be inline and early in head -->
+  <script is:inline>
+    (function() {
+      'use strict';
+      let theme;
+      try {
+        // localStorage can throw errors in private/incognito modes
+        theme = localStorage.getItem('preferred-theme');
+      } catch (e) {
+        console.warn('Could not access localStorage for theme setting.');
+      }
+
+      // Validate theme value against allowed themes only
+      if (theme === 'dark' || theme === 'light') {
+        document.documentElement.setAttribute('data-theme', theme);
+      } else if (!theme) {
+        // Only check OS preference if no stored theme
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+          document.documentElement.setAttribute('data-theme', 'dark');
+        }
+      }
+    })();
+  </script>
   
   <!-- Preload critical resources -->
   <!-- monospace font optimization and CLS prevention -->
@@ -137,7 +167,7 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <link rel="dns-prefetch" href="//tiles.mapbox.com">
   
   <!-- Structured data -->
-  <script type="application/ld+json" set:html={JSON.stringify(finalStructuredData)} />
+  <script type="application/ld+json" set:html={secureStructuredData} />
   
   <!-- comprehensive font performance monitoring -->
   <script>
@@ -243,7 +273,7 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <!-- Skip to main content -->
   <a 
     href="#main-content" 
-    class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-accent-primary text-white px-4 py-2 rounded-md transition-all duration-fast"
+    class="sr-only focus:not-sr-only focus:absolute focus:top-4 focus:left-4 z-50 bg-text-primary text-primary px-4 py-2 rounded-md border border-border-primary transition-all duration-fast"
   >
     Skip to main content
   </a>
@@ -251,20 +281,10 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <!-- Header -->
   <header class="sticky top-0 z-40 bg-primary/95 backdrop-blur-sm border-b border-border-primary shadow-sm">
     <nav class="container mx-auto" aria-label="Main navigation">
-      <div class="flex items-center justify-between h-16">
-        <!-- Logo -->
-        <div class="flex-shrink-0">
-          <a href="/" class="flex items-center space-x-3 group">
-            <div class="w-10 h-10 bg-accent-primary rounded-full flex items-center justify-center transition-transform duration-fast group-hover:scale-105">
-              <span class="text-white font-bold text-lg">YN</span>
-            </div>
-            <span class="hidden sm:block font-semibold text-xl text-text-primary">Your Name</span>
-          </a>
-        </div>
-        
-        <!-- Desktop Navigation -->
-        <div class="hidden md:block">
-          <div class="ml-10 flex items-baseline space-x-8">
+      <div class="flex items-center h-16">
+        <!-- Desktop Navigation - Centered -->
+        <div class="hidden md:flex flex-1 justify-center">
+          <div class="flex items-baseline space-x-8">
             <a href="/" class="nav-link" data-page="home">Home</a>
             <a href="/blog" class="nav-link" data-page="blog">Blog</a>
             <a href="/portfolio" class="nav-link" data-page="portfolio">Portfolio</a>
@@ -280,7 +300,7 @@ const finalStructuredData = structuredData || defaultStructuredData;
           <button
             id="theme-toggle"
             type="button"
-            class="p-2 rounded-lg hover:bg-tertiary transition-colors duration-fast"
+            class="p-2 rounded-lg text-text-primary hover:bg-secondary border border-border-primary transition-colors duration-fast"
             aria-label="Toggle dark mode"
             title="Toggle theme"
           >
@@ -296,7 +316,7 @@ const finalStructuredData = structuredData || defaultStructuredData;
           <button
             id="mobile-menu-button"
             type="button"
-            class="md:hidden p-2 rounded-lg hover:bg-tertiary transition-colors duration-fast"
+            class="md:hidden p-2 rounded-lg text-text-primary hover:bg-secondary border border-border-primary transition-colors duration-fast"
             aria-label="Toggle mobile menu"
             aria-expanded="false"
             aria-controls="mobile-menu"
@@ -310,7 +330,7 @@ const finalStructuredData = structuredData || defaultStructuredData;
       
       <!-- Mobile Navigation -->
       <div id="mobile-menu" class="md:hidden hidden border-t border-border-primary">
-        <div class="px-2 pt-2 pb-3 space-y-1">
+        <div class="px-2 pt-2 pb-3 space-y-1 text-center">
           <a href="/" class="mobile-nav-link" data-page="home">Home</a>
           <a href="/blog" class="mobile-nav-link" data-page="blog">Blog</a>
           <a href="/portfolio" class="mobile-nav-link" data-page="portfolio">Portfolio</a>

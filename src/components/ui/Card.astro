@@ -12,12 +12,12 @@ const {
   ...props
 } = Astro.props;
 
-const baseClasses = 'bg-white transition-all duration-fast';
+const baseClasses = 'bg-primary transition-all duration-fast';
 
 const variantClasses = {
-  default: 'border border-black',
-  elevated: 'border border-black',
-  outlined: 'border-2 border-black'
+  default: 'border border-border-primary',
+  elevated: 'border border-border-primary shadow-md',
+  outlined: 'border-2 border-border-primary'
 };
 
 const paddingClasses = {
