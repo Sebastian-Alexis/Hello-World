@@ -7,13 +7,53 @@ export const prerender = false;
 //track page views and events
 export const POST: APIRoute = async ({ request }) => {
   try {
-    const body = await request.json();
+    //basic input validation and sanitization
+    let body: any;
+    
+    try {
+      const rawBody = await request.text();
+      
+      //basic security check - reject overly large payloads
+      if (rawBody.length > 10000) { //10kb limit
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'Payload too large'
+        }), {
+          status: 413,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      
+      //parse json with error handling
+      body = JSON.parse(rawBody);
+    } catch (parseError) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid JSON payload'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
     const { type, data } = body;
 
     if (!type || !data) {
       return new Response(JSON.stringify({
         success: false,
         error: 'Missing required fields: type and data'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    
+    //validate type field
+    const validTypes = ['project_view', 'skill_interaction', 'page_view'];
+    if (!validTypes.includes(type)) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Invalid tracking type'
       }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' }
@@ -32,14 +72,6 @@ export const POST: APIRoute = async ({ request }) => {
       case 'page_view':
         await handlePageView(db, data);
         break;
-      default:
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Invalid tracking type'
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
     }
 
     return new Response(JSON.stringify({

@@ -3,6 +3,9 @@
 // GET /api/portfolio/experience - work experience and education data
 // =============================================================================
 
+//prevent prerendering for server-side API endpoint
+export const prerender = false;
+
 import type { APIRoute } from 'astro';
 import { db } from '../../../lib/db/queries';
 

@@ -88,8 +88,8 @@ export default {
       fontFamily: {
         primary: 'var(--font-primary)',
         mono: 'var(--font-mono)',
-        sans: ['Inter Variable', 'system-ui', 'sans-serif'],
-        serif: ['Merriweather', 'Georgia', 'serif'],
+        sans: 'var(--font-primary)',
+        serif: ['ui-serif', 'Georgia', 'Cambria', 'Times New Roman', 'Times', 'serif'],
       },
       fontSize: {
         xs: 'var(--text-xs)',

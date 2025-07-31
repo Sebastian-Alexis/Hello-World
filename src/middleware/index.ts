@@ -8,11 +8,10 @@ import { loggingMiddleware } from './logging.js';
 
 //compose middleware chain with security first
 export const onRequest = defineMiddleware(async (context, next) => {
-  //skip middleware for static pages during build - only run for API routes and in development
+  //only run middleware for API routes (server-rendered endpoints)
   const isApiRoute = context.url.pathname.startsWith('/api/');
-  const isDevelopment = import.meta.env.MODE === 'development';
   
-  if (isDevelopment || isApiRoute) {
+  if (isApiRoute) {
     //security headers must be applied first
     await securityHeadersMiddleware(context, next);
     
@@ -30,20 +29,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     //request logging for security monitoring
     await loggingMiddleware(context, next);
     
-    //input validation for api routes
-    if (context.url.pathname.startsWith('/api/')) {
-      const validationResult = await validationMiddleware(context, next);
-      if (!validationResult.valid) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Validation failed',
-          message: validationResult.error
-        }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-    }
+    //note: input validation is handled within individual API routes
+    //to avoid consuming the request body before the endpoint can process it
     
     //authentication for protected routes
     if (context.url.pathname.startsWith('/admin/') || 

@@ -4,6 +4,9 @@
 // performance regression detection, and comprehensive analytics
 // =============================================================================
 
+//prevent prerendering for server-side API endpoint
+export const prerender = false;
+
 import type { APIRoute } from 'astro';
 import type {
   EnhancedVitalsData,

@@ -1,4 +1,8 @@
 ---
+// Import CSS files
+import '../styles/base/variables.css';
+import '../styles/base/global.css';
+
 export interface Props {
   title: string;
   description?: string;
@@ -55,12 +59,9 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <title>{fullTitle}</title>
   
   <!-- Preload critical resources -->
-  <link rel="preload" href="/fonts/Inter-Variable.woff2" as="font" type="font/woff2" crossorigin>
-  <link rel="preload" href="/fonts/JetBrains-Mono-Variable.woff2" as="font" type="font/woff2" crossorigin>
+  <!-- System fonts don't need preloading - optimal performance -->
   
-  <!-- Critical CSS -->
-  <link rel="stylesheet" href="/src/styles/base/variables.css">
-  <link rel="stylesheet" href="/src/styles/base/global.css">
+  <!-- CSS imported in frontmatter for optimal bundling -->
   
   <!-- Meta tags -->
   <meta name="description" content={description}>
