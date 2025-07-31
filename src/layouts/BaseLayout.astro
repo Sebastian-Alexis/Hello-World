@@ -59,7 +59,29 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <title>{fullTitle}</title>
   
   <!-- Preload critical resources -->
-  <!-- System fonts don't need preloading - optimal performance -->
+  <!-- monospace font optimization and CLS prevention -->
+  <link rel="preconnect" href="/" crossorigin>
+  
+  <!-- font loading strategy for better performance -->
+  <style>
+    /* critical font loading optimization */
+    :root {
+      --font-loading-strategy: swap; /* ensure text remains visible during font swap */
+    }
+    
+    /* prevent cls with consistent sizing */
+    .font-loading {
+      font-family: Consolas, 'Courier New', monospace; /* prioritize most common first */
+      font-display: swap;
+      text-size-adjust: 100%;
+    }
+    
+    /* optimize for fixed-width consistency across platforms */
+    body {
+      letter-spacing: normal; /* ensure consistent monospace spacing */
+      word-spacing: normal;
+    }
+  </style>
   
   <!-- CSS imported in frontmatter for optimal bundling -->
   
@@ -102,12 +124,48 @@ const finalStructuredData = structuredData || defaultStructuredData;
   
   <!-- Performance monitoring -->
   <script>
-    // Initialize performance monitoring
+    // initialize performance monitoring with font tracking
     if ('performance' in window && 'PerformanceObserver' in window) {
-      // Mark page start
+      // mark page start
       performance.mark('page-start');
       
-      // Core Web Vitals will be loaded separately
+      // track font loading performance
+      const fontLoadStart = performance.now();
+      
+      // monitor font loading completion
+      document.fonts.ready.then(() => {
+        const fontLoadTime = performance.now() - fontLoadStart;
+        performance.measure('font-load', 'navigationStart', 'font-load-end');
+        
+        // track font loading in vitals
+        if (window.performanceTracker) {
+          window.performanceTracker.trackCustomMetric('font-load-time', fontLoadTime);
+        }
+        
+        // detect if fallback fonts were used (potential CLS risk)
+        const testElement = document.createElement('span');
+        testElement.style.fontFamily = 'Courier New';
+        testElement.style.fontSize = '12px';
+        testElement.textContent = 'M';
+        testElement.style.position = 'absolute';
+        testElement.style.left = '-9999px';
+        document.body.appendChild(testElement);
+        
+        const courierWidth = testElement.offsetWidth;
+        testElement.style.fontFamily = 'monospace';
+        const fallbackWidth = testElement.offsetWidth;
+        
+        if (Math.abs(courierWidth - fallbackWidth) > 1) {
+          // font fallback detected - potential CLS
+          if (window.performanceTracker) {
+            window.performanceTracker.trackCustomMetric('font-fallback-used', 1, 'needs-improvement');
+          }
+        }
+        
+        document.body.removeChild(testElement);
+      });
+      
+      // core web vitals will be loaded separately
     }
   </script>
 </head>

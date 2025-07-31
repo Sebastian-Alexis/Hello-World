@@ -278,15 +278,15 @@
   }
 
   .layout-toggle {
-    @apply flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1;
+    @apply flex bg-white border border-black p-1;
   }
 
   .layout-btn {
-    @apply p-2 rounded-md text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors;
+    @apply p-2 text-black hover:bg-black hover:text-white transition-colors;
   }
 
   .layout-btn.active {
-    @apply bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm;
+    @apply bg-black text-white;
   }
 
   .portfolio-grid {
@@ -317,7 +317,7 @@
   }
 
   .loading-card {
-    @apply bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6 animate-pulse;
+    @apply bg-white border border-black p-6 animate-pulse;
   }
 
   .loading-card.list-layout {
@@ -325,7 +325,7 @@
   }
 
   .loading-image {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-lg h-48 mb-4;
+    @apply bg-gray-200 border border-black h-48 mb-4;
   }
 
   .list-layout .loading-image {
@@ -337,11 +337,11 @@
   }
 
   .loading-content .loading-title {
-    @apply bg-gray-300 dark:bg-gray-600 rounded h-6 mb-3;
+    @apply bg-gray-200 border border-black h-6 mb-3;
   }
 
   .loading-content .loading-text {
-    @apply bg-gray-300 dark:bg-gray-600 rounded h-4 mb-2;
+    @apply bg-gray-200 border border-black h-4 mb-2;
   }
 
   .loading-content .loading-text.short {
@@ -353,7 +353,7 @@
   }
 
   .loading-tag {
-    @apply bg-gray-300 dark:bg-gray-600 rounded-full h-6 w-16;
+    @apply bg-gray-200 border border-black h-6 w-16;
   }
 
   .load-more-container {
@@ -361,7 +361,7 @@
   }
 
   .load-more-btn {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 inline-flex items-center space-x-2;
+    @apply bg-white text-black border border-black px-8 py-3 font-mono font-light hover:bg-black hover:text-white transition-colors inline-flex items-center space-x-2;
   }
 
   .empty-state {
@@ -369,18 +369,18 @@
   }
 
   .empty-icon {
-    @apply text-gray-400 dark:text-gray-500 mb-4 flex justify-center;
+    @apply text-black mb-4 flex justify-center;
   }
 
   .empty-state h3 {
-    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+    @apply text-xl font-light text-black font-mono mb-2;
   }
 
   .empty-state p {
-    @apply text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto;
+    @apply text-black font-mono font-light mb-6 max-w-md mx-auto;
   }
 
   .clear-filters-btn {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors;
+    @apply bg-white text-black border border-black px-6 py-2 font-mono font-light hover:bg-black hover:text-white transition-colors;
   }
 </style>

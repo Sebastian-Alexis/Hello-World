@@ -213,7 +213,7 @@
 
 <style>
   .filter-controls {
-    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8 space-y-6;
+    @apply bg-white border border-black p-6 mb-8 space-y-6;
   }
 
   .search-section {
@@ -229,27 +229,27 @@
   }
 
   .search-icon {
-    @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 pointer-events-none;
+    @apply absolute left-3 top-1/2 transform -translate-y-1/2 text-black pointer-events-none;
   }
 
   .search-input {
-    @apply w-full pl-10 pr-10 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors;
+    @apply w-full pl-10 pr-10 py-3 bg-white border border-black text-black font-mono font-light placeholder-black focus:bg-black focus:text-white focus:placeholder-white transition-colors;
   }
 
   .clear-search-btn {
-    @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors;
+    @apply absolute right-3 top-1/2 transform -translate-y-1/2 text-black hover:bg-black hover:text-white p-1 transition-colors;
   }
 
   .results-summary {
-    @apply flex items-center space-x-4 text-sm text-gray-600 dark:text-gray-400;
+    @apply flex items-center space-x-4 text-sm text-black font-mono font-light;
   }
 
   .results-count {
-    @apply font-medium;
+    @apply font-light font-mono;
   }
 
   .clear-filters-btn {
-    @apply text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-medium underline transition-colors;
+    @apply text-black hover:bg-black hover:text-white px-2 py-1 border border-black font-mono font-light transition-colors;
   }
 
   .filters-grid {
@@ -261,19 +261,19 @@
   }
 
   .filter-label {
-    @apply block text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply block text-sm font-light text-black font-mono;
   }
 
   .filter-select {
-    @apply w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors text-sm;
+    @apply w-full px-3 py-2 bg-white border border-black text-black font-mono font-light focus:bg-black focus:text-white transition-colors text-sm;
   }
 
   .active-filters {
-    @apply flex flex-wrap items-center gap-3 pt-4 border-t border-gray-200 dark:border-gray-700;
+    @apply flex flex-wrap items-center gap-3 pt-4 border-t border-black;
   }
 
   .active-filters-label {
-    @apply text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply text-sm font-light text-black font-mono;
   }
 
   .filter-tags {
@@ -281,10 +281,10 @@
   }
 
   .filter-tag {
-    @apply inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 text-sm rounded-full;
+    @apply inline-flex items-center gap-1 px-3 py-1 bg-white border border-black text-black text-sm font-mono font-light;
   }
 
   .remove-filter {
-    @apply ml-1 text-blue-600 hover:text-blue-800 dark:text-blue-300 dark:hover:text-blue-100 font-bold transition-colors;
+    @apply ml-1 text-black hover:bg-black hover:text-white px-1 font-mono font-light transition-colors;
   }
 </style>

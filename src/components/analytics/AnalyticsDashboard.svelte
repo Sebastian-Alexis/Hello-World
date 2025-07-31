@@ -407,11 +407,11 @@
   }
 
   .dashboard-title {
-    @apply text-3xl font-bold text-gray-900 dark:text-white mb-2;
+    @apply text-3xl font-light text-black font-mono mb-2;
   }
 
   .dashboard-subtitle {
-    @apply text-gray-600 dark:text-gray-400 text-lg;
+    @apply text-black font-mono font-light text-lg;
   }
 
   .dashboard-controls {
@@ -423,11 +423,11 @@
   }
 
   .control-label {
-    @apply text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply text-sm font-light text-black font-mono;
   }
 
   .timeframe-select {
-    @apply px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm;
+    @apply px-3 py-2 bg-white border border-black text-black font-mono font-light text-sm focus:bg-black focus:text-white;
   }
 
   .auto-refresh-toggle {
@@ -435,11 +435,11 @@
   }
 
   .toggle-label {
-    @apply text-sm text-gray-700 dark:text-gray-300 select-none;
+    @apply text-sm text-black font-mono font-light select-none;
   }
 
   .refresh-btn {
-    @apply inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
+    @apply inline-flex items-center space-x-2 px-4 py-2 bg-white text-black border border-black font-mono font-light text-sm hover:bg-black hover:text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed;
   }
 
   .loading-container {
@@ -447,7 +447,7 @@
   }
 
   .loading-spinner {
-    @apply w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4;
+    @apply w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin mb-4;
   }
 
   .error-container {
@@ -459,15 +459,15 @@
   }
 
   .error-content h3 {
-    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+    @apply text-xl font-light text-black font-mono mb-2;
   }
 
   .error-content p {
-    @apply text-gray-600 dark:text-gray-400 mb-4;
+    @apply text-black font-mono font-light mb-4;
   }
 
   .retry-btn {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply bg-white text-black border border-black px-4 py-2 font-mono font-light hover:bg-black hover:text-white transition-colors;
   }
 
   .overview-stats {
@@ -475,7 +475,7 @@
   }
 
   .stat-card {
-    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 flex items-center space-x-4;
+    @apply bg-white border border-black p-6 flex items-center space-x-4;
   }
 
   .stat-icon {
@@ -487,11 +487,11 @@
   }
 
   .stat-value {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-2xl font-light text-black font-mono;
   }
 
   .stat-label {
-    @apply text-sm text-gray-600 dark:text-gray-400;
+    @apply text-sm text-black font-mono font-light;
   }
 
   .analytics-grid {
@@ -499,19 +499,19 @@
   }
 
   .analytics-card {
-    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden;
+    @apply bg-white border border-black overflow-hidden;
   }
 
   .card-header {
-    @apply p-6 border-b border-gray-200 dark:border-gray-700;
+    @apply p-6 border-b border-black;
   }
 
   .card-title {
-    @apply text-lg font-semibold text-gray-900 dark:text-white mb-1;
+    @apply text-lg font-light text-black font-mono mb-1;
   }
 
   .card-subtitle {
-    @apply text-sm text-gray-600 dark:text-gray-400;
+    @apply text-sm text-black font-mono font-light;
   }
 
   .card-content {
@@ -523,7 +523,7 @@
   }
 
   .empty-state p {
-    @apply text-gray-500 dark:text-gray-400;
+    @apply text-black font-mono font-light;
   }
 
   .projects-list {
@@ -531,11 +531,11 @@
   }
 
   .project-item {
-    @apply flex items-center space-x-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg;
+    @apply flex items-center space-x-4 p-3 bg-white border border-black;
   }
 
   .project-rank {
-    @apply w-8 h-8 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0;
+    @apply w-8 h-8 bg-white border border-black text-black flex items-center justify-center text-sm font-light font-mono flex-shrink-0;
   }
 
   .project-info {
@@ -543,19 +543,19 @@
   }
 
   .project-title {
-    @apply font-medium text-gray-900 dark:text-white truncate;
+    @apply font-light font-mono text-black truncate;
   }
 
   .project-stats {
-    @apply flex items-center space-x-3 text-xs text-gray-600 dark:text-gray-400;
+    @apply flex items-center space-x-3 text-xs text-black font-mono font-light;
   }
 
   .stat.total {
-    @apply text-gray-500 dark:text-gray-500;
+    @apply text-black;
   }
 
   .view-project {
-    @apply text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 text-sm font-medium;
+    @apply text-black hover:bg-black hover:text-white border border-black px-2 py-1 text-sm font-light font-mono;
   }
 
   .daily-chart {
@@ -576,15 +576,15 @@
   }
 
   .bar.project-views {
-    @apply bg-blue-500;
+    @apply bg-black;
   }
 
   .bar.page-views {
-    @apply bg-green-500;
+    @apply bg-gray-400;
   }
 
   .day-label {
-    @apply text-xs text-gray-600 dark:text-gray-400 text-center;
+    @apply text-xs text-black font-mono font-light text-center;
   }
 
   .chart-legend {
@@ -600,11 +600,11 @@
   }
 
   .legend-color.project-views {
-    @apply bg-blue-500;
+    @apply bg-black;
   }
 
   .legend-color.page-views {
-    @apply bg-green-500;
+    @apply bg-gray-400;
   }
 
   .traffic-sources {
@@ -620,15 +620,15 @@
   }
 
   .source-label {
-    @apply text-sm font-medium text-gray-700 dark:text-gray-300;
+    @apply text-sm font-light text-black font-mono;
   }
 
   .source-count {
-    @apply text-sm text-gray-600 dark:text-gray-400;
+    @apply text-sm text-black font-mono font-light;
   }
 
   .source-bar {
-    @apply bg-gray-200 dark:bg-gray-700 rounded-full h-2 overflow-hidden;
+    @apply bg-gray-200 h-2 overflow-hidden;
   }
 
   .bar-fill {
@@ -636,19 +636,19 @@
   }
 
   .bar-fill.direct {
-    @apply bg-gray-600;
+    @apply bg-black;
   }
 
   .bar-fill.search {
-    @apply bg-blue-500;
+    @apply bg-gray-600;
   }
 
   .bar-fill.social {
-    @apply bg-purple-500;
+    @apply bg-gray-400;
   }
 
   .bar-fill.referral {
-    @apply bg-green-500;
+    @apply bg-gray-300;
   }
 
   .pages-list {
@@ -656,22 +656,22 @@
   }
 
   .page-item {
-    @apply flex justify-between items-center py-2 border-b border-gray-100 dark:border-gray-700 last:border-b-0;
+    @apply flex justify-between items-center py-2 border-b border-black last:border-b-0;
   }
 
   .page-path {
-    @apply text-sm font-mono text-gray-700 dark:text-gray-300 truncate flex-1 mr-4;
+    @apply text-sm font-mono text-black truncate flex-1 mr-4;
   }
 
   .page-views {
-    @apply text-sm text-gray-600 dark:text-gray-400 flex-shrink-0;
+    @apply text-sm text-black font-mono font-light flex-shrink-0;
   }
 
   .data-timestamp {
-    @apply text-center pt-6 border-t border-gray-200 dark:border-gray-700;
+    @apply text-center pt-6 border-t border-black;
   }
 
   .timestamp-text {
-    @apply text-sm text-gray-500 dark:text-gray-500;
+    @apply text-sm text-black font-mono font-light;
   }
 </style>

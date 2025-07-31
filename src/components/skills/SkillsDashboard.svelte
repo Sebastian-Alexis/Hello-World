@@ -313,11 +313,11 @@
   }
 
   .dashboard-title {
-    @apply text-3xl font-bold text-gray-900 dark:text-white mb-2;
+    @apply text-3xl font-light text-black font-mono mb-2;
   }
 
   .dashboard-subtitle {
-    @apply text-gray-600 dark:text-gray-400 text-lg;
+    @apply text-black font-mono font-light text-lg;
   }
 
   .view-controls {
@@ -325,15 +325,15 @@
   }
 
   .view-toggle {
-    @apply flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1;
+    @apply flex bg-white border border-black p-1;
   }
 
   .view-btn {
-    @apply px-4 py-2 rounded-md text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors inline-flex items-center space-x-2;
+    @apply px-4 py-2 text-sm font-light font-mono text-black hover:bg-black hover:text-white transition-colors inline-flex items-center space-x-2;
   }
 
   .view-btn.active {
-    @apply bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm;
+    @apply bg-black text-white;
   }
 
   .loading-container {
@@ -341,7 +341,7 @@
   }
 
   .loading-spinner {
-    @apply w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mb-4;
+    @apply w-8 h-8 border-4 border-gray-200 border-t-black rounded-full animate-spin mb-4;
   }
 
   .error-container {
@@ -353,15 +353,15 @@
   }
 
   .error-content h3 {
-    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+    @apply text-xl font-light text-black font-mono mb-2;
   }
 
   .error-content p {
-    @apply text-gray-600 dark:text-gray-400 mb-4;
+    @apply text-black font-mono font-light mb-4;
   }
 
   .retry-btn {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium transition-colors;
+    @apply bg-white text-black border border-black px-4 py-2 font-mono font-light hover:bg-black hover:text-white transition-colors;
   }
 
   .dashboard-stats {
@@ -369,7 +369,7 @@
   }
 
   .stat-card {
-    @apply bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 flex items-center space-x-3;
+    @apply bg-white border border-black p-4 flex items-center space-x-3;
   }
 
   .stat-icon {
@@ -381,11 +381,11 @@
   }
 
   .stat-value {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-2xl font-light text-black font-mono;
   }
 
   .stat-label {
-    @apply text-sm text-gray-600 dark:text-gray-400;
+    @apply text-sm text-black font-mono font-light;
   }
 
   .chart-section, .categories-section {
@@ -401,11 +401,11 @@
   }
 
   .section-title {
-    @apply text-2xl font-semibold text-gray-900 dark:text-white mb-1;
+    @apply text-2xl font-light text-black font-mono mb-1;
   }
 
   .section-subtitle {
-    @apply text-gray-600 dark:text-gray-400;
+    @apply text-black font-mono font-light;
   }
 
   .category-controls {
@@ -413,7 +413,7 @@
   }
 
   .control-btn {
-    @apply px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg transition-colors;
+    @apply px-4 py-2 text-sm font-light font-mono text-black hover:bg-black hover:text-white bg-white border border-black transition-colors;
   }
 
   .categories-grid {
@@ -429,14 +429,14 @@
   }
 
   .empty-state h3 {
-    @apply text-xl font-semibold text-gray-900 dark:text-white mb-2;
+    @apply text-xl font-light text-black font-mono mb-2;
   }
 
   .empty-state p {
-    @apply text-gray-600 dark:text-gray-400 mb-6;
+    @apply text-black font-mono font-light mb-6;
   }
 
   .reload-btn {
-    @apply bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors;
+    @apply bg-white text-black border border-black px-6 py-2 font-mono font-light hover:bg-black hover:text-white transition-colors;
   }
 </style>
