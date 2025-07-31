@@ -5,6 +5,7 @@
 // =============================================================================
 
 import { getCLS, getFID, getFCP, getLCP, getTTFB, onINP, type Metric } from 'web-vitals';
+import { FontOptimizer, fontPerformanceUtils } from './font-optimization.js';
 
 //core web vitals thresholds (in milliseconds/units)
 const VITALS_THRESHOLDS = {
@@ -27,6 +28,9 @@ const PERFORMANCE_BUDGETS = {
   MEMORY_USAGE: 70,  // percentage
   RESOURCE_SIZE: 2048,  // KB
   JS_BUNDLE_SIZE: 100,  // KB
+  FONT_LOAD_TIME: 200,   // ms - budget for font loading
+  FONT_CLS_RISK: 0,      // should be 0 (low risk only)
+  FONT_FALLBACK_RATE: 10, // percentage - acceptable fallback usage
 };
 
 interface EnhancedVitalsData extends Omit<Metric, 'entries'> {
@@ -131,6 +135,7 @@ class PerformanceTracker {
   private memoryMonitorInterval?: NodeJS.Timeout;
   private baselineMetrics: Record<string, number> = {};
   private isInitialized: boolean = false;
+  private fontOptimizer?: FontOptimizer;
 
   constructor(options: {
     reportingEndpoint?: string;
@@ -179,6 +184,9 @@ class PerformanceTracker {
       if (options.enableUserInteractionTracking !== false) {
         this.trackUserInteractions();
       }
+      
+      //initialize font optimization tracking
+      this.initializeFontOptimization();
       
       //setup periodic reporting
       setInterval(() => this.sendMetricsIfReady(), 30000);
@@ -232,6 +240,43 @@ class PerformanceTracker {
     //report critical metrics immediately
     if (enhancedMetric.rating === 'poor' || this.isCriticalMetric(metric.name)) {
       this.sendMetricsIfReady();
+    }
+  }
+
+  private initializeFontOptimization(): void {
+    try {
+      //create font optimizer for monospace fonts
+      this.fontOptimizer = new FontOptimizer({
+        primaryFont: 'Courier New',
+        fallbackStack: ['Consolas', 'Lucida Console', 'Monaco', 'Liberation Mono', 'DejaVu Sans Mono', 'monospace'],
+        enableCLSPrevention: true,
+        enableFontDisplay: true,
+        monitorFallbacks: true
+      });
+
+      //listen for font optimization events
+      window.addEventListener('fontOptimizationComplete', (event: any) => {
+        const { loadTime, usedFont } = event.detail;
+        
+        //track font loading performance
+        this.trackCustomMetric('font-optimization-load-time', loadTime);
+        
+        //track if fallback was used
+        if (usedFont !== 'Courier New') {
+          this.trackCustomMetric('font-fallback-active', 1, 'needs-improvement');
+        }
+        
+        //get cls risk assessment
+        if (this.fontOptimizer) {
+          const assessment = this.fontOptimizer.getCLSRiskAssessment();
+          if (assessment.overallRisk !== 'low') {
+            this.trackCustomMetric('font-cls-risk', assessment.overallRisk === 'high' ? 2 : 1, 'poor');
+          }
+        }
+      });
+      
+    } catch (error) {
+      console.warn('font optimization initialization failed:', error);
     }
   }
 
@@ -1157,6 +1202,9 @@ export const performanceUtils = {
   }
 };
 
+//export font validation utilities
+export { fontValidator, fontValidationUtils };
+
 //export types for external usage
 export type {
   EnhancedVitalsData,
@@ -1170,8 +1218,38 @@ export type {
 //export main class
 export { PerformanceTracker };
 
+//integrate font performance validation
+import { fontValidator, fontValidationUtils } from './font-performance-validator';
+
 //global performance monitoring setup
 if (typeof window !== 'undefined') {
+  //listen for font validation events
+  window.addEventListener('font-validation-complete', (event: any) => {
+    const validationResult = event.detail.result;
+    
+    //track font performance as custom metrics
+    performanceTracker.trackCustomMetric('font-load-time', validationResult.metrics.fontLoadTime);
+    performanceTracker.trackCustomMetric('font-cls-impact', validationResult.metrics.fontCLSImpact);
+    
+    //create alert if validation failed
+    if (!validationResult.passed) {
+      const alert = {
+        metric: 'FONT_PERFORMANCE',
+        value: validationResult.score,
+        threshold: 85, //minimum acceptable score
+        severity: validationResult.score < 50 ? 'critical' : 'warning',
+        url: window.location.href,
+        timestamp: Date.now(),
+        sessionId: performanceTracker.getSessionId(),
+        details: validationResult.violations
+      };
+      
+      console.warn('font performance validation failed:', alert);
+    }
+  });
+  
+  //start continuous font validation
+  fontValidator.startContinuousValidation(60000); //every minute
   //monitor long tasks
   if ('PerformanceObserver' in window) {
     const longTaskObserver = new PerformanceObserver((list) => {

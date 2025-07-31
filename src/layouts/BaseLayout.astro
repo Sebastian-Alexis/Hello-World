@@ -62,24 +62,41 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <!-- monospace font optimization and CLS prevention -->
   <link rel="preconnect" href="/" crossorigin>
   
-  <!-- font loading strategy for better performance -->
+  <!-- optimized font loading strategy with cls prevention -->
   <style>
-    /* critical font loading optimization */
+    /* critical inline css for zero-cls font loading */
     :root {
-      --font-loading-strategy: swap; /* ensure text remains visible during font swap */
+      --font-loading-strategy: swap;
+      /* platform-optimized font metrics for consistent sizing */
+      --font-char-width: 0.6em; /* monospace character width */
+      --font-ascent-override: 85%; /* prevent vertical cls */
+      --font-descent-override: 20%; /* maintain baseline consistency */
     }
     
-    /* prevent cls with consistent sizing */
-    .font-loading {
-      font-family: Consolas, 'Courier New', monospace; /* prioritize most common first */
+    /* prevent cls with size-adjust and consistent metrics */
+    @font-face {
+      font-family: 'optimized-mono';
+      src: local('Consolas'), local('Courier New'), local('Monaco'), local('Liberation Mono');
       font-display: swap;
-      text-size-adjust: 100%;
+      size-adjust: 100%; /* ensure consistent sizing */
+      ascent-override: var(--font-ascent-override);
+      descent-override: var(--font-descent-override);
     }
     
-    /* optimize for fixed-width consistency across platforms */
+    /* zero-cls body font application */
     body {
-      letter-spacing: normal; /* ensure consistent monospace spacing */
+      font-family: 'optimized-mono', var(--font-primary);
+      letter-spacing: 0; /* monospace already has consistent spacing */
       word-spacing: normal;
+      text-rendering: optimizeSpeed; /* faster rendering for monospace */
+      -webkit-font-smoothing: antialiased; /* improve thin font rendering */
+      -moz-osx-font-smoothing: grayscale;
+    }
+    
+    /* performance-first loading state */
+    .font-loading {
+      visibility: visible; /* always show text */
+      font-synthesis: none; /* prevent artificial bold/italic generation */
     }
   </style>
   
@@ -122,50 +139,102 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <!-- Structured data -->
   <script type="application/ld+json" set:html={JSON.stringify(finalStructuredData)} />
   
-  <!-- Performance monitoring -->
+  <!-- comprehensive font performance monitoring -->
   <script>
-    // initialize performance monitoring with font tracking
+    // advanced font performance tracking with budget validation
     if ('performance' in window && 'PerformanceObserver' in window) {
-      // mark page start
       performance.mark('page-start');
       
-      // track font loading performance
       const fontLoadStart = performance.now();
+      const performanceConfig = {
+        budgets: {
+          lcp: 2500,
+          fid: 100,
+          cls: 0.1,
+          ttfb: 800,
+          fcp: 1800,
+          inp: 200,
+          fontLoad: 100 // max acceptable font load time
+        }
+      };
       
-      // monitor font loading completion
+      // comprehensive font loading analysis
       document.fonts.ready.then(() => {
         const fontLoadTime = performance.now() - fontLoadStart;
-        performance.measure('font-load', 'navigationStart', 'font-load-end');
+        performance.measure('font-load-complete', 'page-start');
         
-        // track font loading in vitals
-        if (window.performanceTracker) {
-          window.performanceTracker.trackCustomMetric('font-load-time', fontLoadTime);
-        }
+        // detailed font availability detection
+        const fontTests = [
+          { name: 'Consolas', fallback: 'monospace' },
+          { name: 'Courier New', fallback: 'monospace' },
+          { name: 'Monaco', fallback: 'monospace' },
+          { name: 'Liberation Mono', fallback: 'monospace' }
+        ];
         
-        // detect if fallback fonts were used (potential CLS risk)
-        const testElement = document.createElement('span');
-        testElement.style.fontFamily = 'Courier New';
-        testElement.style.fontSize = '12px';
-        testElement.textContent = 'M';
-        testElement.style.position = 'absolute';
-        testElement.style.left = '-9999px';
-        document.body.appendChild(testElement);
+        let primaryFontAvailable = false;
+        let fontFallbackLevel = 0;
         
-        const courierWidth = testElement.offsetWidth;
-        testElement.style.fontFamily = 'monospace';
-        const fallbackWidth = testElement.offsetWidth;
-        
-        if (Math.abs(courierWidth - fallbackWidth) > 1) {
-          // font fallback detected - potential CLS
-          if (window.performanceTracker) {
-            window.performanceTracker.trackCustomMetric('font-fallback-used', 1, 'needs-improvement');
+        fontTests.forEach((font, index) => {
+          const testSpan = document.createElement('span');
+          testSpan.style.fontFamily = font.name;
+          testSpan.style.fontSize = '16px';
+          testSpan.style.position = 'absolute';
+          testSpan.style.left = '-9999px';
+          testSpan.textContent = 'Mmm...iii';
+          document.body.appendChild(testSpan);
+          
+          const primaryWidth = testSpan.offsetWidth;
+          testSpan.style.fontFamily = font.fallback;
+          const fallbackWidth = testSpan.offsetWidth;
+          
+          if (Math.abs(primaryWidth - fallbackWidth) > 2) {
+            if (index === 0) primaryFontAvailable = true;
+            fontFallbackLevel = index + 1;
           }
+          
+          document.body.removeChild(testSpan);
+        });
+        
+        // track performance metrics with context
+        if (window.performanceTracker) {
+          window.performanceTracker.trackCustomMetric('font-load-time', fontLoadTime, 
+            fontLoadTime <= performanceConfig.budgets.fontLoad ? 'good' : 'needs-improvement');
+          window.performanceTracker.trackCustomMetric('font-primary-available', primaryFontAvailable ? 1 : 0);
+          window.performanceTracker.trackCustomMetric('font-fallback-level', fontFallbackLevel);
+          
+          // platform detection for font optimization insights
+          const platform = navigator.platform.toLowerCase();
+          const isWindows = platform.includes('win');
+          const isMac = platform.includes('mac');
+          const isLinux = platform.includes('linux');
+          
+          window.performanceTracker.trackCustomMetric('platform-font-optimization', {
+            windows: isWindows && primaryFontAvailable ? 'optimal' : 'fallback',
+            mac: isMac && primaryFontAvailable ? 'optimal' : 'fallback', 
+            linux: isLinux && fontFallbackLevel <= 2 ? 'acceptable' : 'poor'
+          });
         }
         
-        document.body.removeChild(testElement);
+        // budget validation with automatic recommendations
+        setTimeout(() => {
+          if (window.performanceTracker && window.performanceTracker.getLatestMetrics) {
+            const metrics = window.performanceTracker.getLatestMetrics();
+            const budgetViolations = [];
+            
+            Object.keys(performanceConfig.budgets).forEach(metric => {
+              const value = metrics[metric === 'fontLoad' ? 'font-load-time' : metric];
+              if (value && value > performanceConfig.budgets[metric]) {
+                budgetViolations.push({ metric, value, budget: performanceConfig.budgets[metric] });
+              }
+            });
+            
+            if (budgetViolations.length > 0) {
+              console.warn('Performance budget violations detected:', budgetViolations);
+              // could trigger monitoring alerts here
+            }
+          }
+        }, 1000);
       });
-      
-      // core web vitals will be loaded separately
     }
   </script>
 </head>
@@ -353,6 +422,11 @@ const finalStructuredData = structuredData || defaultStructuredData;
   <script src="/scripts/theme-toggle.js" is:inline></script>
   <script src="/scripts/mobile-menu.js" is:inline></script>
   <script src="/scripts/core-web-vitals.js" is:inline></script>
+  <script src="/scripts/font-performance-test.js" is:inline></script>
+  
+  <!-- Font Performance Monitoring -->
+  <script src="/scripts/font-performance.js" is:inline></script>
+  <script src="/scripts/validate-font-performance.js" is:inline></script>
 </body>
 </html>
 

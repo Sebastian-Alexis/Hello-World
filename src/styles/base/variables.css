@@ -1,11 +1,13 @@
 :root {
-  /* Font Families - Optimized typewriter aesthetic with fallback metrics */
-  --font-primary: 'Courier New', Consolas, 'Lucida Console', Monaco, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
-  --font-mono: 'Courier New', Consolas, 'Lucida Console', Monaco, 'Liberation Mono', 'DejaVu Sans Mono', monospace;
+  /* optimized platform-specific monospace font stacks */
+  --font-primary: Consolas, 'Courier New', Monaco, 'Liberation Mono', 'Lucida Console', 'DejaVu Sans Mono', 'Menlo', 'Ubuntu Mono', monospace;
+  --font-mono: Consolas, 'Courier New', Monaco, 'Liberation Mono', 'Lucida Console', 'DejaVu Sans Mono', 'Menlo', 'Ubuntu Mono', monospace;
   
-  /* Font fallback metrics for CLS prevention */
-  --font-primary-metric: 0.6; /* character width ratio */
-  --font-primary-line-height: 1.2; /* optimal line height for monospace */
+  /* performance-optimized font metrics for zero cls */
+  --font-primary-metric: 0.6; /* consistent character width ratio */
+  --font-primary-line-height: 1.2; /* optimal line height for readability */
+  --font-weight-adjustment: 1.05; /* slight weight boost for thin fonts */
+  --font-render-optimization: optimizeSpeed; /* prioritize speed over quality */
   
   /* Color Palette - Light Mode */
   --color-white: #ffffff;

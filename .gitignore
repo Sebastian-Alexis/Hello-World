@@ -64,3 +64,5 @@ temp/
 .plans/
 cloud.md
 plan.md
+
+*.md
