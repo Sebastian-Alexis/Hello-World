@@ -448,7 +448,7 @@ try {
 <script>
   document.addEventListener('DOMContentLoaded', async function() {
     //mount media upload for flight photos
-    const MediaUpload = (await import('../../components/admin/MediaUpload.svelte')).default;
+    const MediaUpload = (await import('../../../components/admin/MediaUpload.svelte')).default;
     
     const photosUpload = new MediaUpload({
       target: document.getElementById('flight-photos-upload'),
