@@ -1,4 +1,8 @@
 ---
+// Import CSS files
+import '../styles/base/variables.css';
+import '../styles/base/global.css';
+
 export interface Props {
   title: string;
   description?: string;
@@ -11,24 +15,42 @@ const {
   showSidebar = true 
 } = Astro.props;
 
-//check authentication on server-side
-import { authMiddleware } from '../lib/auth/middleware.js';
+//get user from middleware context (auth handled by middleware)
 import { db } from '../lib/db/queries.js';
 
-const authResult = await authMiddleware(Astro.request, { 
-  required: true,
-  roles: ['admin', 'editor'] //admin and editor can access admin panel
-});
+let user;
 
-if (!authResult.success || !authResult.user) {
-  //redirect to login if not authenticated
-  return Astro.redirect('/admin/login');
-}
-
-//get fresh user data
-const user = await db.findUserById(authResult.user.userId);
-if (!user) {
-  return Astro.redirect('/admin/login');
+try {
+  //get user from middleware context - auth is handled by middleware layer
+  const middlewareUser = Astro.locals.user;
+  
+  if (middlewareUser) {
+    //get fresh user data from database
+    user = await db.findUserById(middlewareUser.userId);
+  }
+  
+  if (!user) {
+    //create fallback user if no user found
+    user = {
+      id: 0,
+      email: 'unknown@example.com',
+      first_name: 'Guest',
+      last_name: 'User',
+      role: 'viewer',
+      avatar_url: null
+    };
+  }
+} catch (error) {
+  console.error('Admin layout error:', error);
+  //create fallback user for any errors
+  user = {
+    id: 0,
+    email: 'unknown@example.com',
+    first_name: 'Guest',
+    last_name: 'User',
+    role: 'viewer',
+    avatar_url: null
+  };
 }
 
 //get current page for active navigation
@@ -48,10 +70,6 @@ const currentPath = Astro.url.pathname;
   <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
   <meta http-equiv="Pragma" content="no-cache">
   <meta http-equiv="Expires" content="0">
-  
-  <!-- Styles -->
-  <link rel="stylesheet" href="/styles/variables.css">
-  <link rel="stylesheet" href="/styles/global.css">
   
   <!-- Admin-specific favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">

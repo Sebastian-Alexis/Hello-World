@@ -2,7 +2,7 @@
 
 import { createClient } from '@libsql/client';
 import bcrypt from 'bcryptjs';
-import { getEnv } from '../src/lib/env/index.js';
+import { getEnv } from '../src/lib/env/index.ts';
 
 async function createAdminUser() {
   try {

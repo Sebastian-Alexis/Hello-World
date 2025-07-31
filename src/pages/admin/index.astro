@@ -2,18 +2,36 @@
 import AdminLayout from '../../layouts/AdminLayout.astro';
 import { db } from '../../lib/db/queries.js';
 
-//get dashboard statistics
-const dashboardStats = await db.getDashboardStats();
+let dashboardStats, recentPosts, recentProjects, recentFlights, analyticsData;
 
-//get recent content
-const [recentPosts, recentProjects, recentFlights] = await Promise.all([
-  db.getRecentBlogPosts(5),
-  db.getPortfolioProjects({ limit: 5, sortBy: 'created_at', sortOrder: 'DESC' }),
-  db.getFlights({ limit: 5, sortBy: 'departure_time', sortOrder: 'DESC' }),
-]);
+try {
+  //get dashboard statistics
+  dashboardStats = await db.getDashboardStats();
 
-//get analytics data
-const analyticsData = await db.getAnalyticsSummary(30);
+  //get recent content
+  [recentPosts, recentProjects, recentFlights] = await Promise.all([
+    db.getRecentBlogPosts(5),
+    db.getPortfolioProjects({ limit: 5, sortBy: 'created_at', sortOrder: 'DESC' }),
+    db.getFlights({ limit: 5, sortBy: 'departure_time', sortOrder: 'DESC' }),
+  ]);
+
+  //get analytics data
+  analyticsData = await db.getAnalyticsSummary(30);
+} catch (error) {
+  console.error('Admin dashboard error:', error);
+  
+  // Provide fallback data
+  dashboardStats = {
+    blog: { totalPosts: 0, publishedPosts: 0, draftPosts: 0 },
+    portfolio: { totalProjects: 0, activeProjects: 0, completedProjects: 0 },
+    flights: { totalFlights: 0, totalDistance: 0, uniqueAirports: 0 },
+    system: { totalUsers: 0, activeSessions: 0, mediaFiles: 0, databaseSize: 0 }
+  };
+  recentPosts = [];
+  recentProjects = [];
+  recentFlights = [];
+  analyticsData = { totalPageViews: 0, uniqueVisitors: 0, topPages: [] };
+}
 ---
 
 <AdminLayout 

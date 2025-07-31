@@ -1,34 +1,29 @@
 import type { APIRoute } from 'astro';
-import { securityMiddleware } from '../../../lib/auth/middleware.js';
-import { authenticateUser } from '../../../lib/auth/index.js';
-import { createSessionCookie, createRefreshTokenCookie } from '../../../lib/auth/session.js';
-import { db } from '../../../lib/db/queries.js';
+import { rateLimitMiddleware, securityHeadersMiddleware } from '../../../lib/auth/middleware.ts';
+import { authenticateUser } from '../../../lib/auth/index.ts';
+import { createSessionCookie, createRefreshTokenCookie } from '../../../lib/auth/session.ts';
+import { db } from '../../../lib/db/queries.ts';
 
 export const POST: APIRoute = async ({ request, clientAddress }) => {
+  const startTime = Date.now();
+  
   try {
-    //apply security middleware with rate limiting
-    const security = await securityMiddleware(request, {
-      rateLimit: {
-        windowMs: 15 * 60 * 1000, //15 minutes
-        maxRequests: 5, //5 attempts per 15 minutes
-      },
-      headers: { csp: true },
-    });
-
-    if (!security.success) {
+    //apply rate limiting manually (since we bypass middleware)
+    const rateLimitResult = await rateLimitMiddleware(request);
+    if (!rateLimitResult.success) {
       return new Response(JSON.stringify({
         success: false,
-        error: security.error || 'Security check failed',
+        error: 'Too many login attempts. Please try again later.',
       }), {
-        status: security.status || 500,
+        status: 429,
         headers: {
           'Content-Type': 'application/json',
-          ...security.headers,
+          'Retry-After': '300', //5 minutes
         },
       });
     }
 
-    //parse request body
+    //parse request body first (before any middleware that might consume it)
     const body = await request.json();
     const { email, password, remember_me = false } = body;
 
@@ -41,7 +36,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         status: 400,
         headers: { 
           'Content-Type': 'application/json',
-          ...security.headers,
         },
       });
     }
@@ -56,7 +50,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         status: 401,
         headers: { 
           'Content-Type': 'application/json',
-          ...security.headers,
         },
       });
     }
@@ -75,7 +68,6 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
         status: 401,
         headers: { 
           'Content-Type': 'application/json',
-          ...security.headers,
         },
       });
     }
@@ -94,10 +86,13 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       });
     }
 
-    //prepare response headers with cookies
+    //get security headers
+    const securityHeaders = securityHeadersMiddleware(request, { csp: true });
+    
+    //prepare response headers with cookies and security
     const responseHeaders: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...security.headers,
+      ...securityHeaders.headers,
     };
 
     const cookies: string[] = [];
@@ -127,6 +122,9 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
       avatar_url: user.avatar_url,
     };
 
+    //log successful login
+    console.log(`[${new Date().toISOString()}] INFO Login successful | User: ${user.email} | IP: ${clientAddress} | Time: ${Date.now() - startTime}ms`);
+
     return new Response(JSON.stringify({
       success: true,
       data: {
@@ -143,7 +141,9 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
     });
 
   } catch (error) {
-    console.error('Login API error:', error);
+    //log failed login attempt
+    console.error(`[${new Date().toISOString()}] ERROR Login failed | IP: ${clientAddress} | Time: ${Date.now() - startTime}ms | Error:`, error);
+    
     return new Response(JSON.stringify({
       success: false,
       error: 'Internal server error',

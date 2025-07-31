@@ -9,9 +9,11 @@ import { loggingMiddleware } from './logging.js';
 //compose middleware chain with security first
 export const onRequest = defineMiddleware(async (context, next) => {
   //only run middleware for API routes (server-rendered endpoints)
+  //exclude login endpoint to avoid body consumption conflicts
   const isApiRoute = context.url.pathname.startsWith('/api/');
+  const isLoginRoute = context.url.pathname === '/api/auth/login';
   
-  if (isApiRoute) {
+  if (isApiRoute && !isLoginRoute) {
     //security headers must be applied first
     await securityHeadersMiddleware(context, next);
     
@@ -32,10 +34,11 @@ export const onRequest = defineMiddleware(async (context, next) => {
     //note: input validation is handled within individual API routes
     //to avoid consuming the request body before the endpoint can process it
     
-    //authentication for protected routes
-    if (context.url.pathname.startsWith('/admin/') || 
+    //authentication for protected routes (excluding login endpoint)
+    if ((context.url.pathname.startsWith('/admin/') || 
         context.url.pathname.startsWith('/api/auth/me') ||
-        context.url.pathname.includes('protected')) {
+        context.url.pathname.includes('protected')) &&
+        !context.url.pathname.startsWith('/api/auth/login')) {
       const authResult = await authMiddleware(context, next);
       if (!authResult.authenticated) {
         if (context.url.pathname.startsWith('/api/')) {

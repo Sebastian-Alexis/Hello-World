@@ -1,22 +1,22 @@
 //main authentication and security exports
-export * from './jwt.js';
-export * from './password.js';
-export * from './session.js';
-export * from './middleware.js';
-export * from './utils.js';
+export * from './jwt.ts';
+export * from './password.ts';
+export * from './session.ts';
+export * from './middleware.ts';
+export * from './utils.ts';
 
 //type re-exports for convenience
-export type { TokenPayload, RefreshTokenPayload } from './jwt.js';
-export type { PasswordValidationResult } from './password.js';
-export type { SessionData, SessionActivity } from './session.js';
-export type { SecurityEvent } from './utils.js';
+export type { TokenPayload, RefreshTokenPayload } from './jwt.ts';
+export type { PasswordValidationResult } from './password.ts';
+export type { SessionData, SessionActivity } from './session.ts';
+export type { SecurityEvent } from './utils.ts';
 
 //common authentication workflow helpers
-import { createTokenPair, verifyToken } from './jwt.js';
-import { hashPassword, verifyPassword } from './password.js';
-import { createSession, validateSession } from './session.js';
-import { authMiddleware, securityMiddleware } from './middleware.js';
-import type { User } from '../db/types.js';
+import { createTokenPair, verifyToken } from './jwt.ts';
+import { hashPassword, verifyPassword } from './password.ts';
+import { createSession, validateSession } from './session.ts';
+import { authMiddleware, securityMiddleware } from './middleware.ts';
+import type { User } from '../db/types.ts';
 
 //complete authentication flow
 export async function authenticateUser(
@@ -126,7 +126,7 @@ export async function refreshTokens(
     }
     
     //create new access token
-    const { accessToken, expiresAt } = await (await import('./jwt.js')).refreshAccessToken(refreshToken);
+    const { accessToken, expiresAt } = await (await import('./jwt.ts')).refreshAccessToken(refreshToken);
     
     return {
       success: true,

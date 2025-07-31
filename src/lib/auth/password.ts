@@ -1,5 +1,5 @@
 import bcrypt from 'bcryptjs';
-import { getEnv } from '../env/index.js';
+import { getEnv } from '../env/index.ts';
 
 //password strength requirements
 export const PASSWORD_REQUIREMENTS = {

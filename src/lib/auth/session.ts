@@ -1,6 +1,6 @@
 import { randomBytes } from 'crypto';
-import { getEnv } from '../env/index.js';
-import type { User, UserSession } from '../db/types.js';
+import { getEnv } from '../env/index.ts';
+import type { User, UserSession } from '../db/types.ts';
 
 //session configuration
 export const SESSION_CONFIG = {

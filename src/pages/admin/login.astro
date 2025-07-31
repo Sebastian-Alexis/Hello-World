@@ -1,4 +1,8 @@
 ---
+// Import CSS files
+import '../../styles/base/variables.css';
+import '../../styles/base/global.css';
+
 //redirect if already authenticated
 import { authMiddleware } from '../../lib/auth/middleware.js';
 
@@ -16,10 +20,6 @@ if (authResult.success && authResult.user) {
   <title>Admin Login | Personal Website</title>
   <meta name="description" content="Admin panel login">
   <meta name="robots" content="noindex, nofollow">
-  
-  <!-- Styles -->
-  <link rel="stylesheet" href="/styles/variables.css">
-  <link rel="stylesheet" href="/styles/global.css">
   
   <!-- Favicon -->
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">

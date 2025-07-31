@@ -1,4 +1,8 @@
 import { z } from 'zod';
+import * as dotenv from 'dotenv';
+
+// Load .env file
+dotenv.config();
 
 const envSchema = z.object({
   // Database Configuration
@@ -78,16 +82,8 @@ export function validateEnv(): Env {
   if (_env) return _env;
 
   try {
-    //merge import.meta.env with process.env for compatibility
-    const env = { ...import.meta.env, ...process.env };
-    
-    // Debug logging
-    console.log('🔍 Environment loading debug:', {
-      hasTursoUrl: !!env.TURSO_DATABASE_URL,
-      tursoUrl: env.TURSO_DATABASE_URL?.substring(0, 30) + '...',
-      hasAuthToken: !!env.TURSO_AUTH_TOKEN,
-      nodeEnv: env.NODE_ENV
-    });
+    //use process.env directly since Astro should load .env files
+    const env = process.env;
     
     //merge with default values for development
     const envWithDefaults = {
