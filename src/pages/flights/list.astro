@@ -553,11 +553,11 @@ const pageDescription = `Browse all ${totalFlights} flights with advanced filter
             <div class="flex items-center gap-2">
               {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
                 let pageNum;
-                if (totalPages <= 7) {
+                if (totalPages < 8) {
                   pageNum = i + 1;
-                } else if (page <= 4) {
+                } else if (page < 5) {
                   pageNum = i + 1;
-                } else if (page >= (totalPages - 3)) {
+                } else if (page > (totalPages - 4)) {
                   pageNum = totalPages - 6 + i;
                 } else {
                   pageNum = page - 3 + i;
