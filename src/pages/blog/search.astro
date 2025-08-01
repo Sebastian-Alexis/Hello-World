@@ -4,12 +4,12 @@
 // Displays search results with category/tag filters and sorting options
 // =============================================================================
 
-import Layout from '@/layouts/Layout.astro';
-import BlogCard from '@/components/blog/BlogCard.astro';
-import SearchBox from '@/components/blog/SearchBox.svelte';
-import Pagination from '@/components/blog/Pagination.astro';
-import CategoryTag from '@/components/blog/CategoryTag.astro';
-import { db } from '@/lib/db/queries';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BlogCard from '../../components/blog/BlogCard.astro';
+import SearchBox from '../../components/blog/SearchBox.svelte';
+import Pagination from '../../components/blog/Pagination.astro';
+import CategoryTag from '../../components/blog/CategoryTag.astro';
+import { db } from '../../lib/db/queries';
 import type { BlogPost, BlogCategory, BlogTag } from '@/lib/db/types';
 
 //get query parameters
@@ -128,7 +128,7 @@ const structuredData = posts.length > 0 ? {
 } : undefined;
 ---
 
-<Layout 
+<BaseLayout 
   title={pageTitle}
   description={pageDescription}
   structuredData={structuredData}
@@ -473,4 +473,4 @@ const structuredData = posts.length > 0 ? {
     </div>
 
   </main>
-</Layout>
+</BaseLayout>

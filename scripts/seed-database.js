@@ -145,6 +145,87 @@ async function seedDatabase() {
       ]);
     }
 
+    // Create sample blog posts
+    console.log('📝 Creating sample blog posts...');
+    const samplePosts = [
+      {
+        title: 'Getting Started with Modern Web Development',
+        slug: 'getting-started-modern-web-development',
+        excerpt: 'Explore the latest trends and tools in modern web development, from TypeScript to performance optimization.',
+        content: '# Getting Started with Modern Web Development\n\nWeb development has evolved dramatically in recent years...',
+        status: 'published',
+        featured: true,
+        categories: ['Technology', 'Tutorial'],
+        tags: ['JavaScript', 'TypeScript', 'Performance']
+      },
+      {
+        title: 'Building Ultra-Fast Personal Websites',
+        slug: 'building-ultra-fast-personal-websites',
+        excerpt: 'Learn how to build lightning-fast personal websites with modern frameworks and optimization techniques.',
+        content: '# Building Ultra-Fast Personal Websites\n\nPerformance is crucial for modern web applications...',
+        status: 'published',
+        featured: false,
+        categories: ['Technology'],
+        tags: ['Performance', 'Design']
+      },
+      {
+        title: 'My Journey with Flight Tracking',
+        slug: 'my-journey-flight-tracking',
+        excerpt: 'A personal story about building a flight tracking system and the lessons learned along the way.',
+        content: '# My Journey with Flight Tracking\n\nTraveling has always been a passion of mine...',
+        status: 'published',
+        featured: false,
+        categories: ['Personal', 'Travel'],
+        tags: ['Travel', 'Database']
+      }
+    ];
+
+    for (const post of samplePosts) {
+      //insert blog post
+      const postResult = await client.execute(`
+        INSERT INTO blog_posts (
+          title, slug, excerpt, content, status, featured, 
+          author_id, published_at, reading_time
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        post.title, post.slug, post.excerpt, post.content, 
+        post.status, post.featured, adminId, new Date().toISOString(),
+        Math.ceil(post.content.length / 1000) //rough reading time estimate
+      ]);
+
+      const postId = Number(postResult.lastInsertRowid);
+
+      //link categories
+      for (const categoryName of post.categories) {
+        const categoryResult = await client.execute(
+          'SELECT id FROM blog_categories WHERE name = ?',
+          [categoryName]
+        );
+        if (categoryResult.rows.length > 0) {
+          const categoryId = categoryResult.rows[0].id;
+          await client.execute(`
+            INSERT INTO blog_post_categories (post_id, category_id)
+            VALUES (?, ?)
+          `, [postId, categoryId]);
+        }
+      }
+
+      //link tags
+      for (const tagName of post.tags) {
+        const tagResult = await client.execute(
+          'SELECT id FROM blog_tags WHERE name = ?',
+          [tagName]
+        );
+        if (tagResult.rows.length > 0) {
+          const tagId = tagResult.rows[0].id;
+          await client.execute(`
+            INSERT INTO blog_post_tags (post_id, tag_id)
+            VALUES (?, ?)
+          `, [postId, tagId]);
+        }
+      }
+    }
+
     // Create site settings
     console.log('⚙️ Creating site settings...');
     const settings = [
@@ -174,6 +255,7 @@ async function seedDatabase() {
     console.log('  👤 1 admin user (admin@localhost.dev / admin123)');
     console.log(`  📂 ${categories.length} blog categories`);
     console.log(`  🏷️ ${tags.length} blog tags`);
+    console.log(`  📝 ${samplePosts.length} sample blog posts`);
     console.log(`  💼 ${projectCategories.length} project categories`);
     console.log(`  ⚙️ ${technologies.length} project technologies`);
     console.log(`  ✈️ ${airports.length} sample airports`);

@@ -1,0 +1,138 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const post = {
+  title: 'Building Ultra-Fast Personal Websites',
+  slug: 'building-ultra-fast-personal-websites',
+  excerpt: 'Learn how to build lightning-fast personal websites with modern frameworks and optimization techniques.',
+  content: `# Building Ultra-Fast Personal Websites
+
+Performance is crucial for modern web applications. Users expect websites to load instantly, and search engines favor fast-loading sites. Here's how to build ultra-fast personal websites.
+
+## Performance Fundamentals
+
+### Core Web Vitals
+Focus on these key metrics:
+- **Largest Contentful Paint (LCP)**: Should be under 2.5 seconds
+- **First Input Delay (FID)**: Should be under 100 milliseconds  
+- **Cumulative Layout Shift (CLS)**: Should be under 0.1
+
+### Optimization Strategies
+Key techniques for speed:
+- Minimize HTTP requests
+- Optimize images (WebP, AVIF formats)
+- Use modern CSS and JavaScript
+- Implement lazy loading
+- Enable compression (Gzip/Brotli)
+
+## Framework Selection
+
+### Static Site Generators
+Great options include:
+- **Astro**: Island architecture, partial hydration
+- **Next.js**: React-based with excellent optimization
+- **SvelteKit**: Compile-time optimization
+- **Nuxt**: Vue-based with automatic optimization
+
+### Hosting Solutions
+Fast hosting is essential:
+- **Vercel**: Edge functions and global CDN
+- **Netlify**: Build optimization and edge computing
+- **Cloudflare Pages**: Global network with low latency
+
+## Image Optimization
+
+Images often account for most of a website's weight:
+- Use next-gen formats (WebP, AVIF)
+- Implement responsive images with srcset
+- Add lazy loading for below-the-fold images
+- Consider progressive loading
+
+## Conclusion
+
+Building fast websites requires attention to detail and modern optimization techniques. Start with performance in mind, measure everything, and iterate based on real user data.`,
+  publishedDate: '2024-01-20',
+  author: 'Sebastian Alexis',
+  categories: ['Technology'],
+  tags: ['Performance', 'Design']
+};
+---
+
+<BaseLayout 
+  title={post.title}
+  description={post.excerpt}
+  type="article"
+>
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <article class="max-w-4xl mx-auto px-4 py-12">
+      
+      <!-- Header -->
+      <header class="mb-12">
+        <div class="mb-6">
+          <div class="flex flex-wrap gap-2 mb-4">
+            {post.categories.map(category => (
+              <span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200">
+                {category}
+              </span>
+            ))}
+          </div>
+          
+          <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            {post.title}
+          </h1>
+          
+          <p class="text-xl text-gray-600 dark:text-gray-300 mb-6">
+            {post.excerpt}
+          </p>
+        </div>
+        
+        <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+          <div class="flex items-center space-x-4">
+            <span>By {post.author}</span>
+            <span>•</span>
+            <time datetime={post.publishedDate}>
+              {new Date(post.publishedDate).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </time>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <div class="prose prose-lg dark:prose-invert max-w-none">
+        <div set:html={post.content.replace(/\n/g, '<br>').replace(/^# (.*)/gm, '<h1>$1</h1>').replace(/^## (.*)/gm, '<h2>$1</h2>').replace(/^### (.*)/gm, '<h3>$1</h3>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/- (.*)/g, '<li>$1</li>').replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')} />
+      </div>
+
+      <!-- Tags -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex flex-wrap gap-2">
+          {post.tags.map(tag => (
+            <a 
+              href={`/blog/tag/${tag.toLowerCase()}`}
+              class="inline-flex items-center px-3 py-1 text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+            >
+              #{tag}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <a 
+          href="/blog"
+          class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Blog
+        </a>
+      </div>
+
+    </article>
+  </main>
+</BaseLayout>

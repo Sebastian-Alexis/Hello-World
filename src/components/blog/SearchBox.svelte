@@ -7,9 +7,9 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
 
 <script lang="ts">
   import { onMount, onDestroy } from 'svelte';
-  import type { BlogPost } from '@/lib/db/types';
-  import { blogCache } from '@/lib/performance/cache';
-  import { performanceUtils } from '@/lib/performance/vitals';
+  import type { BlogPost } from '../../lib/db/types';
+  import { blogCache } from '../../lib/performance/cache';
+  import { performanceUtils } from '../../lib/performance/vitals';
 
   interface SearchResult {
     post: BlogPost;
@@ -346,7 +346,7 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
   <!-- Search Input -->
   <div class="relative">
     <div class="absolute inset-y-0 left-0 flex items-center pl-3">
-      <svg class="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
               d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
@@ -360,27 +360,27 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
       on:keydown={handleKeydown}
       type="text"
       {placeholder}
-      class="w-full pl-10 pr-4 py-3 bg-white border border-black text-black font-mono font-light placeholder-black focus:bg-black focus:text-white focus:placeholder-white transition-colors duration-200"
+      class="w-full pl-10 pr-4 py-3 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white font-mono font-light placeholder-gray-500 dark:placeholder-gray-400 focus:bg-gray-50 dark:focus:bg-gray-700 focus:border-blue-500 dark:focus:border-blue-400 transition-colors duration-200"
       autocomplete="off"
       spellcheck="false"
     />
 
     {#if isSearching}
       <div class="absolute inset-y-0 right-0 flex items-center pr-3">
-        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-black"></div>
+        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-500 dark:border-blue-400"></div>
       </div>
     {/if}
   </div>
 
   <!-- Search Results Dropdown -->
   {#if showResults && (searchResults.length > 0 || suggestions.length > 0)}
-    <div class="absolute z-50 w-full mt-2 bg-white border border-black max-h-96 overflow-y-auto">
+    <div class="absolute z-50 w-full mt-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg shadow-lg max-h-96 overflow-y-auto">
       
       <!-- Search Results -->
       {#each searchResults as result, index}
         <button
-          class="w-full px-4 py-3 text-left hover:bg-black hover:text-white border-b border-black last:border-b-0 transition-colors duration-150 {
-            selectedIndex === index ? 'bg-black text-white' : ''
+          class="w-full px-4 py-3 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-600 last:border-b-0 transition-colors duration-150 {
+            selectedIndex === index ? 'bg-blue-100 dark:bg-blue-900/30' : ''
           }"
           on:click={() => handleItemSelection(index)}
         >
@@ -393,8 +393,8 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
                 loading="lazy"
               />
             {:else}
-              <div class="w-12 h-12 bg-white border border-black flex items-center justify-center flex-shrink-0">
-                <svg class="w-6 h-6 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div class="w-12 h-12 bg-gray-100 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded flex items-center justify-center flex-shrink-0">
+                <svg class="w-6 h-6 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                 </svg>
@@ -402,15 +402,15 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
             {/if}
             
             <div class="flex-1 min-w-0">
-              <h4 class="text-sm font-light font-mono text-black truncate">
+              <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">
                 {result.post.title}
               </h4>
               {#if result.snippet}
-                <p class="text-xs text-black font-mono font-light mt-1 line-clamp-2">
+                <p class="text-xs text-gray-600 dark:text-gray-300 mt-1 line-clamp-2">
                   {@html result.snippet}
                 </p>
               {/if}
-              <div class="flex items-center mt-1 text-xs text-black font-mono font-light">
+              <div class="flex items-center mt-1 text-xs text-gray-500 dark:text-gray-400">
                 {#if result.post.categories && result.post.categories.length > 0}
                   <span class="mr-2">{result.post.categories[0].name}</span>
                 {/if}
@@ -426,7 +426,7 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
       <!-- Suggestions -->
       {#if suggestions.length > 0 && (searchResults.length === 0 || searchQuery.length < minQueryLength)}
         {#if searchResults.length > 0}
-          <div class="px-4 py-2 text-xs font-light font-mono text-black bg-white border-b border-black">
+          <div class="px-4 py-2 text-xs font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600">
             Suggestions
           </div>
         {/if}
@@ -434,39 +434,39 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
         {#each suggestions as suggestion, index}
           {@const adjustedIndex = searchResults.length + index}
           <button
-            class="w-full px-4 py-2 text-left hover:bg-black hover:text-white border-b border-black last:border-b-0 transition-colors duration-150 {
-              selectedIndex === adjustedIndex ? 'bg-black text-white' : ''
+            class="w-full px-4 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-900/20 border-b border-gray-200 dark:border-gray-600 last:border-b-0 transition-colors duration-150 {
+              selectedIndex === adjustedIndex ? 'bg-blue-100 dark:bg-blue-900/30' : ''
             }"
             on:click={() => handleItemSelection(adjustedIndex)}
           >
             <div class="flex items-center space-x-3">
               {#if suggestion.type === 'recent'}
-                <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               {:else if suggestion.type === 'category'}
-                <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               {:else if suggestion.type === 'tag'}
-                <svg class="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                         d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
               {/if}
               
-              <span class="text-sm text-black font-mono font-light">
+              <span class="text-sm text-gray-900 dark:text-white font-medium">
                 {suggestion.query}
               </span>
               
               {#if suggestion.type === 'category' || suggestion.type === 'tag'}
-                <span class="text-xs text-black font-mono font-light">
+                <span class="text-xs text-gray-500 dark:text-gray-400">
                   {suggestion.data.post_count} posts
                 </span>
               {:else if suggestion.type === 'recent'}
-                <span class="text-xs text-black font-mono font-light">Recent</span>
+                <span class="text-xs text-gray-500 dark:text-gray-400">Recent</span>
               {/if}
             </div>
           </button>
@@ -475,14 +475,14 @@ Provides instant search with debouncing, suggestions, and keyboard navigation
 
       <!-- No Results -->
       {#if searchResults.length === 0 && suggestions.length === 0 && searchQuery.length >= minQueryLength && !isSearching}
-        <div class="px-4 py-6 text-center text-black">
+        <div class="px-4 py-6 text-center text-gray-600 dark:text-gray-400">
           <svg class="w-8 h-8 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                   d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
           </svg>
-          <p class="text-sm font-mono font-light">No results found for "{searchQuery}"</p>
+          <p class="text-sm">No results found for "{searchQuery}"</p>
           <button
-            class="mt-2 text-sm text-black font-mono font-light hover:bg-black hover:text-white border border-black px-2 py-1"
+            class="mt-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 border border-blue-300 dark:border-blue-600 rounded px-3 py-1 transition-colors duration-200"
             on:click={() => navigateToSearch(searchQuery)}
           >
             Search all posts →

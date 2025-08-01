@@ -46,7 +46,7 @@ export interface BlogPost extends BaseEntity {
   title: string;
   excerpt?: string;
   content: string;
-  featured_image?: string;
+  featured_image_url?: string;
   gallery_images?: string[]; // JSON array
   meta_title?: string;
   meta_description?: string;
@@ -110,7 +110,7 @@ export interface PortfolioProject extends BaseEntity {
   short_description: string;
   full_description?: string;
   content?: string; // markdown content
-  featured_image?: string;
+  featured_image_url?: string;
   gallery_images?: string[]; // JSON array
   demo_url?: string;
   source_url?: string;
@@ -456,7 +456,7 @@ export interface BlogPostForm {
   slug: string;
   excerpt?: string;
   content: string;
-  featured_image?: string;
+  featured_image_url?: string;
   gallery_images?: string[];
   meta_title?: string;
   meta_description?: string;
@@ -476,7 +476,7 @@ export interface ProjectForm {
   short_description: string;
   full_description?: string;
   content?: string;
-  featured_image?: string;
+  featured_image_url?: string;
   gallery_images?: string[];
   demo_url?: string;
   source_url?: string;

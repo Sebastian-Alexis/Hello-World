@@ -1,0 +1,171 @@
+---
+import { db } from '@/lib/db/queries';
+import { ContentProcessor } from '@/lib/content/processor';
+import type { BlogPost } from '@/lib/db/types';
+
+const { slug } = Astro.params;
+
+let debugInfo: any = {
+  slug: slug,
+  steps: []
+};
+
+let post: BlogPost | null = null;
+let error: any = null;
+let processedContent = '';
+
+//Step 1: Check slug
+debugInfo.steps.push({
+  step: 'Check slug',
+  result: slug ? 'Slug exists' : 'No slug',
+  value: slug
+});
+
+if (!slug) {
+  debugInfo.wouldRedirect = true;
+  debugInfo.redirectReason = 'No slug parameter';
+} else {
+  //Step 2: Query database
+  try {
+    debugInfo.steps.push({
+      step: 'Query database',
+      status: 'starting'
+    });
+    
+    post = await db.getBlogPostBySlug(slug);
+    
+    debugInfo.steps.push({
+      step: 'Database query complete',
+      result: post ? 'Post found' : 'No post found',
+      postId: post?.id,
+      postTitle: post?.title,
+      postSlug: post?.slug,
+      postStatus: post?.status
+    });
+    
+    if (!post) {
+      debugInfo.wouldRedirect = true;
+      debugInfo.redirectReason = 'Post not found in database';
+    } else {
+      //Step 3: Process content
+      try {
+        debugInfo.steps.push({
+          step: 'Process content',
+          status: 'starting',
+          contentLength: post.content?.length || 0,
+          contentPreview: post.content?.substring(0, 100) || 'No content'
+        });
+        
+        const processor = new ContentProcessor();
+        const processed = await processor.processContent(post.content || '', {
+          generateExcerpt: false,
+          optimizeForSEO: true,
+          addReadingTime: false,
+        });
+        
+        processedContent = processed.html;
+        
+        debugInfo.steps.push({
+          step: 'Content processed',
+          result: 'Success',
+          processedLength: processedContent.length
+        });
+      } catch (contentError) {
+        debugInfo.steps.push({
+          step: 'Content processing failed',
+          error: contentError instanceof Error ? contentError.message : String(contentError),
+          stack: contentError instanceof Error ? contentError.stack : undefined
+        });
+        debugInfo.wouldRedirect = true;
+        debugInfo.redirectReason = 'Content processing error';
+        error = contentError;
+      }
+      
+      //Step 4: Get related posts (optional, don't fail if error)
+      try {
+        const [nextPost, prevPost] = await Promise.all([
+          db.getNextBlogPost(post.published_at, post.id),
+          db.getPreviousBlogPost(post.published_at, post.id),
+        ]);
+        
+        debugInfo.steps.push({
+          step: 'Related posts',
+          nextPost: nextPost?.slug,
+          prevPost: prevPost?.slug
+        });
+      } catch (relatedError) {
+        debugInfo.steps.push({
+          step: 'Related posts failed',
+          error: relatedError instanceof Error ? relatedError.message : String(relatedError)
+        });
+      }
+    }
+  } catch (dbError) {
+    debugInfo.steps.push({
+      step: 'Database query failed',
+      error: dbError instanceof Error ? dbError.message : String(dbError),
+      stack: dbError instanceof Error ? dbError.stack : undefined
+    });
+    debugInfo.wouldRedirect = true;
+    debugInfo.redirectReason = 'Database query error';
+    error = dbError;
+  }
+}
+---
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Full Debug - {slug}</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    .error { color: red; background: #fee; padding: 10px; margin: 10px 0; }
+    .success { color: green; background: #efe; padding: 10px; margin: 10px 0; }
+    .warning { color: orange; background: #ffe; padding: 10px; margin: 10px 0; }
+    pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Full Debug for: {slug}</h1>
+  
+  {debugInfo.wouldRedirect && (
+    <div class="error">
+      <h2>⚠️ This would redirect to /blog</h2>
+      <p>Reason: {debugInfo.redirectReason}</p>
+    </div>
+  )}
+  
+  <h2>Debug Info:</h2>
+  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+  
+  {error && (
+    <div class="error">
+      <h2>Error Details:</h2>
+      <pre>{String(error)}</pre>
+      {error.stack && <pre>{error.stack}</pre>}
+    </div>
+  )}
+  
+  {post && (
+    <div class="success">
+      <h2>Post Found:</h2>
+      <ul>
+        <li>ID: {post.id}</li>
+        <li>Title: {post.title}</li>
+        <li>Slug: {post.slug}</li>
+        <li>Status: {post.status}</li>
+        <li>Content length: {post.content?.length || 0}</li>
+      </ul>
+    </div>
+  )}
+  
+  <hr />
+  
+  <h2>Test Links:</h2>
+  <ul>
+    <li><a href="/blog/{slug}">Normal blog link</a></li>
+    <li><a href="/blog">Back to blog</a></li>
+    <li><a href="/api/debug/test-query?slug={slug}">Test query API</a></li>
+  </ul>
+</body>
+</html>

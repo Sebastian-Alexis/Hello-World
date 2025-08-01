@@ -351,6 +351,28 @@ export class DatabaseQueries {
     return result.rows.length > 0;
   }
 
+  //gets a blog post by ID (for admin)
+  async getBlogPostById(id: number): Promise<BlogPost | null> {
+    const query = `
+      SELECT p.*, u.first_name || ' ' || u.last_name as author_name, u.avatar_url as author_avatar
+      FROM blog_posts p
+      LEFT JOIN users u ON p.author_id = u.id
+      WHERE p.id = ?
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<BlogPost>(query, [id]);
+    if (!result.rows[0]) return null;
+    
+    const post = result.rows[0];
+    
+    //get categories and tags
+    post.categories = await this.getPostCategories(post.id);
+    post.tags = await this.getPostTags(post.id);
+    
+    return post;
+  }
+
   //advanced search with FTS5, ranking, and highlighting
   async searchBlogPosts(filters: BlogSearchFilters & QueryOptions = {}): Promise<PaginatedResponse<BlogPost & { rank?: number; snippet?: string }>> {
     const { query, categories, tags, status = 'published', page = 1, limit = 10, dateFrom, dateTo } = filters;
@@ -877,6 +899,14 @@ export class DatabaseQueries {
       if (key === 'featured') {
         updates.push('featured = ?');
         values.push(value ? 1 : 0);
+      } else if (key === 'status' && value === 'published') {
+        //when publishing a post, set both status and published_at
+        updates.push('status = ?', 'published_at = ?');
+        values.push(value, new Date().toISOString());
+      } else if (key === 'status' && value === 'draft') {
+        //when changing back to draft, clear published_at
+        updates.push('status = ?', 'published_at = ?');
+        values.push(value, null);
       } else if (value !== undefined) {
         if (key === 'content' && processed) {
           updates.push('content = ?', 'content_html = ?', 'reading_time = ?', 'word_count = ?');
@@ -891,7 +921,7 @@ export class DatabaseQueries {
             updates.push('meta_description = ?');
             values.push(processed.metaDescription);
           }
-        } else {
+        } else if (key !== 'status') { //avoid double-processing status
           updates.push(`${key} = ?`);
           values.push(value);
         }

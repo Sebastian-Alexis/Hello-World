@@ -1,0 +1,160 @@
+---
+import BaseLayout from '../../layouts/BaseLayout.astro';
+
+const post = {
+  title: 'My Journey with Flight Tracking',
+  slug: 'my-journey-flight-tracking',
+  excerpt: 'A personal story about building a flight tracking system and the lessons learned along the way.',
+  content: `# My Journey with Flight Tracking
+
+Traveling has always been a passion of mine. Over the years, I've visited numerous countries and experienced countless flights. This led me to create a personal flight tracking system to catalog my journeys.
+
+## The Motivation
+
+As someone who loves data and travel, I wanted to:
+- Track all my flights in one place
+- Visualize my travel patterns on a map
+- Calculate statistics about my journeys
+- Keep memories of special trips
+
+## Technical Implementation
+
+### Database Design
+I designed a normalized database schema:
+- **Airports**: IATA codes, coordinates, city information
+- **Flights**: Departure/arrival details, aircraft info
+- **Routes**: Popular flight paths and connections
+
+### Mapping Integration
+Used Mapbox for interactive visualization:
+- Real-time flight paths
+- Airport markers with details
+- Route statistics and patterns
+- Beautiful dark/light themes
+
+### Data Collection
+Multiple sources for flight data:
+- Manual entry for personal flights
+- API integration for real-time data
+- Airport database for location info
+
+## Challenges Faced
+
+### Data Accuracy
+Ensuring accurate flight information was crucial:
+- Timezone handling across regions
+- Airport code standardization
+- Flight duration calculations
+- Coordinate precision
+
+### Performance Optimization
+With growing data, performance became important:
+- Database indexing strategies
+- Efficient map rendering
+- Caching for frequently accessed routes
+- Pagination for large datasets
+
+## Lessons Learned
+
+Building this system taught me:
+- The importance of good database design
+- How to work with geographic data
+- API integration best practices
+- The value of user experience in personal projects
+
+## Future Plans
+
+I'm considering adding:
+- Carbon footprint calculations
+- Integration with airline loyalty programs
+- Photo galleries linked to destinations
+- Social sharing features
+
+## Conclusion
+
+This project combined my love for travel with my passion for development. It's been incredibly rewarding to build something that helps me relive my travel memories while showcasing technical skills.`,
+  publishedDate: '2024-01-25',
+  author: 'Sebastian Alexis',
+  categories: ['Personal', 'Travel'],
+  tags: ['Travel', 'Database']
+};
+---
+
+<BaseLayout 
+  title={post.title}
+  description={post.excerpt}
+  type="article"
+>
+  <main class="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <article class="max-w-4xl mx-auto px-4 py-12">
+      
+      <!-- Header -->
+      <header class="mb-12">
+        <div class="mb-6">
+          <div class="flex flex-wrap gap-2 mb-4">
+            {post.categories.map(category => (
+              <span class="inline-flex items-center px-3 py-1 text-sm font-medium rounded-full bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
+                {category}
+              </span>
+            ))}
+          </div>
+          
+          <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-4">
+            {post.title}
+          </h1>
+          
+          <p class="text-xl text-gray-600 dark:text-gray-300 mb-6">
+            {post.excerpt}
+          </p>
+        </div>
+        
+        <div class="flex items-center text-sm text-gray-600 dark:text-gray-400">
+          <div class="flex items-center space-x-4">
+            <span>By {post.author}</span>
+            <span>•</span>
+            <time datetime={post.publishedDate}>
+              {new Date(post.publishedDate).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}
+            </time>
+          </div>
+        </div>
+      </header>
+
+      <!-- Content -->
+      <div class="prose prose-lg dark:prose-invert max-w-none">
+        <div set:html={post.content.replace(/\n/g, '<br>').replace(/^# (.*)/gm, '<h1>$1</h1>').replace(/^## (.*)/gm, '<h2>$1</h2>').replace(/^### (.*)/gm, '<h3>$1</h3>').replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>').replace(/- (.*)/g, '<li>$1</li>').replace(/(<li>.*<\/li>)/gs, '<ul>$1</ul>')} />
+      </div>
+
+      <!-- Tags -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex flex-wrap gap-2">
+          {post.tags.map(tag => (
+            <a 
+              href={`/blog/tag/${tag.toLowerCase()}`}
+              class="inline-flex items-center px-3 py-1 text-sm text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-full transition-colors duration-200"
+            >
+              #{tag}
+            </a>
+          ))}
+        </div>
+      </div>
+
+      <!-- Navigation -->
+      <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
+        <a 
+          href="/blog"
+          class="inline-flex items-center text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors duration-200"
+        >
+          <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+          </svg>
+          Back to Blog
+        </a>
+      </div>
+
+    </article>
+  </main>
+</BaseLayout>

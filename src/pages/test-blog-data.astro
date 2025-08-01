@@ -1,0 +1,36 @@
+---
+import { db } from '../lib/db/queries';
+
+//get some blog posts to check their data
+const result = await db.getBlogPosts({ 
+  limit: 5, 
+  status: 'published' 
+});
+
+const posts = result.posts;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Test Blog Data</title>
+</head>
+<body>
+  <h1>Blog Posts Debug</h1>
+  <pre>{JSON.stringify(result, null, 2)}</pre>
+  
+  <h2>Links Generated:</h2>
+  <ul>
+    {posts.map(post => (
+      <li>
+        Title: {post.title || 'NO TITLE'}<br>
+        Slug: {post.slug || 'NO SLUG'}<br>
+        Link: /blog/{post.slug}<br>
+        Has Slug: {!!post.slug ? 'YES' : 'NO'}<br>
+        <a href={`/blog/${post.slug}`}>Test Link</a>
+      </li>
+    ))}
+  </ul>
+</body>
+</html>

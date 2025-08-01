@@ -4,10 +4,10 @@
 // Displays posts organized by year and month with statistics
 // =============================================================================
 
-import Layout from '@/layouts/Layout.astro';
-import BlogCard from '@/components/blog/BlogCard.astro';
-import { db } from '@/lib/db/queries';
-import type { BlogPost } from '@/lib/db/types';
+import BaseLayout from '../../layouts/BaseLayout.astro';
+import BlogCard from '../../components/blog/BlogCard.astro';
+import { db } from '../../lib/db/queries';
+import type { BlogPost } from '../../lib/db/types';
 
 //get query parameters
 const url = Astro.url;
@@ -43,7 +43,7 @@ try {
     totalPages = Math.ceil(totalPosts / perPage);
   } else {
     //show recent posts if no specific period selected
-    const result = await db.getBlogPosts({ page: 1, limit: 12, published: true });
+    const result = await db.getBlogPosts({ page: 1, limit: 12, status: 'published' });
     posts = result.posts;
   }
 } catch (error) {
@@ -121,7 +121,7 @@ const structuredData = {
 };
 ---
 
-<Layout 
+<BaseLayout 
   title={pageTitle}
   description={pageDescription}
   structuredData={structuredData}
@@ -436,4 +436,4 @@ const structuredData = {
     </div>
 
   </main>
-</Layout>
+</BaseLayout>

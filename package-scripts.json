@@ -1,0 +1,7 @@
+{
+  "scripts": {
+    "migrate:blog-slugs": "ts-node fix-blog-slugs.ts",
+    "check:blog-slugs": "ts-node -e \"import('./fix-blog-slugs.ts').then(m => m.quickSlugCheck()).then(r => console.log(JSON.stringify(r, null, 2)))\"",
+    "migrate:blog-slugs:prod": "NODE_ENV=production ts-node fix-blog-slugs.ts"
+  }
+}

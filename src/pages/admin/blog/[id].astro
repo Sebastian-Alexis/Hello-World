@@ -2,29 +2,44 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { db } from '../../../lib/db/queries.js';
 
-//get categories and tags for form
-let categories, tags;
+//get post ID from URL
+const postId = Number(Astro.params.id);
+
+if (!postId || isNaN(postId)) {
+  return Astro.redirect('/admin/blog');
+}
+
+//get the blog post
+let post, categories, tags;
 
 try {
-  [categories, tags] = await Promise.all([
+  [post, categories, tags] = await Promise.all([
+    db.getBlogPostById(postId),
     db.getBlogCategories(),
     db.getBlogTags()
   ]);
+  
+  if (!post) {
+    return Astro.redirect('/admin/blog');
+  }
 } catch (error) {
-  console.error('Blog form error:', error);
-  categories = [];
-  tags = [];
+  console.error('Blog edit error:', error);
+  return Astro.redirect('/admin/blog');
 }
+
+//get selected category and tag IDs
+const selectedCategoryId = post.categories?.[0]?.id || null;
+const selectedTagIds = post.tags?.map(t => t.id) || [];
 ---
 
-<AdminLayout title="New Blog Post" description="Create a new blog post">
+<AdminLayout title={`Edit: ${post.title}`} description="Edit blog post">
   <div class="max-w-4xl mx-auto">
     <!-- Form Header -->
     <div class="mb-8">
       <div class="flex items-center justify-between">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create New Blog Post</h1>
-          <p class="text-gray-500 dark:text-gray-400 mt-1">Write and publish a new blog post</p>
+          <h1 class="text-2xl font-bold text-gray-900 dark:text-white">Edit Blog Post</h1>
+          <p class="text-gray-500 dark:text-gray-400 mt-1">Update your blog post content and settings</p>
         </div>
         <div class="flex space-x-3">
           <a 
@@ -45,7 +60,7 @@ try {
             form="blog-form"
             class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
           >
-            Publish Post
+            Update Post
           </button>
         </div>
       </div>
@@ -69,6 +84,7 @@ try {
               name="title" 
               id="title" 
               required
+              value={post.title}
               class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Enter blog post title"
             >
@@ -83,11 +99,12 @@ try {
               type="text" 
               name="slug" 
               id="slug" 
+              value={post.slug}
               class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              placeholder="post-slug (auto-generated from title)"
+              placeholder="post-slug"
             >
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              Leave empty to auto-generate from title
+              Be careful when changing the slug as it affects the post URL
             </p>
           </div>
           
@@ -102,7 +119,7 @@ try {
               rows="3"
               class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Brief description of the post (used in previews and search results)"
-            ></textarea>
+            >{post.excerpt || ''}</textarea>
           </div>
           
           <!-- Category and Status -->
@@ -118,7 +135,9 @@ try {
               >
                 <option value="">Select category</option>
                 {categories.map(category => (
-                  <option value={category.id}>{category.name}</option>
+                  <option value={category.id} selected={category.id === selectedCategoryId}>
+                    {category.name}
+                  </option>
                 ))}
               </select>
             </div>
@@ -133,9 +152,9 @@ try {
                 required
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="archived">Archived</option>
+                <option value="draft" selected={post.status === 'draft'}>Draft</option>
+                <option value="published" selected={post.status === 'published'}>Published</option>
+                <option value="archived" selected={post.status === 'archived'}>Archived</option>
               </select>
             </div>
           </div>
@@ -161,7 +180,7 @@ try {
                 ))}
               </select>
             </div>
-            <input type="hidden" name="tags" id="tags-input">
+            <input type="hidden" name="tags" id="tags-input" value={JSON.stringify(selectedTagIds)}>
           </div>
         </div>
       </div>
@@ -178,30 +197,14 @@ try {
             rows="20"
             required
             class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
-            placeholder="Write your blog post content in Markdown...
-
-# Example Heading
-
-This is a paragraph with **bold text** and *italic text*.
-
-## Another Heading
-
-- List item 1
-- List item 2
-
-```javascript
-//code example
-console.log('Hello World');
-```
-
-[Link text](https://example.com)"
-          ></textarea>
+            placeholder="Write your blog post content in Markdown..."
+          >{post.content}</textarea>
           <div class="flex justify-between items-center mt-2">
             <p class="text-sm text-gray-500 dark:text-gray-400">
               Write your content using Markdown syntax. It will be converted to HTML when published.
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
-              <span id="content-length">0</span> characters
+              <span id="content-length">{post.content.length}</span> characters
             </p>
           </div>
         </div>
@@ -227,7 +230,7 @@ console.log('Hello World');
           <div id="featured-image-upload">
             <!-- MediaUpload component will be mounted here -->
             <!-- Fallback upload button if component doesn't mount -->
-            <div id="fallback-upload" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center">
+            <div id="fallback-upload" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center" style={post.featured_image_url ? 'display: none;' : ''}>
               <svg class="w-12 h-12 text-gray-400 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
                 <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               </svg>
@@ -246,17 +249,24 @@ console.log('Hello World');
               <input type="file" id="fallback-file-input" accept="image/jpeg,image/png,image/webp" class="hidden">
             </div>
           </div>
-          <input type="hidden" name="featured_image" id="featured-image-input">
+          <input type="hidden" name="featured_image" id="featured-image-input" value={post.featured_image_url || ''}>
           
           <!-- Featured Image Preview -->
-          <div id="featured-image-preview" class="mt-6 hidden">
+          <div id="featured-image-preview" class={`mt-6 ${post.featured_image_url ? '' : 'hidden'}`}>
             <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
               <div class="flex items-start space-x-4">
-                <img id="featured-image-display" class="w-32 h-20 object-cover rounded-lg shadow-sm" alt="Featured image preview">
+                <img 
+                  id="featured-image-display" 
+                  class="w-32 h-20 object-cover rounded-lg shadow-sm" 
+                  src={post.featured_image_url || ''}
+                  alt="Featured image preview"
+                >
                 <div class="flex-1">
                   <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Featured Image Preview</h4>
                   <div id="image-info" class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
-                    <!-- Image info will be populated here -->
+                    {post.featured_image_url && (
+                      <div>Current image: {post.featured_image_url.split('/').pop()}</div>
+                    )}
                   </div>
                   <button type="button" id="remove-featured-image" class="mt-3 inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
                     <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
@@ -288,6 +298,7 @@ console.log('Hello World');
                 type="datetime-local" 
                 name="publish_date" 
                 id="publish_date" 
+                value={post.published_at ? new Date(post.published_at).toISOString().slice(0, 16) : ''}
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
               <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -304,6 +315,7 @@ console.log('Hello World');
                 name="reading_time" 
                 id="reading_time" 
                 min="1"
+                value={post.reading_time || ''}
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Auto-calculated"
               >
@@ -319,6 +331,7 @@ console.log('Hello World');
               type="checkbox" 
               name="featured" 
               id="featured" 
+              checked={post.featured}
               class="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
             >
             <label for="featured" class="ml-2 block text-sm text-gray-700 dark:text-gray-300">
@@ -344,11 +357,12 @@ console.log('Hello World');
               name="meta_title" 
               id="meta_title" 
               maxlength="60"
+              value={post.meta_title || ''}
               class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Leave empty to use post title"
             >
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              <span id="meta-title-length">0</span>/60 characters
+              <span id="meta-title-length">{(post.meta_title || '').length}</span>/60 characters
             </p>
           </div>
           
@@ -364,9 +378,9 @@ console.log('Hello World');
               maxlength="160"
               class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               placeholder="Leave empty to use excerpt"
-            ></textarea>
+            >{post.meta_description || ''}</textarea>
             <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
-              <span id="meta-description-length">0</span>/160 characters
+              <span id="meta-description-length">{(post.meta_description || '').length}</span>/160 characters
             </p>
           </div>
         </div>
@@ -375,7 +389,11 @@ console.log('Hello World');
   </div>
 </AdminLayout>
 
-<script>
+<script define:vars={{ postId, selectedTagIds }}>
+  //store postId in a const for use in async functions
+  const POST_ID = postId;
+  const SELECTED_TAG_IDS = selectedTagIds;
+  
   document.addEventListener('DOMContentLoaded', async function() {
     //utility function to format file size
     function formatFileSize(bytes) {
@@ -513,27 +531,12 @@ console.log('Hello World');
     });
     
     //tags management
-    const selectedTags = new Set();
+    const selectedTags = new Set(SELECTED_TAG_IDS);
     const tagsSelect = document.getElementById('tags-select');
     const selectedTagsContainer = document.getElementById('selected-tags');
     const tagsInput = document.getElementById('tags-input');
     
-    tagsSelect.addEventListener('change', function() {
-      if (this.value && !selectedTags.has(this.value)) {
-        const option = this.options[this.selectedIndex];
-        const tagData = {
-          id: this.value,
-          name: option.dataset.name
-        };
-        
-        selectedTags.add(this.value);
-        renderSelectedTags();
-        updateTagsInput();
-        
-        this.value = '';
-      }
-    });
-    
+    //render initial selected tags
     function renderSelectedTags() {
       selectedTagsContainer.innerHTML = '';
       selectedTags.forEach(tagId => {
@@ -554,6 +557,25 @@ console.log('Hello World');
       });
     }
     
+    //initial render
+    renderSelectedTags();
+    
+    tagsSelect.addEventListener('change', function() {
+      if (this.value && !selectedTags.has(this.value)) {
+        const option = this.options[this.selectedIndex];
+        const tagData = {
+          id: this.value,
+          name: option.dataset.name
+        };
+        
+        selectedTags.add(this.value);
+        renderSelectedTags();
+        updateTagsInput();
+        
+        this.value = '';
+      }
+    });
+    
     function updateTagsInput() {
       tagsInput.value = JSON.stringify(Array.from(selectedTags));
     }
@@ -564,12 +586,13 @@ console.log('Hello World');
       updateTagsInput();
     };
     
-    //auto-generate slug from title
+    //auto-generate slug from title (only if slug is empty)
     const titleInput = document.getElementById('title');
     const slugInput = document.getElementById('slug');
     
     titleInput.addEventListener('input', function() {
-      if (!slugInput.value || slugInput.dataset.autoGenerated) {
+      //only auto-generate if slug is currently empty
+      if (!slugInput.value) {
         const slug = this.value
           .toLowerCase()
           .replace(/[^a-z0-9\s-]/g, '')
@@ -577,12 +600,7 @@ console.log('Hello World');
           .replace(/-+/g, '-')
           .trim();
         slugInput.value = slug;
-        slugInput.dataset.autoGenerated = 'true';
       }
-    });
-    
-    slugInput.addEventListener('input', function() {
-      delete this.dataset.autoGenerated;
     });
     
     //character counters
@@ -618,8 +636,12 @@ console.log('Hello World');
     //form submission
     document.getElementById('blog-form').addEventListener('submit', async function(e) {
       e.preventDefault();
-      //when submitting via the publish button, set status to published
-      document.getElementById('status').value = 'published';
+      //when submitting via the update/publish button, check current status
+      //if currently draft and clicking "Update Post", publish it
+      const currentStatus = document.getElementById('status').value;
+      if (currentStatus === 'draft') {
+        document.getElementById('status').value = 'published';
+      }
       await submitForm();
     });
     
@@ -627,8 +649,8 @@ console.log('Hello World');
       const formData = new FormData(document.getElementById('blog-form'));
       
       try {
-        const response = await fetch('/api/admin/blog', {
-          method: 'POST',
+        const response = await fetch(`/api/admin/blog/${POST_ID}`, {
+          method: 'PUT',
           headers: {
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`
           },
@@ -637,19 +659,19 @@ console.log('Hello World');
         
         if (response.ok) {
           const result = await response.json();
-          console.log('Blog post created:', result);
+          console.log('Blog post updated:', result);
           
           // Show success and redirect to blog list
-          alert('Blog post created successfully!');
+          alert('Blog post updated successfully!');
           window.location.href = '/admin/blog';
         } else {
           const error = await response.json();
-          console.error('Blog creation failed:', error);
-          alert(`Failed to create blog post: ${error.details || error.error || 'Unknown error'}`);
+          console.error('Blog update failed:', error);
+          alert(`Failed to update blog post: ${error.details || error.error || 'Unknown error'}`);
         }
       } catch (error) {
         console.error('Form submission error:', error);
-        alert('Failed to create blog post');
+        alert('Failed to update blog post');
       }
     }
   });

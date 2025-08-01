@@ -33,9 +33,16 @@ const {
   className = '',
 } = Astro.props;
 
-//format publication date
+//format publication date with error handling
 const publishedDate = post.published_at 
-  ? formatDistanceToNow(new Date(post.published_at), { addSuffix: true })
+  ? (() => {
+      try {
+        return formatDistanceToNow(new Date(post.published_at), { addSuffix: true });
+      } catch (error) {
+        console.warn('Failed to format date:', post.published_at, error);
+        return null;
+      }
+    })()
   : null;
 
 //determine card styles based on variant
@@ -53,10 +60,10 @@ const paddingClasses = {
   minimal: 'py-4',
 };
 
-//truncate excerpt if needed
-const excerpt = post.excerpt && post.excerpt.length > 150 
+//truncate excerpt if needed with null safety
+const excerpt = post.excerpt && typeof post.excerpt === 'string' && post.excerpt.length > 150 
   ? post.excerpt.substring(0, 150) + '...' 
-  : post.excerpt;
+  : post.excerpt || null;
 ---
 
 <article class={`${cardClasses[variant]} ${paddingClasses[variant]} ${className} group cursor-pointer`}>
@@ -67,10 +74,11 @@ const excerpt = post.excerpt && post.excerpt.length > 150
       <div class="mb-4 overflow-hidden rounded-lg">
         <img
           src={post.featured_image_url}
-          alt={post.title}
+          alt={post.title || 'Blog post image'}
           class="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
           loading="lazy"
           decoding="async"
+          onerror="this.parentElement.style.display='none'"
         />
       </div>
     )}
@@ -79,17 +87,17 @@ const excerpt = post.excerpt && post.excerpt.length > 150
     <div class="space-y-3">
       
       <!-- Categories -->
-      {showCategories && post.categories && post.categories.length > 0 && (
+      {showCategories && post.categories && Array.isArray(post.categories) && post.categories.length > 0 && (
         <div class="flex flex-wrap gap-2">
-          {post.categories.slice(0, 2).map(category => (
+          {post.categories.slice(0, 2).map(category => category && category.name ? (
             <span 
               class="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full"
-              style={`background-color: ${category.color}20; color: ${category.color}`}
+              style={category.color ? `background-color: ${category.color}20; color: ${category.color}` : 'background-color: #e5e7eb; color: #374151;'}
             >
               {category.icon && <span class="mr-1">{category.icon}</span>}
               {category.name}
             </span>
-          ))}
+          ) : null).filter(Boolean)}
         </div>
       )}
 
@@ -99,7 +107,7 @@ const excerpt = post.excerpt && post.excerpt.length > 150
         variant === 'compact' ? 'text-lg' : 
         'text-xl'
       }`}>
-        {post.title}
+        {post.title || 'Untitled Post'}
         {post.featured && (
           <span class="ml-2 inline-flex items-center justify-center w-4 h-4 text-xs font-bold text-yellow-800 bg-yellow-200 rounded-full">
             ★
@@ -115,13 +123,13 @@ const excerpt = post.excerpt && post.excerpt.length > 150
       )}
 
       <!-- Tags -->
-      {showTags && post.tags && post.tags.length > 0 && variant !== 'minimal' && (
+      {showTags && post.tags && Array.isArray(post.tags) && post.tags.length > 0 && variant !== 'minimal' && (
         <div class="flex flex-wrap gap-1">
-          {post.tags.slice(0, 4).map(tag => (
+          {post.tags.slice(0, 4).map(tag => tag && tag.name ? (
             <span class="inline-flex items-center px-2 py-1 text-xs text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 rounded">
               #{tag.name}
             </span>
-          ))}
+          ) : null).filter(Boolean)}
           {post.tags.length > 4 && (
             <span class="text-xs text-gray-500 dark:text-gray-400">
               +{post.tags.length - 4} more
@@ -140,9 +148,10 @@ const excerpt = post.excerpt && post.excerpt.length > 150
               {post.author_avatar && (
                 <img
                   src={post.author_avatar}
-                  alt={post.author_name}
+                  alt={post.author_name || 'Author'}
                   class="w-6 h-6 rounded-full"
                   loading="lazy"
+                  onerror="this.style.display='none'"
                 />
               )}
               <span>{post.author_name}</span>
@@ -165,18 +174,18 @@ const excerpt = post.excerpt && post.excerpt.length > 150
         <div class="flex items-center space-x-4">
           
           <!-- Reading Time -->
-          {showReadingTime && post.reading_time && (
+          {showReadingTime && post.reading_time && typeof post.reading_time === 'number' && post.reading_time > 0 && (
             <span class="flex items-center space-x-1">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                       d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <span>{post.reading_time} min read</span>
+              <span>{Math.round(post.reading_time)} min read</span>
             </span>
           )}
 
           <!-- View Count -->
-          {showViewCount && post.view_count && post.view_count > 0 && (
+          {showViewCount && post.view_count && typeof post.view_count === 'number' && post.view_count > 0 && (
             <span class="flex items-center space-x-1">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 

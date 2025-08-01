@@ -1,0 +1,23 @@
+---
+//test without any imports or redirects
+const slug = 'testpublish';
+---
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Test Direct Link</title>
+</head>
+<body>
+  <h1>Direct Link Test</h1>
+  <p>This page has no imports or redirects.</p>
+  <p>Slug we're testing: {slug}</p>
+  
+  <h2>Test Links:</h2>
+  <ul>
+    <li><a href="/blog/testpublish">Link to /blog/testpublish</a></li>
+    <li><a href="/blog/debug-testpublish">Debug page for testpublish</a></li>
+    <li><a href="/api/debug/test-query?slug=testpublish">API test query</a></li>
+  </ul>
+</body>
+</html>

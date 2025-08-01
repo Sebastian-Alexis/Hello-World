@@ -1,0 +1,70 @@
+---
+import { db } from '../../lib/db/queries';
+
+const { slug } = Astro.params;
+
+//debug information
+let debugInfo: any = {
+  receivedSlug: slug,
+  slugType: typeof slug,
+  slugValue: String(slug),
+  isEmpty: !slug,
+  isUndefined: slug === undefined,
+  isNull: slug === null,
+  params: JSON.stringify(Astro.params),
+  url: Astro.url.toString(),
+  pathname: Astro.url.pathname,
+};
+
+let post = null;
+let queryError = null;
+
+try {
+  if (slug) {
+    debugInfo.attemptingQuery = true;
+    post = await db.getBlogPostBySlug(slug);
+    debugInfo.queryResult = post ? 'Found post' : 'No post found';
+    debugInfo.postData = post ? {
+      id: post.id,
+      title: post.title,
+      slug: post.slug,
+      status: post.status,
+      published_at: post.published_at
+    } : null;
+  }
+} catch (error) {
+  queryError = error;
+  debugInfo.queryError = error instanceof Error ? error.message : String(error);
+}
+---
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Debug Blog Slug</title>
+</head>
+<body>
+  <h1>Debug Blog Route</h1>
+  <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+  
+  {queryError && (
+    <div style="color: red;">
+      <h2>Query Error:</h2>
+      <pre>{String(queryError)}</pre>
+    </div>
+  )}
+  
+  <hr />
+  
+  <h2>Testing Direct Query</h2>
+  <p>Try visiting: <a href="/blog/debug-testpublish">/blog/debug-testpublish</a></p>
+  
+  <hr />
+  
+  <h2>Actions:</h2>
+  <ul>
+    <li><a href="/blog">Back to Blog</a></li>
+    <li><a href="/api/debug/check-slugs">Check All Slugs</a></li>
+  </ul>
+</body>
+</html>

@@ -28,29 +28,41 @@ let currentCategory: BlogCategory | null = null;
 let currentTag: BlogTag | null = null;
 
 try {
-  //get filtered posts
-  const result = await db.getBlogPosts({
-    page,
-    limit: perPage,
-    category,
-    tag,
-    orderBy: sort === 'popular' ? 'view_count' : 'published_at',
-    orderDirection: 'DESC',
-    published: true,
-  });
+  //get filtered posts - use specific functions for category/tag filtering
+  let result;
   
-  posts = result.posts;
+  if (category) {
+    result = await db.getBlogPostsByCategory(category, {
+      page,
+      limit: perPage,
+    });
+  } else if (tag) {
+    result = await db.getBlogPostsByTag(tag, {
+      page,
+      limit: perPage,
+    });
+  } else {
+    result = await db.getBlogPosts({
+      page,
+      limit: perPage,
+      sortBy: sort === 'popular' ? 'view_count' : 'published_at',
+      sortOrder: 'DESC',
+      status: 'published',
+    });
+  }
+  
+  posts = result.data || [];
   totalPosts = result.total;
   totalPages = Math.ceil(totalPosts / perPage);
 
   //get current category/tag info for display
   if (category) {
-    const categories = await db.getAllCategories();
+    const categories = await db.getBlogCategories();
     currentCategory = categories.find(c => c.slug === category) || null;
   }
   
   if (tag) {
-    const tags = await db.getAllTags();
+    const tags = await db.getBlogTags();
     currentTag = tags.find(t => t.slug === tag) || null;
   }
 } catch (error) {
@@ -59,17 +71,22 @@ try {
   posts = [];
   totalPosts = 0;
   totalPages = 0;
+  currentCategory = null;
+  currentTag = null;
 }
 
 //fetch categories and tags for filters
 let categories: BlogCategory[] = [];
 let tags: BlogTag[] = [];
+let allTags: BlogTag[] = [];
 
 try {
-  [categories, tags] = await Promise.all([
-    db.getAllCategories(),
-    db.getAllTags({ limit: 20, minPosts: 1 })
+  [categories, allTags] = await Promise.all([
+    db.getBlogCategories(),
+    db.getBlogTags()
   ]);
+  //limit tags to top 20 with posts
+  tags = allTags.slice(0, 20);
 } catch (error) {
   console.error('Failed to fetch categories/tags:', error);
   //fallback to empty arrays when database is not set up
@@ -105,7 +122,7 @@ const structuredData = {
   "name": pageTitle,
   "description": pageDescription,
   "url": Astro.url.toString(),
-  "blogPost": posts.map(post => ({
+  "blogPost": (posts || []).map(post => ({
     "@type": "BlogPosting",
     "headline": post.title,
     "url": `${Astro.url.origin}/blog/${post.slug}`,
@@ -259,20 +276,22 @@ const structuredData = {
           <div class="flex items-center justify-between mb-6">
             <div class="text-sm text-gray-600 dark:text-gray-400">
               {totalPosts > 0 ? (
-                `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, totalPosts)} of ${totalPosts} posts`
+                totalPages > 1 
+                  ? `Showing ${(page - 1) * perPage + 1}-${Math.min(page * perPage, totalPosts)} of ${totalPosts} posts • Page ${page} of ${totalPages}`
+                  : `${totalPosts} post${totalPosts === 1 ? '' : 's'} found`
               ) : (
                 'No posts found'
               )}
             </div>
             
-            <!-- View Toggle (could add grid/list view options) -->
+            <!-- Future: Could add view toggle or sorting options -->
             <div class="flex items-center space-x-2">
-              <span class="text-sm text-gray-600 dark:text-gray-400">Page {page} of {totalPages}</span>
+              <!-- Reserved for view options -->
             </div>
           </div>
 
           <!-- Posts Grid -->
-          {posts.length > 0 ? (
+          {posts && posts.length > 0 ? (
             <div>
               <div class="grid gap-8 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 mb-12">
                 {posts.map(post => (
