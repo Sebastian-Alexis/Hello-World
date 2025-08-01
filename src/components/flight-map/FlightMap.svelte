@@ -1,7 +1,8 @@
 <script lang="ts">
-	import { onMount, onDestroy, createEventDispatcher } from 'svelte';
+	import { onMount, onDestroy, createEventDispatcher, tick } from 'svelte';
 	import { writable, derived } from 'svelte/store';
 	import mapboxgl from 'mapbox-gl';
+	import 'mapbox-gl/dist/mapbox-gl.css';
 	import { Deck } from '@deck.gl/core';
 	import { MapboxOverlay } from '@deck.gl/mapbox';
 	import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
@@ -51,6 +52,8 @@
 	const selectedStatuses = writable<Set<string>>(new Set(['booked', 'completed', 'cancelled', 'delayed']));
 	const showAnimations = writable(true);
 	const isLoading = writable(true);
+	const hasError = writable(false);
+	const errorMessage = writable('');
 
 	//reactive unique values for filter options
 	$: uniqueAirlines = getUniqueAirlines(flights);
@@ -73,6 +76,8 @@
 	let map: mapboxgl.Map | null = null;
 	let deckOverlay: MapboxOverlay | null = null;
 	let mounted = false;
+	let mapboxToken: string | undefined;
+	let animationId: number | null = null;
 
 	//popup handling
 	let popup: mapboxgl.Popup | null = null;
@@ -80,13 +85,6 @@
 
 	//animation time for arcs
 	let animationTime = 0;
-	let animationId: number;
-
-	//mapbox token validation
-	const MAPBOX_TOKEN = import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
-	console.log('Mapbox token loaded:', MAPBOX_TOKEN ? 'Present' : 'Missing');
-	console.log('Token validation result:', validateMapboxToken(MAPBOX_TOKEN));
-	const isValidToken = validateMapboxToken(MAPBOX_TOKEN);
 
 	//theme styles
 	const mapStyles = {
@@ -94,34 +92,83 @@
 		dark: 'mapbox://styles/mapbox/dark-v11'
 	};
 
-	onMount(() => {
-		if (!isValidToken) {
-			const errorMsg = 'Invalid or missing Mapbox access token. Please set PUBLIC_MAPBOX_ACCESS_TOKEN environment variable.';
+	onMount(async () => {
+		// Access token inside onMount to avoid SSR issues
+		// Try both VITE_ and PUBLIC_ prefixes
+		mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
+		
+		console.log('FlightMap onMount - Token check:', { 
+			hasToken: !!mapboxToken,
+			tokenLength: mapboxToken?.length || 0,
+			environment: import.meta.env.MODE,
+			isValid: validateMapboxToken(mapboxToken),
+			tokenValue: mapboxToken, // Log the actual value to debug
+			allEnvKeys: Object.keys(import.meta.env),
+			viteKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+			publicKeys: Object.keys(import.meta.env).filter(k => k.startsWith('PUBLIC_')),
+			hasViteToken: !!import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+			hasPublicToken: !!import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN
+		});
+		
+		if (!validateMapboxToken(mapboxToken)) {
+			const errorMsg = 'Invalid or missing Mapbox access token. Please set VITE_MAPBOX_ACCESS_TOKEN or PUBLIC_MAPBOX_ACCESS_TOKEN environment variable with a valid token starting with "pk."';
 			console.error(errorMsg);
-			dispatch('error', errorMsg);
+			console.error('Environment details:', {
+				viteToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+				publicToken: import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
+				allKeys: Object.keys(import.meta.env)
+			});
+			errorMessage.set(errorMsg);
+			hasError.set(true);
 			isLoading.set(false);
+			dispatch('error', errorMsg);
 			return;
 		}
 
 		mounted = true;
-		initializeMap();
-		startAnimation();
+		
+		// First, set isLoading to false to render the map container
+		isLoading.set(false);
+		
+		// Wait for the next tick to ensure DOM updates
+		await tick();
+		
+		// Now wait a bit more to ensure the map container is bound
+		setTimeout(() => {
+			if (mapContainer && mounted) {
+				console.log('Map container ready, initializing...');
+				initializeMap();
+				startAnimation();
+			} else {
+				console.error('Map container not available after waiting');
+				console.error('Debug info:', {
+					mounted,
+					mapContainer,
+					mapContainerExists: !!mapContainer,
+					domElement: document.querySelector('.map-container'),
+					hasError: $hasError,
+					isLoading: $isLoading
+				});
+				errorMessage.set('Failed to initialize map container. Please refresh the page.');
+				hasError.set(true);
+			}
+		}, 100); // Small delay to ensure binding is complete
 	});
 
 	onDestroy(() => {
-		if (animationId) {
-			cancelAnimationFrame(animationId);
-		}
 		cleanup();
 	});
 
 	function initializeMap() {
-		console.log('initializeMap called:', { mounted, mapContainer: !!mapContainer, isValidToken });
-		if (!mounted || !mapContainer || !isValidToken) return;
+		console.log('initializeMap called:', { mounted, mapContainer: !!mapContainer, hasToken: !!mapboxToken });
+		if (!mounted || !mapContainer || !mapboxToken) {
+			console.error('Cannot initialize map:', { mounted, hasMapContainer: !!mapContainer, hasToken: !!mapboxToken });
+			return;
+		}
 
 		try {
 			console.log('Setting Mapbox access token...');
-			mapboxgl.accessToken = MAPBOX_TOKEN!;
+			mapboxgl.accessToken = mapboxToken;
 
 			//calculate optimal initial bounds
 			const bounds = calculateBounds(airports, flights);
@@ -142,7 +189,9 @@
 			}
 
 			//create map
+			console.log('Creating Mapbox map with options:', mapOptions);
 			map = new mapboxgl.Map(mapOptions);
+			console.log('Map instance created:', !!map);
 
 			map.addControl(new mapboxgl.AttributionControl({ compact: true }));
 			map.addControl(new mapboxgl.NavigationControl(), 'top-right');
@@ -162,6 +211,7 @@
 			filteredFlights.subscribe(debouncedUpdateLayers);
 
 			map.on('load', () => {
+				console.log('Map loaded successfully');
 				updateLayers();
 				isLoading.set(false);
 				dispatch('mapReady', map!);
@@ -169,14 +219,31 @@
 
 			map.on('error', (e) => {
 				console.error('Map error:', e);
-				dispatch('error', 'Map failed to load');
+				const errorMsg = `Map failed to load: ${e.error?.message || 'Unknown error'}`;
+				errorMessage.set(errorMsg);
+				hasError.set(true);
 				isLoading.set(false);
+				dispatch('error', errorMsg);
 			});
+
+			// Add timeout to catch if map never loads
+			setTimeout(() => {
+				if ($isLoading) {
+					console.error('Map load timeout - map failed to load within 10 seconds');
+					errorMessage.set('Map load timeout - please check your internet connection and Mapbox token');
+					hasError.set(true);
+					isLoading.set(false);
+					dispatch('error', 'Map load timeout');
+				}
+			}, 10000);
 
 		} catch (error) {
 			console.error('Error initializing map:', error);
-			dispatch('error', 'Failed to initialize map');
+			const errorMsg = `Failed to initialize map: ${error instanceof Error ? error.message : 'Unknown error'}`;
+			errorMessage.set(errorMsg);
+			hasError.set(true);
 			isLoading.set(false);
+			dispatch('error', errorMsg);
 		}
 	}
 
@@ -348,8 +415,10 @@
 
 	function startAnimation() {
 		function animate() {
+			if (!mounted) return;
+			
 			animationTime += 16; //roughly 60fps
-			if ($showAnimations && mounted) {
+			if ($showAnimations) {
 				updateLayers();
 			}
 			animationId = requestAnimationFrame(animate);
@@ -358,18 +427,27 @@
 	}
 
 	function cleanup() {
+		mounted = false;
+		
+		if (animationId) {
+			cancelAnimationFrame(animationId);
+			animationId = null;
+		}
+		
 		if (popup) {
 			popup.remove();
 			popup = null;
 		}
+		
 		if (deckOverlay && map) {
 			map.removeControl(deckOverlay);
+			deckOverlay = null;
 		}
+		
 		if (map) {
 			map.remove();
 			map = null;
 		}
-		mounted = false;
 	}
 
 	//reactive updates for theme
@@ -422,11 +500,19 @@
 </script>
 
 <div class="flight-map-container" style="height: {height};">
-	{#if !isValidToken}
+	{#if $hasError}
 		<div class="error-container">
 			<div class="error-message">
 				<h3>Map Configuration Error</h3>
-				<p>Invalid or missing Mapbox access token. Please configure PUBLIC_MAPBOX_ACCESS_TOKEN in your environment variables with a valid token starting with 'pk.'</p>
+				<p>{$errorMessage}</p>
+				<div class="error-details">
+					<p>Please ensure:</p>
+					<ul>
+						<li>Your Mapbox access token is set in the environment variables</li>
+						<li>The token starts with 'pk.' and is valid</li>
+						<li>You have internet connectivity</li>
+					</ul>
+				</div>
 			</div>
 		</div>
 	{:else if $isLoading}
@@ -587,6 +673,7 @@
 		background: white;
 		border-radius: 8px;
 		border: 1px solid #e5e7eb;
+		max-width: 500px;
 	}
 
 	.error-message h3 {
@@ -598,8 +685,27 @@
 
 	.error-message p {
 		color: #6b7280;
-		margin: 0;
+		margin: 0 0 1rem 0;
 		font-size: 0.875rem;
+	}
+
+	.error-details {
+		text-align: left;
+		margin-top: 1rem;
+		padding-top: 1rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.error-details ul {
+		margin: 0.5rem 0 0 1.5rem;
+		padding: 0;
+		list-style-type: disc;
+	}
+
+	.error-details li {
+		margin: 0.25rem 0;
+		font-size: 0.875rem;
+		color: #6b7280;
 	}
 
 	.loading-spinner {

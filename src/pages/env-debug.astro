@@ -1,0 +1,93 @@
+---
+// Test all possible env var patterns
+const allEnvVars = {
+  // Direct process.env access (server-side only)
+  processEnv: {
+    VITE_MAPBOX: process.env.VITE_MAPBOX_ACCESS_TOKEN,
+    PUBLIC_MAPBOX: process.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
+  },
+  // import.meta.env access
+  importMetaEnv: {
+    VITE_MAPBOX: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+    PUBLIC_MAPBOX: import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
+    MODE: import.meta.env.MODE,
+    DEV: import.meta.env.DEV,
+    PROD: import.meta.env.PROD,
+    SSR: import.meta.env.SSR,
+  }
+};
+
+console.log('Server-side env vars:', allEnvVars);
+---
+
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Environment Debug</title>
+  <style>
+    body { font-family: monospace; padding: 20px; }
+    pre { background: #f0f0f0; padding: 10px; overflow: auto; }
+    .section { margin: 20px 0; }
+    .success { color: green; }
+    .error { color: red; }
+  </style>
+</head>
+<body>
+  <h1>Environment Variable Debug</h1>
+  
+  <div class="section">
+    <h2>Server-side Environment Variables</h2>
+    <pre>{JSON.stringify(allEnvVars, null, 2)}</pre>
+  </div>
+  
+  <div class="section">
+    <h2>Client-side Environment Variables</h2>
+    <pre id="client-env">Loading...</pre>
+  </div>
+  
+  <div class="section">
+    <h2>Vite Configuration Check</h2>
+    <pre id="vite-check">Loading...</pre>
+  </div>
+
+  <script>
+    // Test client-side access
+    const clientEnv = {
+      // Try all possible access patterns
+      directImportMeta: {
+        VITE_MAPBOX: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+        PUBLIC_MAPBOX: import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
+        MODE: import.meta.env.MODE,
+        DEV: import.meta.env.DEV,
+        PROD: import.meta.env.PROD,
+        BASE_URL: import.meta.env.BASE_URL,
+      },
+      // Check all keys
+      allKeys: Object.keys(import.meta.env),
+      // Filter for our keys
+      mapboxKeys: Object.keys(import.meta.env).filter(k => k.includes('MAPBOX')),
+      viteKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
+      publicKeys: Object.keys(import.meta.env).filter(k => k.startsWith('PUBLIC_')),
+      // Full env object
+      fullEnv: {...import.meta.env}
+    };
+    
+    document.getElementById('client-env').textContent = JSON.stringify(clientEnv, null, 2);
+    
+    // Vite-specific checks
+    const viteCheck = {
+      hasVitePrefix: !!import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
+      hasPublicPrefix: !!import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
+      tokenLength: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN?.length || 0,
+      tokenStartsWithPk: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN?.startsWith('pk.') || false,
+    };
+    
+    document.getElementById('vite-check').textContent = JSON.stringify(viteCheck, null, 2);
+    
+    // Log to console for debugging
+    console.log('Client Environment:', clientEnv);
+    console.log('Vite Check:', viteCheck);
+    console.log('Raw import.meta.env:', import.meta.env);
+  </script>
+</body>
+</html>

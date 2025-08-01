@@ -21,7 +21,8 @@ const envSchema = z.object({
   ADMIN_NAME: z.string().min(1, 'Admin name is required'),
 
   // External APIs
-  MAPBOX_ACCESS_TOKEN: z.string().optional(),
+  VITE_MAPBOX_ACCESS_TOKEN: z.string().optional(),
+  PUBLIC_MAPBOX_ACCESS_TOKEN: z.string().optional(),
   MAPBOX_STYLE_URL: z.string().url().optional(),
 
   // Site Configuration
