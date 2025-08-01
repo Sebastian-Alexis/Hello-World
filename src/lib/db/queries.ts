@@ -373,6 +373,72 @@ export class DatabaseQueries {
     return post;
   }
 
+  //gets the next blog post by published date
+  async getNextBlogPost(currentPublishedAt: string, currentId: number): Promise<BlogPost | null> {
+    const query = `
+      SELECT 
+        p.*,
+        u.first_name || ' ' || u.last_name as author_name,
+        u.avatar_url as author_avatar
+      FROM blog_posts p
+      JOIN users u ON p.author_id = u.id
+      WHERE p.status = 'published' 
+        AND p.published_at IS NOT NULL
+        AND (p.published_at > ? OR (p.published_at = ? AND p.id > ?))
+      ORDER BY p.published_at ASC, p.id ASC
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<BlogPost>(query, [currentPublishedAt, currentPublishedAt, currentId]);
+    if (result.rows.length === 0) return null;
+    
+    const post = result.rows[0];
+    
+    //get associated categories and tags
+    const [categories, tags] = await Promise.all([
+      this.getPostCategories(post.id),
+      this.getPostTags(post.id),
+    ]);
+    
+    return { ...post, categories, tags };
+  }
+
+  //gets the previous blog post by published date
+  async getPreviousBlogPost(currentPublishedAt: string, currentId: number): Promise<BlogPost | null> {
+    const query = `
+      SELECT 
+        p.*,
+        u.first_name || ' ' || u.last_name as author_name,
+        u.avatar_url as author_avatar
+      FROM blog_posts p
+      JOIN users u ON p.author_id = u.id
+      WHERE p.status = 'published' 
+        AND p.published_at IS NOT NULL
+        AND (p.published_at < ? OR (p.published_at = ? AND p.id < ?))
+      ORDER BY p.published_at DESC, p.id DESC
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<BlogPost>(query, [currentPublishedAt, currentPublishedAt, currentId]);
+    if (result.rows.length === 0) return null;
+    
+    const post = result.rows[0];
+    
+    //get associated categories and tags
+    const [categories, tags] = await Promise.all([
+      this.getPostCategories(post.id),
+      this.getPostTags(post.id),
+    ]);
+    
+    return { ...post, categories, tags };
+  }
+
+  //increments the view count for a blog post
+  async incrementBlogPostViewCount(postId: number): Promise<void> {
+    const query = 'UPDATE blog_posts SET view_count = view_count + 1 WHERE id = ?';
+    await executeQuery(query, [postId]);
+  }
+
   //advanced search with FTS5, ranking, and highlighting
   async searchBlogPosts(filters: BlogSearchFilters & QueryOptions = {}): Promise<PaginatedResponse<BlogPost & { rank?: number; snippet?: string }>> {
     const { query, categories, tags, status = 'published', page = 1, limit = 10, dateFrom, dateTo } = filters;

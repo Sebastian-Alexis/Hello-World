@@ -137,251 +137,145 @@ const breadcrumbData = {
   image={post.featured_image_url}
   structuredData={[structuredData, breadcrumbData]}
   type="article"
+  class="bg-white"
 >
-  <article class="min-h-screen bg-gray-50 dark:bg-gray-900">
+  <article class="min-h-screen bg-white">
     
     <!-- Hero Section -->
-    <header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
-      <div class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+    <header class="bg-white">
+      <div class="max-w-4xl mx-auto px-4 py-16 sm:py-24">
         
-        <!-- Breadcrumb -->
-        <nav class="mb-8" aria-label="Breadcrumb">
-          <ol class="flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400">
-            <li><a href="/" class="hover:text-gray-700 dark:hover:text-gray-300">Home</a></li>
-            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-            </svg>
-            <li><a href="/blog" class="hover:text-gray-700 dark:hover:text-gray-300">Blog</a></li>
-            <svg class="w-4 h-4 mx-2" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
-            </svg>
-            <li class="text-gray-900 dark:text-white">{post.title}</li>
+        <!-- Breadcrumb - Simplified -->
+        <nav class="mb-12" aria-label="Breadcrumb">
+          <ol class="flex items-center space-x-2 text-sm font-light text-gray-600">
+            <li><a href="/" class="hover:text-black">Home</a></li>
+            <li>/</li>
+            <li><a href="/blog" class="hover:text-black">Blog</a></li>
           </ol>
         </nav>
 
         <!-- Categories -->
         {post.categories && post.categories.length > 0 && (
-          <div class="flex flex-wrap gap-2 mb-6">
-            {post.categories.map(category => (
-              <CategoryTag item={category} type="category" variant="outlined" size="sm" />
-            ))}
-          </div>
+          <p class="text-sm font-normal uppercase tracking-widest text-gray-600 mb-4">
+            {post.categories[0].name}
+          </p>
         )}
 
         <!-- Title -->
-        <h1 class="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white leading-tight mb-6">
+        <h1 class="text-5xl md:text-7xl font-light tracking-tighter text-black leading-tight mb-8">
           {post.title}
-          {post.featured && (
-            <span class="ml-3 inline-flex items-center justify-center w-6 h-6 text-sm font-bold text-yellow-800 bg-yellow-200 rounded-full">
-              ★
-            </span>
-          )}
         </h1>
 
         <!-- Excerpt -->
         {post.excerpt && (
-          <p class="text-xl text-gray-600 dark:text-gray-300 leading-relaxed mb-8">
+          <p class="text-xl font-light text-gray-600 leading-relaxed mb-12">
             {post.excerpt}
           </p>
         )}
 
         <!-- Post Meta -->
-        <div class="flex flex-wrap items-center gap-6 text-sm text-gray-600 dark:text-gray-400 mb-8">
+        <div class="text-base font-light text-gray-600 mb-12">
           
-          <!-- Author -->
           {post.author_name && (
-            <div class="flex items-center space-x-3">
-              {post.author_avatar && (
-                <img
-                  src={post.author_avatar}
-                  alt={post.author_name}
-                  class="w-10 h-10 rounded-full"
-                  loading="lazy"
-                />
-              )}
-              <div>
-                <div class="font-medium text-gray-900 dark:text-white">
-                  {post.author_name}
-                </div>
-                <div class="text-sm">Author</div>
-              </div>
-            </div>
+            <span>By {post.author_name}</span>
           )}
-
-          <div class="flex items-center space-x-6">
-            <!-- Published Date -->
-            {formattedDate && (
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <time datetime={post.published_at}>{formattedDate}</time>
-              </div>
-            )}
-
-            <!-- Reading Time -->
-            {post.reading_time && (
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-                <span>{post.reading_time} min read</span>
-              </div>
-            )}
-
-            <!-- View Count -->
-            {post.view_count && post.view_count > 0 && (
-              <div class="flex items-center space-x-2">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
-                        d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                </svg>
-                <span>{post.view_count.toLocaleString()} views</span>
-              </div>
-            )}
-          </div>
+          {formattedDate && (
+            <span> • {formattedDate}</span>
+          )}
+          {post.reading_time && (
+            <span> • {post.reading_time} min read</span>
+          )}
         </div>
 
         <!-- Featured Image -->
         {post.featured_image_url && (
-          <div class="mb-8 overflow-hidden rounded-xl shadow-lg">
+          <figure class="mb-16">
             <img
               src={post.featured_image_url}
               alt={post.title}
-              class="w-full h-64 md:h-96 object-cover"
+              class="w-full h-auto"
               loading="eager"
               decoding="async"
             />
-          </div>
+          </figure>
         )}
 
-        <!-- Share Buttons -->
-        <div class="border-t border-gray-200 dark:border-gray-700 pt-8">
-          <ShareButtons 
-            client:load
-            url={shareUrl}
-            title={shareTitle}
-            description={shareDescription}
-            hashtags={hashtags}
-            variant="horizontal"
-            size="md"
-            showLabels={true}
-          />
-        </div>
 
       </div>
     </header>
 
     <!-- Article Content -->
-    <div class="max-w-4xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
-      <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8 md:p-12">
+    <div class="max-w-4xl mx-auto px-4">
+      <div class="mb-16">
         
         <!-- Content -->
-        <div class="prose prose-lg dark:prose-invert max-w-none">
+        <div class="prose prose-xl prose-p:font-normal prose-p:leading-relaxed prose-headings:font-light prose-headings:tracking-tight prose-a:text-black prose-a:underline max-w-none">
           <Fragment set:html={processedContent} />
         </div>
 
         <!-- Tags -->
         {post.tags && post.tags.length > 0 && (
-          <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Tags
-            </h3>
-            <div class="flex flex-wrap gap-2">
-              {post.tags.map(tag => (
-                <CategoryTag item={tag} type="tag" variant="minimal" size="sm" />
-              ))}
-            </div>
+          <div class="mt-16 pt-8 border-t border-gray-200">
+            <p class="text-base font-light text-gray-600">
+              Tags: {post.tags.map(tag => tag.name).join(', ')}
+            </p>
           </div>
         )}
 
-        <!-- Bottom Share -->
-        <div class="mt-12 pt-8 border-t border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-            Share this post
-          </h3>
-          <ShareButtons 
-            client:load
-            url={shareUrl}
-            title={shareTitle}
-            description={shareDescription}
-            hashtags={hashtags}
-            variant="horizontal"
-            size="lg"
-            showLabels={true}
-          />
-        </div>
 
       </div>
     </div>
 
     <!-- Navigation -->
     {(prevPost || nextPost) && (
-      <div class="max-w-4xl mx-auto px-4 pb-12 sm:px-6 lg:px-8">
-        <div class="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            
-            <!-- Previous Post -->
-            {prevPost ? (
-              <a 
-                href={`/blog/${prevPost.slug}`}
-                class="group flex items-center space-x-4 p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors duration-200"
-              >
-                <div class="flex-shrink-0">
-                  <svg class="w-6 h-6 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-                  </svg>
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Previous</div>
-                  <div class="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
-                    {prevPost.title}
-                  </div>
-                </div>
-              </a>
-            ) : (
-              <div></div>
-            )}
+      <div class="max-w-4xl mx-auto px-4 py-16">
+        <div class="flex justify-between items-center border-t border-gray-200 pt-8">
+          {prevPost ? (
+            <a 
+              href={`/blog/${prevPost.slug}`}
+              class="group text-left"
+            >
+              <p class="text-sm font-normal uppercase tracking-wider text-gray-600 group-hover:text-black">
+                ← Previous
+              </p>
+              <p class="text-base font-light text-black group-hover:underline">
+                {prevPost.title}
+              </p>
+            </a>
+          ) : (
+            <div></div>
+          )}
 
-            <!-- Next Post -->
-            {nextPost && (
-              <a 
-                href={`/blog/${nextPost.slug}`}
-                class="group flex items-center space-x-4 p-4 rounded-lg border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-colors duration-200 md:justify-end md:text-right"
-              >
-                <div class="flex-1 min-w-0 md:order-1">
-                  <div class="text-sm text-gray-500 dark:text-gray-400 mb-1">Next</div>
-                  <div class="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate">
-                    {nextPost.title}
-                  </div>
-                </div>
-                <div class="flex-shrink-0 md:order-2">
-                  <svg class="w-6 h-6 text-gray-400 group-hover:text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                </div>
-              </a>
-            )}
-
-          </div>
+          {nextPost && (
+            <a 
+              href={`/blog/${nextPost.slug}`}
+              class="group text-right"
+            >
+              <p class="text-sm font-normal uppercase tracking-wider text-gray-600 group-hover:text-black">
+                Next →
+              </p>
+              <p class="text-base font-light text-black group-hover:underline">
+                {nextPost.title}
+              </p>
+            </a>
+          )}
         </div>
       </div>
     )}
 
     <!-- Related Posts -->
-    <div class="max-w-7xl mx-auto px-4 pb-16 sm:px-6 lg:px-8">
-      <RelatedPosts 
-        currentPostId={post.id}
-        currentPostSlug={post.slug}
-        limit={3}
-        showAsGrid={true}
-        cardVariant="compact"
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-8"
-      />
+    <div class="max-w-4xl mx-auto px-4 pb-24">
+      <div class="border-t border-gray-200 pt-16">
+        <h2 class="text-2xl font-light tracking-tight text-black mb-8">Related Reading</h2>
+        <RelatedPosts 
+          currentPostId={post.id}
+          currentPostSlug={post.slug}
+          limit={3}
+          showAsGrid={false}
+          cardVariant="minimal"
+          className=""
+        />
+      </div>
     </div>
 
   </article>
