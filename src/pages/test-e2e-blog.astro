@@ -1,0 +1,258 @@
+---
+// Simple test page for E2E testing
+// This creates test blog posts on demand without needing a real database
+const { slug } = Astro.params;
+const testSlug = Astro.url.pathname.split('/').pop() || '';
+
+// Mock blog posts for testing
+const mockPosts = {
+  'e2e-published-post': {
+    id: 1,
+    title: 'Published Test Post',
+    slug: 'e2e-published-post',
+    content: 'This is a published blog post with rich content. It includes detailed information about various topics and serves as a comprehensive example for testing the blog functionality.',
+    excerpt: 'A comprehensive published post for testing.',
+    status: 'published',
+    featured: false,
+    author_name: 'Test Author',
+    published_at: '2024-01-15T10:00:00Z',
+    reading_time: 5,
+    featured_image_url: 'https://example.com/test-image.jpg',
+    view_count: 0
+  },
+  'e2e-featured-post': {
+    id: 2,
+    title: 'Featured Test Post',
+    slug: 'e2e-featured-post',
+    content: 'This is a featured blog post with special prominence.',
+    excerpt: 'A featured post for testing.',
+    status: 'published',
+    featured: true,
+    author_name: 'Test Author',
+    published_at: '2024-01-16T10:00:00Z',
+    reading_time: 3,
+    featured_image_url: 'https://example.com/featured-image.jpg',
+    view_count: 0
+  },
+  'e2e-minimal-post': {
+    id: 3,
+    title: 'Minimal Test Post',
+    slug: 'e2e-minimal-post',
+    content: 'Minimal content.',
+    status: 'published',
+    author_name: 'Test Author',
+    published_at: '2024-01-17T10:00:00Z',
+    view_count: 0
+  },
+  'e2e-tagged-post': {
+    id: 4,
+    title: 'Post with Tags',
+    slug: 'e2e-tagged-post',
+    content: 'This post has multiple tags and categories for testing.',
+    excerpt: 'A post with comprehensive tagging.',
+    status: 'published',
+    author_name: 'Test Author',
+    published_at: '2024-01-18T10:00:00Z',
+    reading_time: 4,
+    view_count: 0,
+    category: 'Technology',
+    tags: ['javascript', 'testing', 'astro']
+  },
+  'e2e-draft-post': {
+    id: 5,
+    title: 'Draft Test Post',
+    slug: 'e2e-draft-post',
+    content: 'This is a draft blog post that should not be accessible publicly.',
+    status: 'draft'
+  },
+  'e2e-archived-post': {
+    id: 6,
+    title: 'Archived Test Post',
+    slug: 'e2e-archived-post',
+    content: 'This is an archived blog post that should not be accessible.',
+    status: 'archived'
+  }
+};
+
+const sequencePosts = {
+  'sequence-post-1': {
+    id: 7,
+    title: 'Sequence Post 1',
+    slug: 'sequence-post-1',
+    content: 'This is post 1 in a sequence for testing navigation.',
+    status: 'published',
+    author_name: 'Test Author',
+    published_at: '2024-01-19T10:00:00Z'
+  },
+  'sequence-post-2': {
+    id: 8,
+    title: 'Sequence Post 2',
+    slug: 'sequence-post-2',
+    content: 'This is post 2 in a sequence for testing navigation.',
+    status: 'published',
+    author_name: 'Test Author',
+    published_at: '2024-01-20T10:00:00Z'
+  },
+  'sequence-post-3': {
+    id: 9,
+    title: 'Sequence Post 3',
+    slug: 'sequence-post-3',
+    content: 'This is post 3 in a sequence for testing navigation.',
+    status: 'published',
+    author_name: 'Test Author',
+    published_at: '2024-01-21T10:00:00Z'
+  }
+};
+
+const allMockPosts = { ...mockPosts, ...sequencePosts };
+const post = allMockPosts[testSlug];
+
+// Handle non-published posts with redirect
+if (!post || post.status !== 'published') {
+  return Astro.redirect('/blog');
+}
+
+// Get next and previous posts
+const publishedPosts = Object.values(allMockPosts)
+  .filter(p => p.status === 'published')
+  .sort((a, b) => new Date(a.published_at).getTime() - new Date(b.published_at).getTime());
+
+const currentIndex = publishedPosts.findIndex(p => p.id === post.id);
+const nextPost = currentIndex < publishedPosts.length - 1 ? publishedPosts[currentIndex + 1] : null;
+const prevPost = currentIndex > 0 ? publishedPosts[currentIndex - 1] : null;
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{post.title}</title>
+  <meta name="description" content={post.excerpt || `Read about ${post.title} on our blog.`}>
+  
+  <!-- Open Graph tags -->
+  <meta property="og:title" content={post.title}>
+  <meta property="og:description" content={post.excerpt || post.content.substring(0, 160)}>
+  <meta property="og:image" content={post.featured_image_url || 'https://example.com/default-og.jpg'}>
+  <meta property="og:url" content={`https://example.com/blog/${post.slug}`}>
+  
+  <!-- Twitter Card tags -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content={post.title}>
+  
+  <style>
+    body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 2rem; }
+    nav { margin-bottom: 2rem; }
+    nav a { margin-right: 1rem; }
+    article { margin: 2rem 0; }
+    .prose { line-height: 1.6; }
+    .featured-indicator { color: gold; }
+    .meta { color: #666; margin: 1rem 0; }
+    .share-buttons { margin: 2rem 0; }
+    .share-buttons a { margin-right: 1rem; }
+    .post-navigation { display: flex; justify-content: space-between; margin: 3rem 0; }
+    .tags { margin: 1rem 0; }
+    .tag { background: #eee; padding: 0.25rem 0.5rem; margin-right: 0.5rem; }
+  </style>
+</head>
+<body>
+  <nav aria-label="Breadcrumb">
+    <a href="/">Home</a>
+    <a href="/blog">Blog</a>
+    <span>{post.title}</span>
+  </nav>
+
+  <main id="main-content" role="main">
+    <article>
+      <h1>
+        {post.featured && <span class="featured-indicator" data-testid="featured-indicator">★ </span>}
+        {post.title}
+      </h1>
+      
+      <div class="meta">
+        <span data-testid="author-name">{post.author_name}</span> · 
+        <span data-testid="published-date">{new Date(post.published_at).toLocaleDateString()}</span>
+        {post.reading_time && (
+          <span> · <span data-testid="reading-time">{post.reading_time} min read</span></span>
+        )}
+        <span data-testid="view-count" style="display:none">{post.view_count} views</span>
+      </div>
+
+      {post.featured_image_url && (
+        <img 
+          src={post.featured_image_url} 
+          alt={post.title}
+          data-testid="featured-image"
+          loading="eager"
+          style="width: 100%; max-height: 400px; object-fit: cover;"
+        />
+      )}
+
+      {post.category && (
+        <div data-testid="categories">
+          Category: <span data-testid={`category-${post.category.toLowerCase()}`}>{post.category}</span>
+        </div>
+      )}
+
+      {post.tags && (
+        <div data-testid="tags" class="tags">
+          Tags: {post.tags.map(tag => (
+            <span class="tag" data-testid={`tag-${tag}`}>{tag}</span>
+          ))}
+        </div>
+      )}
+
+      <div class="prose">
+        <p>{post.content}</p>
+      </div>
+
+      <div class="share-buttons" data-testid="share-buttons">
+        <a href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(post.title)}&url=${encodeURIComponent(`https://example.com/blog/${post.slug}`)}`} 
+           data-testid="share-twitter"
+           target="_blank">
+          Share on Twitter
+        </a>
+        <a href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(`https://example.com/blog/${post.slug}`)}`}
+           data-testid="share-facebook"
+           target="_blank">
+          Share on Facebook
+        </a>
+        <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(`https://example.com/blog/${post.slug}`)}`}
+           data-testid="share-linkedin"
+           target="_blank">
+          Share on LinkedIn
+        </a>
+      </div>
+
+      <nav class="post-navigation" data-testid="post-navigation">
+        {prevPost ? (
+          <a href={`/blog/${prevPost.slug}`} data-testid="prev-post">
+            ← {prevPost.title}
+          </a>
+        ) : <span></span>}
+        
+        {nextPost ? (
+          <a href={`/blog/${nextPost.slug}`} data-testid="next-post">
+            {nextPost.title} →
+          </a>
+        ) : <span></span>}
+      </nav>
+    </article>
+  </main>
+
+  <script type="application/ld+json">
+    {JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "BlogPosting",
+      "headline": post.title,
+      "description": post.excerpt || post.content.substring(0, 160),
+      "author": {
+        "@type": "Person",
+        "name": post.author_name
+      },
+      "datePublished": post.published_at,
+      "url": `https://example.com/blog/${post.slug}`
+    })}
+  </script>
+</body>
+</html>

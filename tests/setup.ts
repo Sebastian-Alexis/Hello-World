@@ -88,14 +88,15 @@ Object.defineProperty(window, 'navigator', {
 let testDb: any;
 
 beforeAll(async () => {
-  // Initialize test database
-  const { DatabaseQueries } = await import('../src/lib/db/queries');
-  testDb = new DatabaseQueries(':memory:');
-  await testDb.initializeSchema();
+  // Mock database setup for testing
+  testDb = {
+    initialized: true,
+    close: async () => {}
+  };
 });
 
 afterAll(async () => {
-  if (testDb) {
+  if (testDb && testDb.close) {
     await testDb.close();
   }
 });

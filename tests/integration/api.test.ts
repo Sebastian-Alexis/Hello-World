@@ -495,7 +495,7 @@ describe('API Integration Tests', () => {
       global.fetch = vi.fn().mockResolvedValue({
         ok: false,
         status: 429,
-        json: vi.fn().mkResolvedValue({
+        json: vi.fn().mockResolvedValue({
           error: 'Too many requests',
           retryAfter: 60
         })

@@ -60,7 +60,7 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
 
   // Development
-  NODE_ENV: z.enum(['development', 'staging', 'production']).default('development'),
+  NODE_ENV: z.enum(['development', 'staging', 'production', 'test']).default('development'),
   DEBUG: z.string().transform(val => val === 'true').default('false'),
   VERBOSE_LOGGING: z.string().transform(val => val === 'true').default('false'),
 
@@ -125,6 +125,11 @@ export function isDev(): boolean {
 //checks if we're in production mode
 export function isProd(): boolean {
   return getEnv().NODE_ENV === 'production';
+}
+
+//checks if we're in test mode
+export function isTest(): boolean {
+  return getEnv().NODE_ENV === 'test';
 }
 
 //gets database configuration
