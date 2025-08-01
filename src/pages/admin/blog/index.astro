@@ -26,13 +26,17 @@ try {
   });
   
   posts = result.data;
-  totalPosts = result.total;
+  totalPosts = result.pagination.total;
   
   //get categories for filter
   categories = await db.getBlogCategories();
   
-  //get quick stats
-  stats = await db.getBlogStatistics();
+  //get quick stats - TODO: implement getBlogStatistics in queries.ts
+  stats = {
+    totalPosts: result.pagination.total || 0,
+    publishedPosts: result.data.filter(p => p.status === 'published').length || 0,
+    draftPosts: result.data.filter(p => p.status === 'draft').length || 0
+  };
 } catch (error) {
   console.error('Blog management error:', error);
   posts = [];
@@ -42,6 +46,21 @@ try {
 }
 
 const totalPages = Math.ceil(totalPosts / 20);
+
+// Build pagination links
+const paginationLinks = [];
+const startPage = Math.max(1, Math.min(totalPages - 4, page - 2));
+
+for (let i = 0; i < Math.min(5, totalPages); i++) {
+  const pageNum = startPage + i;
+  if (pageNum <= totalPages) {
+    paginationLinks.push({
+      pageNum,
+      href: `?page=${pageNum}&search=${search}&status=${status}&category=${category}&sort=${sortBy}&order=${sortOrder}`,
+      isActive: pageNum === page
+    });
+  }
+}
 ---
 
 <AdminLayout title="Blog Posts" description="Manage your blog posts and content">
@@ -323,7 +342,7 @@ const totalPages = Math.ceil(totalPosts / 20);
       <div class="text-sm text-gray-700 dark:text-gray-300">
         Showing {((page - 1) * 20) + 1} to {Math.min(page * 20, totalPosts)} of {totalPosts} posts
       </div>
-      <div class="flex space-x-2">
+      <nav class="flex space-x-2">
         {page > 1 && (
           <a 
             href={`?page=${page - 1}&search=${search}&status=${status}&category=${category}&sort=${sortBy}&order=${sortOrder}`}
@@ -333,21 +352,19 @@ const totalPages = Math.ceil(totalPosts / 20);
           </a>
         )}
         
-        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-          const pageNum = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
-          return pageNum <= totalPages ? (
-            <a 
-              href={`?page=${pageNum}&search=${search}&status=${status}&category=${category}&sort=${sortBy}&order=${sortOrder}`}
-              class={`px-3 py-2 border text-sm font-medium rounded-md ${
-                pageNum === page 
-                  ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-200' 
-                  : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
-              }`}
-            >
-              {pageNum}
-            </a>
-          ) : null;
-        })}
+        {/* Page Numbers */}
+        {paginationLinks.map((link) => (
+          <a 
+            href={link.href}
+            class={`px-3 py-2 border text-sm font-medium rounded-md ${
+              link.isActive 
+                ? 'border-blue-500 text-blue-600 bg-blue-50 dark:bg-blue-900 dark:text-blue-200' 
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+          >
+            {link.pageNum}
+          </a>
+        ))}
         
         {page < totalPages && (
           <a 
@@ -357,7 +374,7 @@ const totalPages = Math.ceil(totalPosts / 20);
             Next
           </a>
         )}
-      </div>
+      </nav>
     </div>
   )}
 </AdminLayout>

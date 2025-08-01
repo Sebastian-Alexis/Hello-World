@@ -423,32 +423,34 @@ console.log('Hello World');
       document.getElementById('fallback-upload').style.display = 'none';
     }
 
-    //try to mount media upload component
+    //try to mount media upload component using Svelte 5 syntax
     let mediaUploadInstance;
     try {
-      mediaUploadInstance = new MediaUpload({
+      const { mount } = await import('svelte');
+      
+      mediaUploadInstance = mount(MediaUpload, {
         target: document.getElementById('featured-image-upload'),
         props: {
           accept: 'image/jpeg,image/png,image/webp',
           multiple: false,
           maxSize: 5 * 1024 * 1024, // 5MB
-          disabled: false
+          disabled: false,
+          // Event handlers as props in Svelte 5
+          onsuccess: (event) => {
+            const file = event.detail.files[0];
+            if (file) {
+              handleImageUpload(file, file.url);
+            }
+          },
+          onerror: (event) => {
+            alert(event.detail.message);
+          }
         }
       });
       
       //hide fallback when component mounts successfully
       document.getElementById('fallback-upload').style.display = 'none';
       
-      mediaUploadInstance.$on('success', (event) => {
-        const file = event.detail.files[0];
-        if (file) {
-          handleImageUpload(file, file.url);
-        }
-      });
-      
-      mediaUploadInstance.$on('error', (event) => {
-        alert(event.detail.message);
-      });
     } catch (error) {
       console.error('Media upload mount error:', error);
       console.log('Using fallback upload button');
@@ -633,9 +635,15 @@ console.log('Hello World');
         
         if (response.ok) {
           const result = await response.json();
-          window.location.href = `/admin/blog/${result.id}`;
+          console.log('Blog post created:', result);
+          
+          // Show success and redirect to blog list
+          alert('Blog post created successfully!');
+          window.location.href = '/admin/blog';
         } else {
-          alert('Failed to create blog post');
+          const error = await response.json();
+          console.error('Blog creation failed:', error);
+          alert(`Failed to create blog post: ${error.details || error.error || 'Unknown error'}`);
         }
       } catch (error) {
         console.error('Form submission error:', error);

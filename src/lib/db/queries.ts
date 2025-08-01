@@ -233,7 +233,7 @@ export class DatabaseQueries {
       limit = 10,
       sortBy = 'published_at',
       sortOrder = 'DESC',
-      status = 'published',
+      status,
       featured,
       includeAuthor = true,
       includeCategories = true,
@@ -339,6 +339,16 @@ export class DatabaseQueries {
     }
     
     return post;
+  }
+
+  //checks if a slug exists (any status)
+  async checkSlugExists(slug: string): Promise<boolean> {
+    const query = `
+      SELECT 1 FROM blog_posts WHERE slug = ? LIMIT 1
+    `;
+    
+    const result = await executeQuery(query, [slug]);
+    return result.rows.length > 0;
   }
 
   //advanced search with FTS5, ranking, and highlighting

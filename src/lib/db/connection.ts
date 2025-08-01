@@ -173,15 +173,15 @@ export async function executeTransaction(
   const client = getDbClient();
   
   try {
-    await client.execute('BEGIN TRANSACTION');
+    //use Turso's batch operation which handles transactions automatically
+    const statements = queries.map(({ query, params }) => ({
+      sql: query,
+      args: params || []
+    }));
     
-    for (const { query, params } of queries) {
-      await client.execute(query, params);
-    }
-    
-    await client.execute('COMMIT');
+    await client.batch(statements, 'write');
   } catch (error) {
-    await client.execute('ROLLBACK');
+    console.error('Transaction failed:', error);
     throw error;
   }
 }

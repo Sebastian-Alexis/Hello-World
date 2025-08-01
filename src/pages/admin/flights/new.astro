@@ -447,25 +447,33 @@ try {
 
 <script>
   document.addEventListener('DOMContentLoaded', async function() {
-    //mount media upload for flight photos
+    //mount media upload for flight photos using Svelte 5 syntax
+    const { mount } = await import('svelte');
     const MediaUpload = (await import('../../../components/admin/MediaUpload.svelte')).default;
     
-    const photosUpload = new MediaUpload({
-      target: document.getElementById('flight-photos-upload'),
-      props: {
-        accept: 'image/*',
-        multiple: true,
-        maxSize: 5 * 1024 * 1024 // 5MB
-      }
-    });
+    let photosUpload;
+    try {
+      photosUpload = mount(MediaUpload, {
+        target: document.getElementById('flight-photos-upload'),
+        props: {
+          accept: 'image/*',
+          multiple: true,
+          maxSize: 5 * 1024 * 1024, // 5MB
+          onsuccess: (event) => {
+            flightPhotos = flightPhotos.concat(event.detail.files);
+            updatePhotosInput();
+            renderPhotosPreview();
+          },
+          onerror: (event) => {
+            alert(event.detail.message);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Photos upload mount error:', error);
+    }
     
     let flightPhotos = [];
-    
-    photosUpload.$on('success', (event) => {
-      flightPhotos = flightPhotos.concat(event.detail.files);
-      updatePhotosInput();
-      renderPhotosPreview();
-    });
     
     function updatePhotosInput() {
       document.getElementById('photos-input').value = JSON.stringify(flightPhotos.map(photo => photo.url));

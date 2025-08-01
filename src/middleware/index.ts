@@ -9,11 +9,17 @@ import { loggingMiddleware } from './logging.js';
 //compose middleware chain with security first
 export const onRequest = defineMiddleware(async (context, next) => {
   //only run middleware for API routes (server-rendered endpoints)
-  //exclude login endpoint to avoid body consumption conflicts
+  //exclude certain endpoints to avoid body consumption conflicts
   const isApiRoute = context.url.pathname.startsWith('/api/');
-  const isLoginRoute = context.url.pathname === '/api/auth/login';
+  const excludedPaths = [
+    '/api/auth/login',
+    '/api/admin/media/upload',
+    '/api/admin/blog',
+    '/api/admin/blog-simple'
+  ];
+  const isExcludedRoute = excludedPaths.some(path => context.url.pathname.includes(path));
   
-  if (isApiRoute && !isLoginRoute) {
+  if (isApiRoute && !isExcludedRoute) {
     //security headers must be applied first
     await securityHeadersMiddleware(context, next);
     

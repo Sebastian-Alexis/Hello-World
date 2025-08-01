@@ -6,6 +6,10 @@
   export let maxSize: number = 10 * 1024 * 1024; // 10MB
   export let disabled: boolean = false;
   
+  // Svelte 5 event handler props
+  export let onsuccess: ((event: CustomEvent) => void) | undefined = undefined;
+  export let onerror: ((event: CustomEvent) => void) | undefined = undefined;
+  
   let isDragOver = false;
   let uploading = false;
   let uploadProgress = 0;
@@ -46,10 +50,17 @@
   function handleFiles(fileList: FileList) {
     const validFiles = Array.from(fileList).filter(file => {
       if (file.size > maxSize) {
-        dispatch('error', {
+        const errorEvent = {
           message: `File "${file.name}" is too large. Maximum size is ${formatFileSize(maxSize)}.`,
           file
-        });
+        };
+        
+        dispatch('error', errorEvent);
+        
+        // Also call the prop handler if provided (Svelte 5)
+        if (onerror) {
+          onerror(new CustomEvent('error', { detail: errorEvent }));
+        }
         return false;
       }
       return true;
@@ -81,15 +92,29 @@
       xhr.addEventListener('load', () => {
         if (xhr.status === 200) {
           const response = JSON.parse(xhr.responseText);
-          dispatch('success', {
+          const successEvent = {
             files: response.files,
             message: `Successfully uploaded ${response.files.length} file(s)`
-          });
+          };
+          
+          dispatch('success', successEvent);
+          
+          // Also call the prop handler if provided (Svelte 5)
+          if (onsuccess) {
+            onsuccess(new CustomEvent('success', { detail: successEvent }));
+          }
         } else {
-          dispatch('error', {
+          const errorEvent = {
             message: 'Upload failed. Please try again.',
             status: xhr.status
-          });
+          };
+          
+          dispatch('error', errorEvent);
+          
+          // Also call the prop handler if provided (Svelte 5)
+          if (onerror) {
+            onerror(new CustomEvent('error', { detail: errorEvent }));
+          }
         }
         uploading = false;
         uploadProgress = 0;
@@ -101,9 +126,17 @@
       });
       
       xhr.addEventListener('error', () => {
-        dispatch('error', {
+        const errorEvent = {
           message: 'Upload failed. Please check your connection and try again.'
-        });
+        };
+        
+        dispatch('error', errorEvent);
+        
+        // Also call the prop handler if provided (Svelte 5)
+        if (onerror) {
+          onerror(new CustomEvent('error', { detail: errorEvent }));
+        }
+        
         uploading = false;
         uploadProgress = 0;
       });
@@ -114,10 +147,18 @@
       
     } catch (error) {
       console.error('Upload error:', error);
-      dispatch('error', {
+      
+      const errorEvent = {
         message: 'Upload failed. Please try again.',
         error
-      });
+      };
+      
+      dispatch('error', errorEvent);
+      
+      // Also call the prop handler if provided (Svelte 5)
+      if (onerror) {
+        onerror(new CustomEvent('error', { detail: errorEvent }));
+      }
       uploading = false;
       uploadProgress = 0;
     }

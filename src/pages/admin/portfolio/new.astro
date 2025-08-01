@@ -368,43 +368,58 @@ try {
       }
     });
     
-    //mount media upload components
+    //mount media upload components using Svelte 5 syntax
+    const { mount } = await import('svelte');
     const MediaUpload = (await import('../../../components/admin/MediaUpload.svelte')).default;
     
     //featured image upload
-    const featuredImageUpload = new MediaUpload({
-      target: document.getElementById('featured-image-upload'),
-      props: {
-        accept: 'image/*',
-        multiple: false,
-        maxSize: 5 * 1024 * 1024 // 5MB
-      }
-    });
-    
-    featuredImageUpload.$on('success', (event) => {
-      const file = event.detail.files[0];
-      if (file) {
-        document.getElementById('featured-image-input').value = file.url;
-      }
-    });
+    let featuredImageUpload;
+    try {
+      featuredImageUpload = mount(MediaUpload, {
+        target: document.getElementById('featured-image-upload'),
+        props: {
+          accept: 'image/*',
+          multiple: false,
+          maxSize: 5 * 1024 * 1024, // 5MB
+          onsuccess: (event) => {
+            const file = event.detail.files[0];
+            if (file) {
+              document.getElementById('featured-image-input').value = file.url;
+            }
+          },
+          onerror: (event) => {
+            alert(event.detail.message);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Featured image upload mount error:', error);
+    }
     
     //gallery upload
-    const galleryUpload = new MediaUpload({
-      target: document.getElementById('gallery-upload'),
-      props: {
-        accept: 'image/*',
-        multiple: true,
-        maxSize: 5 * 1024 * 1024 // 5MB
-      }
-    });
+    let galleryUpload;
+    try {
+      galleryUpload = mount(MediaUpload, {
+        target: document.getElementById('gallery-upload'),
+        props: {
+          accept: 'image/*',
+          multiple: true,
+          maxSize: 5 * 1024 * 1024, // 5MB
+          onsuccess: (event) => {
+            galleryImages = galleryImages.concat(event.detail.files);
+            updateGalleryInput();
+            renderGalleryPreview();
+          },
+          onerror: (event) => {
+            alert(event.detail.message);
+          }
+        }
+      });
+    } catch (error) {
+      console.error('Gallery upload mount error:', error);
+    }
     
     let galleryImages = [];
-    
-    galleryUpload.$on('success', (event) => {
-      galleryImages = galleryImages.concat(event.detail.files);
-      updateGalleryInput();
-      renderGalleryPreview();
-    });
     
     function updateGalleryInput() {
       document.getElementById('gallery-input').value = JSON.stringify(galleryImages.map(img => img.url));
