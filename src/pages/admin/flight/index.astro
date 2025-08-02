@@ -1,0 +1,113 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Card from '@/components/ui/Card.astro';
+import Button from '@/components/ui/Button.astro';
+import { db } from '@/lib/db/queries.js';
+
+// Authentication is handled by middleware
+---
+
+<AdminLayout title="Flight Management">
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold mb-2">Flight Management</h1>
+      <p class="text-gray-600">Choose how you want to manage your flights</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <!-- Trip Management -->
+      <Card>
+        <div class="p-6">
+          <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mr-4">
+              <svg class="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M6 2a1 1 0 00-1 1v1H4a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V6a2 2 0 00-2-2h-1V3a1 1 0 10-2 0v1H7V3a1 1 0 00-1-1zM4 8h12v8H4V8z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold mb-1">Trip Management</h2>
+              <p class="text-gray-600">Organize flights by trips with dates and blog posts</p>
+            </div>
+          </div>
+          
+          <div class="space-y-3">
+            <p class="text-sm text-gray-500">
+              Group multiple flights under a single trip name, set date ranges, 
+              and link to blog posts about your journey.
+            </p>
+            
+            <div class="flex gap-3">
+              <a href="/admin/flight/trips">
+                <Button>View Trips</Button>
+              </a>
+              <a href="/admin/flight/trips/new">
+                <Button variant="secondary">New Trip</Button>
+              </a>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      <!-- Individual Flights -->
+      <Card>
+        <div class="p-6">
+          <div class="flex items-center mb-4">
+            <div class="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
+              <svg class="w-6 h-6 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold mb-1">Individual Flights</h2>
+              <p class="text-gray-600">Manage flights individually with detailed information</p>
+            </div>
+          </div>
+          
+          <div class="space-y-3">
+            <p class="text-sm text-gray-500">
+              Add and manage individual flights with airline details, 
+              seat information, and flight status.
+            </p>
+            
+            <div class="flex gap-3">
+              <a href="/admin/flight/list">
+                <Button>View Flights</Button>
+              </a>
+              <a href="/admin/flight/new">
+                <Button variant="secondary">New Flight</Button>
+              </a>
+            </div>
+          </div>
+        </div>
+      </Card>
+    </div>
+
+    <!-- Map Preview -->
+    <Card class="mt-6">
+      <div class="p-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center">
+            <div class="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mr-4">
+              <svg class="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+              </svg>
+            </div>
+            <div>
+              <h2 class="text-xl font-semibold mb-1">Interactive Flight Map</h2>
+              <p class="text-gray-600">View your trips on an interactive world map</p>
+            </div>
+          </div>
+        </div>
+        
+        <p class="text-sm text-gray-500 mb-4">
+          See all your flights visualized on a map with clickable airports showing 
+          trip details and allowing you to jump between destinations.
+        </p>
+        
+        <a href="/flights/map">
+          <Button>View Flight Map</Button>
+        </a>
+      </div>
+    </Card>
+  </div>
+</AdminLayout>

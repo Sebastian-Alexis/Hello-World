@@ -217,6 +217,8 @@ export interface Flight extends BaseEntity {
   // Flight status and integration
   flight_status: 'booked' | 'completed' | 'cancelled' | 'delayed';
   blog_post_id?: number;
+  // Trip information
+  trip_id?: number;
   // Computed fields from joins
   departure_airport?: Airport;
   arrival_airport?: Airport;
@@ -235,6 +237,18 @@ export interface Flight extends BaseEntity {
   origin?: [number, number]; // [lng, lat] for deck.gl
   destination?: [number, number]; // [lng, lat] for deck.gl
   route?: FlightRoute;
+  trip?: Trip;
+}
+
+export interface Trip extends BaseEntity {
+  name: string;
+  start_date: string;
+  end_date: string;
+  blog_post_id?: number;
+  is_active: boolean;
+  // Computed fields from joins
+  flights?: Flight[];
+  blog_post?: BlogPost;
 }
 
 export interface FlightRoute extends BaseEntity {
@@ -513,6 +527,15 @@ export interface FlightForm {
   is_favorite: boolean;
   flight_status: 'booked' | 'completed' | 'cancelled' | 'delayed';
   blog_post_id?: number;
+  trip_id?: number;
+}
+
+export interface TripForm {
+  name: string;
+  start_date: string;
+  end_date: string;
+  blog_post_id?: number;
+  flight_numbers: string[];
 }
 
 // =============================================================================

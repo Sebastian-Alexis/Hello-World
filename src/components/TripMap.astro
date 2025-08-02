@@ -1,0 +1,291 @@
+---
+export interface Props {
+  mapboxToken: string;
+  className?: string;
+}
+
+const { mapboxToken, className = '' } = Astro.props;
+---
+
+<div id="trip-map" class={`relative w-full h-[600px] ${className}`}>
+  <div id="map-container" class="w-full h-full"></div>
+  
+  <!-- Loading state -->
+  <div id="map-loading" class="absolute inset-0 flex items-center justify-center bg-gray-100">
+    <div class="text-center">
+      <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+      <p class="text-gray-600">Loading flight map...</p>
+    </div>
+  </div>
+  
+  <!-- Error state -->
+  <div id="map-error" class="absolute inset-0 flex items-center justify-center bg-gray-100 hidden">
+    <div class="text-center p-8">
+      <svg class="w-16 h-16 text-red-500 mx-auto mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+      <p class="text-red-600 font-semibold mb-2">Failed to load map</p>
+      <p class="text-gray-600 text-sm" id="error-message"></p>
+    </div>
+  </div>
+</div>
+
+<link href='https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.css' rel='stylesheet' />
+
+<script define:vars={{ mapboxToken }}>
+  let map;
+  let markers = [];
+  let currentPopup;
+
+  async function initMap() {
+    try {
+      // Import Mapbox GL JS
+      const mapboxgl = await import('https://api.mapbox.com/mapbox-gl-js/v3.0.1/mapbox-gl.js');
+      
+      // Set access token
+      mapboxgl.accessToken = mapboxToken;
+      
+      // Create map
+      map = new mapboxgl.Map({
+        container: 'map-container',
+        style: 'mapbox://styles/mapbox/light-v11',
+        center: [0, 30],
+        zoom: 2
+      });
+      
+      // Wait for map to load
+      map.on('load', async () => {
+        // Hide loading state
+        document.getElementById('map-loading').classList.add('hidden');
+        
+        // Fetch airports with trips
+        try {
+          const response = await fetch('/api/airports/with-trips');
+          const { data: airports } = await response.json();
+          
+          // Add markers for each airport
+          airports.forEach(airport => {
+            // Create custom marker element
+            const el = document.createElement('div');
+            el.className = 'airport-marker';
+            el.style.width = '24px';
+            el.style.height = '24px';
+            el.style.borderRadius = '50%';
+            el.style.backgroundColor = '#3B82F6';
+            el.style.border = '3px solid white';
+            el.style.cursor = 'pointer';
+            el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            
+            // Create marker
+            const marker = new mapboxgl.Marker(el)
+              .setLngLat(airport.coordinates)
+              .addTo(map);
+            
+            // Add click handler for dropdown
+            el.addEventListener('click', () => showTripDropdown(airport, el));
+            
+            markers.push(marker);
+          });
+          
+          // Fit map to show all airports
+          if (airports.length > 0) {
+            const bounds = new mapboxgl.LngLatBounds();
+            airports.forEach(airport => {
+              bounds.extend(airport.coordinates);
+            });
+            map.fitBounds(bounds, { padding: 50 });
+          }
+          
+        } catch (error) {
+          console.error('Error loading airports:', error);
+        }
+      });
+      
+      map.on('error', (e) => {
+        console.error('Map error:', e);
+        showError('Map failed to load properly');
+      });
+      
+    } catch (error) {
+      console.error('Error initializing map:', error);
+      showError('Failed to initialize map');
+    }
+  }
+  
+  function showTripDropdown(airport, markerEl) {
+    // Close any existing popup
+    if (currentPopup) {
+      currentPopup.remove();
+    }
+    
+    // Create dropdown content
+    const dropdownContent = document.createElement('div');
+    dropdownContent.className = 'trip-dropdown';
+    dropdownContent.innerHTML = `
+      <div class="p-3 min-w-[250px] max-w-[300px]">
+        <h3 class="font-bold text-lg mb-2">${airport.name} (${airport.iata_code})</h3>
+        <p class="text-sm text-gray-600 mb-3">${airport.city}, ${airport.country}</p>
+        <div class="space-y-2 max-h-[300px] overflow-y-auto">
+          ${airport.trips.map(trip => `
+            <div class="trip-item p-2 border rounded hover:bg-gray-50 cursor-pointer"
+                 data-trip='${JSON.stringify(trip)}'>
+              <div class="font-medium">${trip.name}</div>
+              <div class="text-xs text-gray-500">
+                ${new Date(trip.start_date).toLocaleDateString()} - 
+                ${new Date(trip.end_date).toLocaleDateString()}
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+    
+    // Create popup
+    currentPopup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      maxWidth: '300px'
+    })
+      .setLngLat(airport.coordinates)
+      .setDOMContent(dropdownContent)
+      .addTo(map);
+    
+    // Add click handlers to trip items
+    dropdownContent.querySelectorAll('.trip-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const trip = JSON.parse(e.currentTarget.dataset.trip);
+        showTripDetails(trip, airport);
+      });
+    });
+  }
+  
+  function showTripDetails(trip, currentAirport) {
+    // Close dropdown
+    if (currentPopup) {
+      currentPopup.remove();
+    }
+    
+    // Find the relevant flight for this airport
+    const relevantFlight = trip.flights.find(f => 
+      f.flight_type === 'departure' || f.flight_type === 'arrival'
+    );
+    
+    if (!relevantFlight) return;
+    
+    // Create detail popup content
+    const detailContent = document.createElement('div');
+    detailContent.className = 'trip-detail';
+    detailContent.innerHTML = `
+      <div class="p-4 max-w-[350px]">
+        <h3 class="font-bold text-lg mb-2">${trip.name}</h3>
+        <div class="mb-3">
+          <p class="text-sm text-gray-600">
+            <strong>Flight:</strong> ${relevantFlight.flight_number}
+          </p>
+          <p class="text-sm text-gray-600">
+            <strong>${relevantFlight.flight_type === 'departure' ? 'Departure' : 'Arrival'}:</strong> 
+            ${new Date(relevantFlight.flight_type === 'departure' ? relevantFlight.departure_time : relevantFlight.arrival_time).toLocaleString()}
+          </p>
+        </div>
+        
+        ${trip.blog_post ? `
+          <div class="mb-3 p-3 bg-gray-50 rounded">
+            ${trip.blog_post.thumbnail ? `
+              <img src="${trip.blog_post.thumbnail}" alt="${trip.blog_post.title}" 
+                   class="w-full h-32 object-cover rounded mb-2">
+            ` : ''}
+            <h4 class="font-medium text-sm mb-1">${trip.blog_post.title}</h4>
+            ${trip.blog_post.excerpt ? `
+              <p class="text-xs text-gray-600 line-clamp-2">${trip.blog_post.excerpt}</p>
+            ` : ''}
+            <a href="/blog/${trip.blog_post.slug}" class="text-xs text-blue-600 hover:underline mt-1 inline-block">
+              Read more →
+            </a>
+          </div>
+        ` : ''}
+        
+        <button class="w-full px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors"
+                onclick="jumpToDestination(${relevantFlight.next_airport.longitude}, ${relevantFlight.next_airport.latitude})">
+          Jump to ${relevantFlight.next_airport.iata} →
+        </button>
+      </div>
+    `;
+    
+    // Create new popup with details
+    currentPopup = new mapboxgl.Popup({
+      closeButton: true,
+      closeOnClick: false,
+      maxWidth: '350px'
+    })
+      .setLngLat(currentAirport.coordinates)
+      .setDOMContent(detailContent)
+      .addTo(map);
+  }
+  
+  window.jumpToDestination = function(lng, lat) {
+    if (currentPopup) {
+      currentPopup.remove();
+    }
+    
+    map.flyTo({
+      center: [lng, lat],
+      zoom: 8,
+      duration: 2000,
+      essential: true
+    });
+  };
+  
+  function showError(message) {
+    document.getElementById('map-loading').classList.add('hidden');
+    document.getElementById('map-error').classList.remove('hidden');
+    document.getElementById('error-message').textContent = message;
+  }
+  
+  // Initialize map when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initMap);
+  } else {
+    initMap();
+  }
+</script>
+
+<style>
+  .trip-dropdown {
+    font-family: system-ui, -apple-system, sans-serif;
+  }
+  
+  .trip-dropdown::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .trip-dropdown::-webkit-scrollbar-track {
+    background: #f1f1f1;
+  }
+  
+  .trip-dropdown::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+  
+  .trip-dropdown::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+  
+  .mapboxgl-popup-content {
+    padding: 0;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+  
+  .mapboxgl-popup-close-button {
+    font-size: 18px;
+    padding: 4px 8px;
+  }
+  
+  .line-clamp-2 {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+</style>

@@ -1,0 +1,269 @@
+---
+import AdminLayout from '@/layouts/AdminLayout.astro';
+import Card from '@/components/ui/Card.astro';
+import Button from '@/components/ui/Button.astro';
+import Input from '@/components/ui/Input.astro';
+import { db } from '@/lib/db/queries.js';
+
+// Authentication is handled by middleware
+
+// Fetch blog posts for dropdown
+const blogResponse = await fetch(`${Astro.url.origin}/api/blog?status=published&limit=100`);
+const { data: blogPosts = [] } = blogResponse.ok ? await blogResponse.json() : { data: [] };
+---
+
+<AdminLayout title="New Flight Trip">
+  <div class="container mx-auto px-4 py-8 max-w-4xl">
+    <div class="mb-8">
+      <h1 class="text-3xl font-bold mb-2">Create New Trip</h1>
+      <p class="text-gray-600">Add a new trip with flight details</p>
+    </div>
+
+    <Card>
+      <form id="trip-form" class="space-y-6">
+        <div>
+          <label for="name" class="block text-sm font-medium mb-2">
+            Trip Name <span class="text-red-500">*</span>
+          </label>
+          <Input
+            id="name"
+            name="name"
+            type="text"
+            required
+            placeholder="e.g., Summer Vacation to Japan"
+          />
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label for="start_date" class="block text-sm font-medium mb-2">
+              Start Date <span class="text-red-500">*</span>
+            </label>
+            <Input
+              id="start_date"
+              name="start_date"
+              type="date"
+              required
+            />
+          </div>
+          <div>
+            <label for="end_date" class="block text-sm font-medium mb-2">
+              End Date <span class="text-red-500">*</span>
+            </label>
+            <Input
+              id="end_date"
+              name="end_date"
+              type="date"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label for="flight_numbers" class="block text-sm font-medium mb-2">
+            Flight Numbers <span class="text-red-500">*</span>
+          </label>
+          <div id="flight-numbers-container" class="space-y-2">
+            <div class="flex gap-2">
+              <Input
+                name="flight_numbers[]"
+                type="text"
+                placeholder="e.g., UA123"
+                required
+                class="flex-1"
+              />
+              <Button type="button" variant="secondary" size="small" onclick="removeFlightNumber(this)">
+                Remove
+              </Button>
+            </div>
+          </div>
+          <Button type="button" variant="secondary" size="small" class="mt-2" onclick="addFlightNumber()">
+            Add Flight Number
+          </Button>
+        </div>
+
+        <div>
+          <label for="blog_post_id" class="block text-sm font-medium mb-2">
+            Linked Blog Post (Optional)
+          </label>
+          <div class="relative">
+            <input
+              type="text"
+              id="blog-search"
+              placeholder="Search blog posts..."
+              class="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              autocomplete="off"
+            />
+            <select
+              id="blog_post_id"
+              name="blog_post_id"
+              class="hidden"
+            >
+              <option value="">No blog post</option>
+              {blogPosts.map((post: any) => (
+                <option value={post.id} data-title={post.title}>
+                  {post.title}
+                </option>
+              ))}
+            </select>
+            <div id="blog-dropdown" class="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg hidden max-h-60 overflow-y-auto">
+              <div class="p-2">
+                <div class="blog-option cursor-pointer p-2 hover:bg-gray-100 rounded" data-value="">
+                  No blog post
+                </div>
+                {blogPosts.map((post: any) => (
+                  <div 
+                    class="blog-option cursor-pointer p-2 hover:bg-gray-100 rounded" 
+                    data-value={post.id}
+                    data-title={post.title}
+                  >
+                    <div class="font-medium">{post.title}</div>
+                    {post.excerpt && (
+                      <div class="text-sm text-gray-600 truncate">{post.excerpt}</div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex gap-4 pt-4">
+          <Button type="submit">Create Trip</Button>
+          <a href="/admin/flight/trips">
+            <Button type="button" variant="secondary">Cancel</Button>
+          </a>
+        </div>
+      </form>
+    </Card>
+  </div>
+
+  <script>
+    // Flight number management
+    function addFlightNumber() {
+      const container = document.getElementById('flight-numbers-container');
+      const newInput = document.createElement('div');
+      newInput.className = 'flex gap-2';
+      newInput.innerHTML = `
+        <input
+          name="flight_numbers[]"
+          type="text"
+          placeholder="e.g., UA123"
+          required
+          class="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+        />
+        <button type="button" class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300" onclick="removeFlightNumber(this)">
+          Remove
+        </button>
+      `;
+      container.appendChild(newInput);
+    }
+
+    window.removeFlightNumber = function(button) {
+      const container = document.getElementById('flight-numbers-container');
+      if (container.children.length > 1) {
+        button.parentElement.remove();
+      } else {
+        alert('At least one flight number is required');
+      }
+    }
+
+    window.addFlightNumber = addFlightNumber;
+
+    // Blog post search functionality
+    const blogSearch = document.getElementById('blog-search') as HTMLInputElement;
+    const blogDropdown = document.getElementById('blog-dropdown');
+    const blogSelect = document.getElementById('blog_post_id') as HTMLSelectElement;
+    const blogOptions = blogDropdown.querySelectorAll('.blog-option');
+
+    blogSearch.addEventListener('focus', () => {
+      blogDropdown.classList.remove('hidden');
+    });
+
+    blogSearch.addEventListener('input', (e) => {
+      const searchTerm = (e.target as HTMLInputElement).value.toLowerCase();
+      blogOptions.forEach(option => {
+        const title = option.getAttribute('data-title')?.toLowerCase() || '';
+        const text = option.textContent?.toLowerCase() || '';
+        if (title.includes(searchTerm) || text.includes(searchTerm)) {
+          (option as HTMLElement).style.display = 'block';
+        } else {
+          (option as HTMLElement).style.display = 'none';
+        }
+      });
+    });
+
+    blogOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        const value = option.getAttribute('data-value') || '';
+        const title = option.getAttribute('data-title') || 'No blog post';
+        blogSelect.value = value;
+        blogSearch.value = title;
+        blogDropdown.classList.add('hidden');
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!blogSearch.contains(e.target as Node) && !blogDropdown.contains(e.target as Node)) {
+        blogDropdown.classList.add('hidden');
+      }
+    });
+
+    // Form submission
+    document.getElementById('trip-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const formData = new FormData(e.target as HTMLFormElement);
+      const flightNumbers = formData.getAll('flight_numbers[]').filter(fn => fn);
+      
+      const tripData = {
+        name: formData.get('name'),
+        start_date: formData.get('start_date'),
+        end_date: formData.get('end_date'),
+        blog_post_id: formData.get('blog_post_id') || null,
+        flight_numbers: flightNumbers
+      };
+
+      try {
+        const response = await fetch('/api/flights/trips', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          credentials: 'same-origin',
+          body: JSON.stringify(tripData)
+        });
+
+        if (response.ok) {
+          window.location.href = '/admin/flight/trips';
+        } else {
+          const error = await response.json();
+          alert(`Failed to create trip: ${error.error || error.message || 'Unknown error'}`);
+        }
+      } catch (error) {
+        console.error('Error creating trip:', error);
+        alert('Failed to create trip');
+      }
+    });
+  </script>
+
+  <style>
+    #blog-dropdown::-webkit-scrollbar {
+      width: 8px;
+    }
+    
+    #blog-dropdown::-webkit-scrollbar-track {
+      background: #f1f1f1;
+      border-radius: 4px;
+    }
+    
+    #blog-dropdown::-webkit-scrollbar-thumb {
+      background: #888;
+      border-radius: 4px;
+    }
+    
+    #blog-dropdown::-webkit-scrollbar-thumb:hover {
+      background: #555;
+    }
+  </style>
+</AdminLayout>
