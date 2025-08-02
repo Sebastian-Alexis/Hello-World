@@ -256,6 +256,19 @@ CREATE TABLE airports (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- trips for organizing flights
+CREATE TABLE trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    blog_post_id INTEGER,
+    is_active BOOLEAN DEFAULT 1,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (blog_post_id) REFERENCES blog_posts(id) ON DELETE SET NULL
+);
+
 -- flight records
 CREATE TABLE flights (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -281,6 +294,7 @@ CREATE TABLE flights (
     -- Flight status and integration
     flight_status TEXT NOT NULL DEFAULT 'completed' CHECK (flight_status IN ('booked', 'completed', 'cancelled', 'delayed')),
     blog_post_id INTEGER,
+    trip_id INTEGER REFERENCES trips(id) ON DELETE SET NULL,
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (departure_airport_id) REFERENCES airports(id) ON DELETE CASCADE,
@@ -604,6 +618,9 @@ CREATE INDEX idx_flights_departure_airport ON flights(departure_airport_id);
 CREATE INDEX idx_flights_arrival_airport ON flights(arrival_airport_id);
 CREATE INDEX idx_flights_airline_code ON flights(airline_code);
 CREATE INDEX idx_flights_favorite ON flights(is_favorite);
+CREATE INDEX idx_flights_trip_id ON flights(trip_id);
+CREATE INDEX idx_trips_blog_post_id ON trips(blog_post_id);
+CREATE INDEX idx_trips_dates ON trips(start_date, end_date);
 
 CREATE INDEX idx_flight_routes_departure ON flight_routes(departure_airport_id);
 CREATE INDEX idx_flight_routes_arrival ON flight_routes(arrival_airport_id);
@@ -892,6 +909,48 @@ SELECT
 FROM flights f
 JOIN airports d ON f.departure_airport_id = d.id
 JOIN airports a ON f.arrival_airport_id = a.id;
+
+-- airport trips view for detailed trip information
+CREATE VIEW airport_trips AS
+SELECT DISTINCT
+  a.id as airport_id,
+  a.iata_code,
+  a.name as airport_name,
+  a.city,
+  a.country,
+  a.latitude,
+  a.longitude,
+  t.id as trip_id,
+  t.name as trip_name,
+  t.start_date,
+  t.end_date,
+  t.blog_post_id,
+  f.id as flight_id,
+  f.flight_number,
+  f.departure_time,
+  f.arrival_time,
+  CASE 
+    WHEN f.departure_airport_id = a.id THEN 'departure'
+    WHEN f.arrival_airport_id = a.id THEN 'arrival'
+  END as flight_type,
+  CASE 
+    WHEN f.departure_airport_id = a.id THEN arr.iata_code
+    WHEN f.arrival_airport_id = a.id THEN dep.iata_code
+  END as connected_airport_iata,
+  CASE 
+    WHEN f.departure_airport_id = a.id THEN arr.latitude
+    WHEN f.arrival_airport_id = a.id THEN dep.latitude
+  END as connected_latitude,
+  CASE 
+    WHEN f.departure_airport_id = a.id THEN arr.longitude
+    WHEN f.arrival_airport_id = a.id THEN dep.longitude
+  END as connected_longitude
+FROM airports a
+JOIN flights f ON (f.departure_airport_id = a.id OR f.arrival_airport_id = a.id)
+LEFT JOIN trips t ON f.trip_id = t.id
+LEFT JOIN airports dep ON f.departure_airport_id = dep.id
+LEFT JOIN airports arr ON f.arrival_airport_id = arr.id
+WHERE t.is_active = 1;
 
 -- =============================================================================
 -- FINAL OPTIMIZATIONS

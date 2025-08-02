@@ -109,7 +109,8 @@ export function extractSessionFromCookie(cookieString?: string): string | null {
     return acc;
   }, {} as Record<string, string>);
   
-  return cookies[SESSION_CONFIG.COOKIE_NAME] || null;
+  // Check for both possible cookie names
+  return cookies['auth-token'] || cookies[SESSION_CONFIG.COOKIE_NAME] || null;
 }
 
 //creates secure cookie string for session

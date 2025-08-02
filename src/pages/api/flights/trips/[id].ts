@@ -1,12 +1,13 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/lib/db';
+import { executeQuery } from '@/lib/db';
 import { authMiddleware } from '@/lib/auth';
 
 export const GET: APIRoute = async ({ params }) => {
   try {
     const { id } = params;
     
-    const trip = await db.execute(`
+    const trip = await executeQuery(`
       SELECT 
         t.*,
         bp.title as blog_post_title,
@@ -30,7 +31,7 @@ export const GET: APIRoute = async ({ params }) => {
     }
 
     // Get flights for this trip
-    const flights = await db.execute(`
+    const flights = await executeQuery(`
       SELECT 
         f.*,
         dep.iata_code as departure_iata,
@@ -80,6 +81,7 @@ export const GET: APIRoute = async ({ params }) => {
 };
 
 export const PUT: APIRoute = async ({ params, request }) => {
+  // Check auth first before reading body
   const authResult = await authMiddleware(request, { required: true, roles: ['admin'] });
   if (!authResult.success) {
     return new Response(
@@ -111,14 +113,14 @@ export const PUT: APIRoute = async ({ params, request }) => {
     }
 
     // Update trip
-    await db.execute(`
+    await executeQuery(`
       UPDATE trips 
       SET name = ?, start_date = ?, end_date = ?, blog_post_id = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
     `, [name, start_date, end_date, blog_post_id || null, id]);
 
     // Remove trip_id from all flights currently associated with this trip
-    await db.execute(`
+    await executeQuery(`
       UPDATE flights 
       SET trip_id = NULL
       WHERE trip_id = ?
@@ -126,7 +128,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
 
     // Update flights with new trip_id
     for (const flightNumber of flight_numbers) {
-      await db.execute(`
+      await executeQuery(`
         UPDATE flights 
         SET trip_id = ?
         WHERE flight_number = ?
@@ -159,6 +161,7 @@ export const PUT: APIRoute = async ({ params, request }) => {
 };
 
 export const DELETE: APIRoute = async ({ params, request }) => {
+  // Check auth first before reading body
   const authResult = await authMiddleware(request, { required: true, roles: ['admin'] });
   if (!authResult.success) {
     return new Response(
@@ -174,14 +177,14 @@ export const DELETE: APIRoute = async ({ params, request }) => {
     const { id } = params;
 
     // Remove trip_id from associated flights
-    await db.execute(`
+    await executeQuery(`
       UPDATE flights 
       SET trip_id = NULL
       WHERE trip_id = ?
     `, [id]);
 
     // Soft delete the trip
-    await db.execute(`
+    await executeQuery(`
       UPDATE trips 
       SET is_active = 0, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?

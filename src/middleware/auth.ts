@@ -55,7 +55,14 @@ function extractAuthToken(request: Request): string | null {
   //check for token in cookie (for web sessions)
   const cookies = request.headers.get('Cookie');
   if (cookies) {
-    const match = cookies.match(/(?:^|; )auth-token=([^;]*)/);
+    // Check for auth-token first (legacy)
+    let match = cookies.match(/(?:^|; )auth-token=([^;]*)/);
+    if (match) {
+      return decodeURIComponent(match[1]);
+    }
+    
+    // Check for session cookie (new format)
+    match = cookies.match(/(?:^|; )session=([^;]*)/);
     if (match) {
       return decodeURIComponent(match[1]);
     }

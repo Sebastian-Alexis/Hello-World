@@ -38,6 +38,9 @@ export {
   optimizedQueries,
 } from './optimized-queries';
 
+//database queries instance
+export { db } from './queries';
+
 //full-text search optimization
 export {
   SearchOptimization,
