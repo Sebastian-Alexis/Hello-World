@@ -16,7 +16,8 @@ export const onRequest = defineMiddleware(async (context, next) => {
     '/api/admin/media/upload',
     '/api/admin/blog',
     '/api/admin/blog-simple',
-    '/api/flights/trips'
+    '/api/flights/trips',
+    '/api/flights/fetch'
   ];
   const isExcludedRoute = excludedPaths.some(path => context.url.pathname.includes(path));
   

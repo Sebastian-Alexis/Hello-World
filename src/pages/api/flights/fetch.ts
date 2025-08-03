@@ -47,6 +47,7 @@ export const POST: APIRoute = async ({ request }) => {
     );
 
     if (!departureAirport || !arrivalAirport) {
+      console.log('Airport lookup failed, sending 404');
       return new Response(
         JSON.stringify({
           success: false,
@@ -60,24 +61,30 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // Map the flight data to our schema
+    console.log('Mapping flight data to schema...');
     const mappedData = mapAviationstackToFlightData(
       flightData,
       departureAirport.id,
       arrivalAirport.id
     );
+    console.log('Mapped data:', mappedData);
 
+    const responseData = {
+      success: true,
+      data: {
+        ...mappedData,
+        // Include airport names for display
+        departure_airport_name: departureAirport.name,
+        departure_iata: departureAirport.iata_code,
+        arrival_airport_name: arrivalAirport.name,
+        arrival_iata: arrivalAirport.iata_code,
+      },
+    };
+    
+    console.log('Sending success response:', responseData);
+    
     return new Response(
-      JSON.stringify({
-        success: true,
-        data: {
-          ...mappedData,
-          // Include airport names for display
-          departure_airport_name: departureAirport.name,
-          departure_iata: departureAirport.iata_code,
-          arrival_airport_name: arrivalAirport.name,
-          arrival_iata: arrivalAirport.iata_code,
-        },
-      }),
+      JSON.stringify(responseData),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },

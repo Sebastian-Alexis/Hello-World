@@ -1,0 +1,153 @@
+{
+  "timestamp": "2025-08-03T18:04:59.211Z",
+  "apiKey": "aaa91efc...",
+  "results": {
+    "connection": {
+      "success": true,
+      "status": 200,
+      "statusText": "OK",
+      "data": {
+        "pagination": {
+          "limit": 1,
+          "offset": 0,
+          "count": 1,
+          "total": 233836
+        },
+        "data": [
+          {
+            "flight_date": "2025-08-04",
+            "flight_status": "scheduled",
+            "departure": {
+              "airport": "Tan Son Nhat International",
+              "timezone": "Asia/Ho_Chi_Minh",
+              "iata": "SGN",
+              "icao": "VVTS",
+              "terminal": "1",
+              "gate": null,
+              "delay": null,
+              "scheduled": "2025-08-04T06:20:00+00:00",
+              "estimated": "2025-08-04T06:20:00+00:00",
+              "actual": null,
+              "estimated_runway": null,
+              "actual_runway": null
+            },
+            "arrival": {
+              "airport": "Coong",
+              "timezone": "Asia/Ho_Chi_Minh",
+              "iata": "VCS",
+              "icao": "VVCS",
+              "terminal": null,
+              "gate": null,
+              "baggage": null,
+              "scheduled": "2025-08-04T07:10:00+00:00",
+              "delay": null,
+              "estimated": null,
+              "actual": null,
+              "estimated_runway": null,
+              "actual_runway": null
+            },
+            "airline": {
+              "name": "Vietnam Airlines",
+              "iata": "VN",
+              "icao": "HVN"
+            },
+            "flight": {
+              "number": "1853",
+              "iata": "VN1853",
+              "icao": "HVN1853",
+              "codeshared": null
+            },
+            "aircraft": null,
+            "live": null
+          }
+        ]
+      },
+      "headers": {
+        "access-control-allow-headers": "*",
+        "access-control-allow-methods": "GET, POST, HEAD, OPTIONS",
+        "access-control-allow-origin": "*",
+        "cache-control": "no-cache, private",
+        "cf-cache-status": "DYNAMIC",
+        "cf-ray": "9697bd2fcf0f25da-LAX",
+        "connection": "keep-alive",
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Sun, 03 Aug 2025 18:04:43 GMT",
+        "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+        "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=UQzJqRthtcTPRza0kwR6tSP7IWmH%2Bb%2BIG19XvBqTnkVfBNh2AjHIa%2B8Rt4sYLGmDdT8DoEfPfaGF7%2BvPA1VgSR6BEJ%2BqYvyyB4U2sfAsyM8a5At7\"}]}",
+        "server": "cloudflare",
+        "transfer-encoding": "chunked",
+        "x-apilayer-transaction-id": "bf123e0a-a5bd-43bf-b522-27434ee2287d",
+        "x-increment-usage": "1",
+        "x-quota-limit": "100",
+        "x-quota-remaining": "86",
+        "x-request-time": "0.092, 0.125"
+      }
+    },
+    "environment": true,
+    "endpoints": [],
+    "flights": [
+      {
+        "flight": "AA1",
+        "airline": "American Airlines",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      },
+      {
+        "flight": "UA1",
+        "airline": "United Airlines",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      },
+      {
+        "flight": "DL1",
+        "airline": "Delta Airlines",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      },
+      {
+        "flight": "BA1",
+        "airline": "British Airways",
+        "success": false,
+        "method": null,
+        "error": null
+      },
+      {
+        "flight": "LH1",
+        "airline": "Lufthansa",
+        "success": false,
+        "method": null,
+        "error": null
+      },
+      {
+        "flight": "AF1",
+        "airline": "Air France",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      },
+      {
+        "flight": "EK1",
+        "airline": "Emirates",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      },
+      {
+        "flight": "QF1",
+        "airline": "Qantas",
+        "success": true,
+        "method": "By Flight IATA",
+        "error": null
+      }
+    ],
+    "summary": {
+      "total": 8,
+      "successful": 6,
+      "failed": 2
+    }
+  }
+}

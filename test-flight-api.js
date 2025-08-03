@@ -14,38 +14,78 @@ if (!process.env.AVIATION_STACK_API) {
   console.log('✅ AVIATION_STACK_API environment variable is set');
 }
 
-// Test API endpoint
+// Test API endpoint with multiple scenarios
 const testFlightData = async () => {
   console.log('\n📡 Testing aviationstack API...');
   
-  const testFlightNumber = 'AA100'; // American Airlines flight 100
   const apiKey = process.env.AVIATION_STACK_API;
+  const testFlights = ['AA100', 'UA1', 'DL1'];
   
-  try {
-    const response = await fetch(
-      `https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_iata=${testFlightNumber}&limit=1`
-    );
+  for (const testFlightNumber of testFlights) {
+    console.log(`\n🔍 Testing flight: ${testFlightNumber}`);
     
-    if (!response.ok) {
-      throw new Error(`API returned status ${response.status}`);
+    try {
+      const url = `https://api.aviationstack.com/v1/flights?access_key=${apiKey}&flight_iata=${testFlightNumber}&limit=1`;
+      console.log('   Request URL:', url.replace(apiKey, 'API_KEY_HIDDEN'));
+      
+      const response = await fetch(url);
+      
+      console.log('   Response status:', response.status, response.statusText);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.log('   Error response:', errorText);
+        continue;
+      }
+      
+      const data = await response.json();
+      
+      if (data.error) {
+        console.log('   API Error:', data.error.code, '-', data.error.message);
+        
+        // Provide specific guidance based on error
+        switch (data.error.code) {
+          case 'invalid_access_key':
+            console.log('   💡 Solution: Check that your API key is correct');
+            break;
+          case 'missing_access_key':
+            console.log('   💡 Solution: Ensure AVIATION_STACK_API is set in .env file');
+            break;
+          case 'function_access_restricted':
+            console.log('   💡 Solution: This feature requires a paid Aviation Stack plan');
+            break;
+          case 'usage_limit_reached':
+            console.log('   💡 Solution: You have reached your monthly API limit');
+            break;
+          case 'rate_limit_reached':
+            console.log('   💡 Solution: You are making requests too quickly');
+            break;
+        }
+        continue;
+      }
+      
+      if (data.data && data.data.length > 0) {
+        const flight = data.data[0];
+        console.log('   ✅ Flight found!');
+        console.log('   Flight:', flight.flight.iata);
+        console.log('   Airline:', flight.airline.name);
+        console.log('   Route:', `${flight.departure.iata} → ${flight.arrival.iata}`);
+        console.log('   Status:', flight.flight_status);
+        console.log('   Date:', flight.flight_date);
+        
+        // Test successful - break early
+        console.log('\n✅ API connection fully verified!');
+        return;
+      } else {
+        console.log(`   ⚠️  No flights found for ${testFlightNumber}`);
+      }
+    } catch (error) {
+      console.log('   ❌ Request failed:', error.message);
     }
-    
-    const data = await response.json();
-    
-    if (data.error) {
-      throw new Error(data.error.message || 'API error');
-    }
-    
-    if (data.data && data.data.length > 0) {
-      console.log('✅ API connection successful!');
-      console.log('Found flight:', data.data[0].flight.iata);
-      console.log('Airline:', data.data[0].airline.name);
-    } else {
-      console.log('⚠️  API connected but no flights found for', testFlightNumber);
-    }
-  } catch (error) {
-    console.error('❌ API test failed:', error.message);
   }
+  
+  console.log('\n⚠️  API tests completed but no successful flight data retrieved');
+  console.log('This could be normal if the test flights are not currently scheduled');
 };
 
 // Test database connection
