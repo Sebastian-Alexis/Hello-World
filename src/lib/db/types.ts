@@ -512,8 +512,17 @@ export interface FlightForm {
   airline_code?: string;
   airline_name?: string;
   aircraft_type?: string;
-  departure_airport_id: number;
-  arrival_airport_id: number;
+  // Airport data - support both ID and IATA code approaches
+  departure_airport_id?: number;
+  arrival_airport_id?: number;
+  departure_iata?: string;
+  departure_airport_name?: string;
+  departure_city?: string;
+  departure_country?: string;
+  arrival_iata?: string;
+  arrival_airport_name?: string;
+  arrival_city?: string;
+  arrival_country?: string;
   departure_time: string;
   arrival_time: string;
   seat_number?: string;

@@ -246,6 +246,7 @@ try {
             <div class="flex gap-2">
               <input
                 type="text"
+                name="flights[${flightId}][flight_number]"
                 class="flight-number flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., AA1, UA1, DL1, EK1"
                 required
@@ -270,12 +271,13 @@ try {
             <label class="block text-sm font-medium mb-2">Airline <span class="text-red-500">*</span></label>
             <input
               type="text"
+              name="flights[${flightId}][airline_name]"
               class="airline-name w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="e.g., American Airlines, United"
               list="airlines-list"
               required
             />
-            <input type="hidden" class="airline-code">
+            <input type="hidden" name="flights[${flightId}][airline_code]" class="airline-code">
           </div>
 
           <!-- Origin and Destination -->
@@ -284,6 +286,7 @@ try {
               <label class="block text-sm font-medium mb-2">Departure Airport <span class="text-red-500">*</span></label>
               <input
                 type="text"
+                name="flights[${flightId}][departure_airport]"
                 class="departure-airport w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Search airport name or code..."
                 list="airports-list"
@@ -296,6 +299,7 @@ try {
               <label class="block text-sm font-medium mb-2">Arrival Airport <span class="text-red-500">*</span></label>
               <input
                 type="text"
+                name="flights[${flightId}][arrival_airport]"
                 class="arrival-airport w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Search airport name or code..."
                 list="airports-list"
@@ -311,6 +315,7 @@ try {
               <label class="block text-sm font-medium mb-2">Departure Time <span class="text-red-500">*</span></label>
               <input
                 type="datetime-local"
+                name="flights[${flightId}][departure_time]"
                 class="departure-time w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -320,6 +325,7 @@ try {
               <label class="block text-sm font-medium mb-2">Arrival Time <span class="text-red-500">*</span></label>
               <input
                 type="datetime-local"
+                name="flights[${flightId}][arrival_time]"
                 class="arrival-time w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
@@ -332,6 +338,7 @@ try {
               <label class="block text-sm font-medium mb-2">Aircraft Type (Optional)</label>
               <input
                 type="text"
+                name="flights[${flightId}][aircraft_type]"
                 class="aircraft-type w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., Boeing 737, Airbus A320"
               />
@@ -341,6 +348,7 @@ try {
               <label class="block text-sm font-medium mb-2">Seat Number (Optional)</label>
               <input
                 type="text"
+                name="flights[${flightId}][seat_number]"
                 class="seat-number w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="e.g., 12A, 27F"
               />
@@ -370,8 +378,14 @@ try {
       const departureIdInput = flightForm.querySelector('.departure-airport-id');
       const arrivalIdInput = flightForm.querySelector('.arrival-airport-id');
       
-      departureInput.addEventListener('change', () => updateAirportId(departureInput, departureIdInput));
-      arrivalInput.addEventListener('change', () => updateAirportId(arrivalInput, arrivalIdInput));
+      departureInput.addEventListener('change', () => {
+        console.log('🔄 Departure airport changed manually:', departureInput.value);
+        updateAirportId(departureInput, departureIdInput);
+      });
+      arrivalInput.addEventListener('change', () => {
+        console.log('🔄 Arrival airport changed manually:', arrivalInput.value);
+        updateAirportId(arrivalInput, arrivalIdInput);
+      });
       
       // Airline input handling
       const airlineInput = flightForm.querySelector('.airline-name');
@@ -392,8 +406,21 @@ try {
       const datalist = document.getElementById('airports-list');
       const option = Array.from(datalist.options).find(opt => opt.value === value);
       
+      console.log('🔍 updateAirportId called:', {
+        input_value: value,
+        input_name: input.className,
+        hidden_field_name: idInput.name,
+        option_found: !!option,
+        option_data_id: option?.dataset?.id
+      });
+      
       if (option) {
         idInput.value = option.dataset.id;
+        console.log('✅ Airport ID set from datalist option:', {
+          airport_id: option.dataset.id,
+          hidden_field_name: idInput.name,
+          hidden_field_value: idInput.value
+        });
       } else {
         // Try to find by IATA code only
         const iataMatch = value.match(/^([A-Z]{3})/);
@@ -401,28 +428,79 @@ try {
           const airport = window.airportsData.find(a => a.iata_code === iataMatch[1]);
           if (airport) {
             idInput.value = airport.id;
+            console.log('✅ Airport ID set from IATA match:', {
+              iata_code: iataMatch[1],
+              airport_id: airport.id,
+              hidden_field_name: idInput.name,
+              hidden_field_value: idInput.value
+            });
+          } else {
+            console.log('❌ No airport found for IATA code:', iataMatch[1]);
           }
+        } else {
+          console.log('❌ No valid IATA code found in input:', value);
         }
       }
+      
+      // Debug the final state
+      console.log('🎯 Final hidden field state:', {
+        field_name: idInput.name,
+        field_value: idInput.value,
+        is_valid: idInput.value && !isNaN(parseInt(idInput.value))
+      });
     }
 
     // Add a new flight form
     function addFlight() {
+      console.log('🚀 addFlight called');
       const container = document.getElementById('flights-container');
+      if (!container) {
+        console.error('❌ Cannot find flights-container!');
+        return;
+      }
+      
       const flightId = flightCounter++;
+      console.log('📝 Creating flight form with ID:', flightId);
       
       const flightDiv = document.createElement('div');
-      flightDiv.innerHTML = createFlightFormHTML(flightId);
+      const formHTML = createFlightFormHTML(flightId);
+      console.log('📄 Form HTML length:', formHTML.length);
+      console.log('📄 Form HTML preview:', formHTML.substring(0, 200) + '...');
+      
+      flightDiv.innerHTML = formHTML;
       const flightForm = flightDiv.firstElementChild;
       
+      if (!flightForm) {
+        console.error('❌ Failed to create flight form element');
+        return;
+      }
+      
+      // Debug the generated form fields
+      const depIataField = flightForm.querySelector('.departure-iata');
+      const arrIataField = flightForm.querySelector('.arrival-iata');
+      console.log('➕ Added new flight form:', {
+        flight_id: flightId,
+        departure_iata_field: depIataField?.name,
+        arrival_iata_field: arrIataField?.name,
+        form_html_preview: flightDiv.innerHTML.substring(0, 200) + '...'
+      });
+      
       container.appendChild(flightForm);
+      console.log('✅ Flight form appended to container');
+      console.log('📊 Container now has', container.children.length, 'flight forms');
+      
       addFlightEventListeners(flightForm);
       
       flights.push(flightId);
       updateFlightLabels();
       
       // Focus on the flight number input
-      flightForm.querySelector('.flight-number').focus();
+      const flightNumberInput = flightForm.querySelector('.flight-number');
+      if (flightNumberInput) {
+        flightNumberInput.focus();
+      } else {
+        console.error('❌ Could not find flight number input to focus');
+      }
     }
 
     // Remove a flight form
@@ -465,8 +543,28 @@ try {
     document.addEventListener('DOMContentLoaded', function() {
       console.log('DOM loaded, initializing dynamic flight trip form...');
       
+      // Debug airports data availability
+      console.log('🌍 Airports data loaded:', {
+        airports_count: window.airportsData?.length || 0,
+        sample_airports: window.airportsData?.slice(0, 3) || [],
+        datalist_options: document.getElementById('airports-list')?.options?.length || 0
+      });
+      
+      // Check if container exists
+      const container = document.getElementById('flights-container');
+      if (!container) {
+        console.error('❌ flights-container not found!');
+        return;
+      }
+      console.log('✅ flights-container found:', container);
+      
       // Add initial flight form
-      addFlight();
+      try {
+        addFlight();
+        console.log('✅ Initial flight form added successfully');
+      } catch (error) {
+        console.error('❌ Error adding initial flight form:', error);
+      }
       
       // Add flight button handler
       const addFlightBtn = document.getElementById('add-flight-btn');
@@ -547,7 +645,16 @@ try {
                 
                 if (depResponse.ok) {
                   const depResult = await depResponse.json();
-                  flightForm.querySelector('.departure-airport-id').value = depResult.data.id;
+                  const depIdField = flightForm.querySelector('.departure-airport-id');
+                  depIdField.value = depResult.data.id;
+                  
+                  console.log('🛬 Departure airport lookup result:', {
+                    iata_code: data.departure_iata,
+                    airport_id: depResult.data.id,
+                    created: depResult.created,
+                    hidden_field_name: depIdField.name,
+                    hidden_field_value: depIdField.value
+                  });
                   
                   // Update our local airports data if it was created
                   if (depResult.created) {
@@ -581,7 +688,16 @@ try {
                 
                 if (arrResponse.ok) {
                   const arrResult = await arrResponse.json();
-                  flightForm.querySelector('.arrival-airport-id').value = arrResult.data.id;
+                  const arrIdField = flightForm.querySelector('.arrival-airport-id');
+                  arrIdField.value = arrResult.data.id;
+                  
+                  console.log('🛫 Arrival airport lookup result:', {
+                    iata_code: data.arrival_iata,
+                    airport_id: arrResult.data.id,
+                    created: arrResult.created,
+                    hidden_field_name: arrIdField.name,
+                    hidden_field_value: arrIdField.value
+                  });
                   
                   // Update our local airports data if it was created
                   if (arrResult.created) {
@@ -692,29 +808,80 @@ try {
           let hasErrors = false;
           const errors = [];
           
+          // Log all hidden fields before validation
+          console.log('📋 Form submission - All hidden airport ID fields:');
+          document.querySelectorAll('input[type="hidden"]').forEach((field, index) => {
+            if (field.name && (field.name.includes('airport_id'))) {
+              console.log(`Hidden field ${index + 1}:`, {
+                name: field.name,
+                value: field.value,
+                is_empty: !field.value,
+                is_nan: isNaN(parseInt(field.value))
+              });
+            }
+          });
+          
+          // Check FormData collection approach
+          const debugFormData = new FormData(form);
+          console.log('📝 FormData contents:');
+          for (let [key, value] of debugFormData.entries()) {
+            if (key.includes('airport_id')) {
+              console.log(`FormData - ${key}: ${value}`);
+            }
+          }
+
           // Validate and collect data from each flight form
           for (let i = 0; i < flightForms.length; i++) {
             const flightForm = flightForms[i];
             const flightNumber = i + 1;
             
-            // Get all input values
-            const depAirportIdValue = flightForm.querySelector('.departure-airport-id').value;
-            const arrAirportIdValue = flightForm.querySelector('.arrival-airport-id').value;
+            // Get all input values with detailed debugging
+            const depAirportInput = flightForm.querySelector('.departure-airport');
+            const arrAirportInput = flightForm.querySelector('.arrival-airport');
+            const depAirportIdField = flightForm.querySelector('.departure-airport-id');
+            const arrAirportIdField = flightForm.querySelector('.arrival-airport-id');
             
-            console.log(`Flight ${flightNumber} airport IDs:`, {
-              departure_id_raw: depAirportIdValue,
-              arrival_id_raw: arrAirportIdValue,
-              departure_id_parsed: parseInt(depAirportIdValue),
-              arrival_id_parsed: parseInt(arrAirportIdValue)
+            console.log(`✈️ Flight ${flightNumber} detailed field analysis:`, {
+              departure_airport_text: depAirportInput?.value,
+              arrival_airport_text: arrAirportInput?.value,
+              departure_id_field_name: depAirportIdField?.name,
+              departure_id_field_value: depAirportIdField?.value,
+              arrival_id_field_name: arrAirportIdField?.name,
+              arrival_id_field_value: arrAirportIdField?.value,
+              departure_id_is_valid: depAirportIdField?.value && !isNaN(parseInt(depAirportIdField.value)),
+              arrival_id_is_valid: arrAirportIdField?.value && !isNaN(parseInt(arrAirportIdField.value))
             });
+            
+            const depAirportIdValue = depAirportIdField?.value;
+            const arrAirportIdValue = arrAirportIdField?.value;
+            
+            // Try FormData as fallback for airport IDs if hidden fields are empty
+            let departureAirportId = parseInt(depAirportIdValue);
+            let arrivalAirportId = parseInt(arrAirportIdValue);
+            
+            if (!depAirportIdValue || isNaN(departureAirportId)) {
+              const formDataDepId = formData.get(depAirportIdField?.name);
+              if (formDataDepId) {
+                departureAirportId = parseInt(formDataDepId);
+                console.log('🔧 Using FormData fallback for departure airport ID:', formDataDepId);
+              }
+            }
+            
+            if (!arrAirportIdValue || isNaN(arrivalAirportId)) {
+              const formDataArrId = formData.get(arrAirportIdField?.name);
+              if (formDataArrId) {
+                arrivalAirportId = parseInt(formDataArrId);
+                console.log('🔧 Using FormData fallback for arrival airport ID:', formDataArrId);
+              }
+            }
             
             const flight = {
               flight_number: flightForm.querySelector('.flight-number').value.trim(),
               airline_code: flightForm.querySelector('.airline-code').value || null,
               airline_name: flightForm.querySelector('.airline-name').value.trim(),
               aircraft_type: flightForm.querySelector('.aircraft-type').value.trim() || null,
-              departure_airport_id: parseInt(depAirportIdValue),
-              arrival_airport_id: parseInt(arrAirportIdValue),
+              departure_airport_id: departureAirportId,
+              arrival_airport_id: arrivalAirportId,
               departure_time: flightForm.querySelector('.departure-time').value,
               arrival_time: flightForm.querySelector('.arrival-time').value,
               seat_number: flightForm.querySelector('.seat-number').value.trim() || null,
@@ -732,12 +899,12 @@ try {
             }
             
             if (!flight.departure_airport_id || isNaN(flight.departure_airport_id)) {
-              errors.push(`Flight ${flightNumber}: Please select a valid departure airport`);
+              errors.push(`Flight ${flightNumber}: Please select a valid departure airport (ID: ${flight.departure_airport_id})`);
               hasErrors = true;
             }
             
             if (!flight.arrival_airport_id || isNaN(flight.arrival_airport_id)) {
-              errors.push(`Flight ${flightNumber}: Please select a valid arrival airport`);
+              errors.push(`Flight ${flightNumber}: Please select a valid arrival airport (ID: ${flight.arrival_airport_id})`);
               hasErrors = true;
             }
             
@@ -767,6 +934,11 @@ try {
           }
           
           if (hasErrors) {
+            console.log('❌ Validation errors found:', {
+              total_errors: errors.length,
+              errors_list: errors,
+              flights_processed: flightData.length
+            });
             throw new Error(errors.join('\\n'));
           }
           
@@ -785,7 +957,19 @@ try {
             flights: flightData
           };
 
-          console.log('Submitting trip data:', tripData);
+          console.log('🚀 Final trip data being submitted:', {
+            trip_name: tripData.name,
+            flights_count: tripData.flights.length,
+            flights_summary: tripData.flights.map((flight, idx) => ({
+              flight_number: `Flight ${idx + 1}: ${flight.flight_number}`,
+              departure_airport_id: flight.departure_airport_id,
+              arrival_airport_id: flight.arrival_airport_id,
+              departure_id_valid: Number.isInteger(flight.departure_airport_id),
+              arrival_id_valid: Number.isInteger(flight.arrival_airport_id)
+            }))
+          });
+          
+          console.log('🔍 Full trip data object:', JSON.stringify(tripData, null, 2));
 
           const response = await fetch('/api/flights/trips', {
             method: 'POST',

@@ -1,79 +1,134 @@
-#!/usr/bin/env node
+// Debug script to test airport lookup functionality
+// This script can be run in the browser console to test the airport form logic
 
-// Simple test script to verify airport lookup and creation functionality
-import { DatabaseQueries } from './src/lib/db/queries.js';
+console.log('🧪 Airport Debug Script Loaded');
 
-const db = new DatabaseQueries();
-
-async function testAirportLookup() {
-  console.log('🧪 Testing airport lookup and creation functionality...\n');
+// Test function to simulate airport selection
+function testAirportSelection() {
+  console.log('🔬 Testing Airport Selection Logic...');
   
-  try {
-    // Test 1: Find existing airport
-    console.log('1. Testing existing airport lookup (LAX)...');
-    const existingAirport = await db.findAirportByIata('LAX');
-    if (existingAirport) {
-      console.log('✅ Found existing airport:', existingAirport.name);
-    } else {
-      console.log('❌ LAX not found - check if database is seeded');
+  // Check if airports data is loaded
+  console.log('📊 Airports Data Check:', {
+    available: !!window.airportsData,
+    count: window.airportsData?.length || 0,
+    sample: window.airportsData?.slice(0, 2) || []
+  });
+  
+  // Check datalist options
+  const datalist = document.getElementById('airports-list');
+  console.log('📋 Datalist Check:', {
+    exists: !!datalist,
+    options_count: datalist?.options?.length || 0,
+    first_option: datalist?.options?.[0] ? {
+      value: datalist.options[0].value,
+      data_id: datalist.options[0].dataset.id
+    } : null
+  });
+  
+  // Test airport ID fields
+  const airportIdFields = document.querySelectorAll('input[type="hidden"]');
+  console.log('🏷️ Hidden Fields Check:');
+  airportIdFields.forEach((field, index) => {
+    if (field.name && field.name.includes('airport_id')) {
+      console.log(`Field ${index + 1}:`, {
+        name: field.name,
+        value: field.value,
+        class: field.className,
+        parent_form: field.closest('.flight-form')?.dataset?.flightId
+      });
     }
-
-    // Test 2: Try to find non-existent airport
-    console.log('\n2. Testing non-existent airport lookup (ZZZ)...');
-    const nonExistentAirport = await db.findAirportByIata('ZZZ');
-    if (!nonExistentAirport) {
-      console.log('✅ Correctly returned null for non-existent airport');
-    } else {
-      console.log('❌ Unexpected result - ZZZ should not exist');
-    }
-
-    // Test 3: Create new airport using findOrCreateAirport
-    console.log('\n3. Testing airport creation (TEST)...');
-    const testAirportData = {
-      iata_code: 'TEST',
-      name: 'Test Airport for Development',
-      city: 'Test City',
-      country: 'Test Country',
-      latitude: 40.0,
-      longitude: -74.0
-    };
-
-    const createdAirport = await db.findOrCreateAirport(testAirportData);
-    console.log('✅ Created/found airport:', createdAirport.name, `(ID: ${createdAirport.id})`);
-
-    // Test 4: Verify idempotency - calling again should return same airport
-    console.log('\n4. Testing idempotency (TEST again)...');
-    const sameAirport = await db.findOrCreateAirport(testAirportData);
-    if (sameAirport.id === createdAirport.id) {
-      console.log('✅ Correctly returned existing airport on second call');
-    } else {
-      console.log('❌ Created duplicate airport - idempotency failed');
-    }
-
-    // Test 5: Get all airports to see current count
-    console.log('\n5. Current airports in database...');
-    const allAirports = await db.searchAirports();
-    console.log(`✅ Total airports: ${allAirports.length}`);
-    allAirports.slice(0, 5).forEach((airport, index) => {
-      console.log(`   ${index + 1}. ${airport.iata_code} - ${airport.name}`);
+  });
+  
+  // Test manual airport selection
+  const firstDepInput = document.querySelector('.departure-airport');
+  const firstDepIdInput = document.querySelector('.departure-airport-id');
+  
+  if (firstDepInput && firstDepIdInput && datalist && datalist.options.length > 0) {
+    console.log('🧪 Testing manual airport selection...');
+    const testOption = datalist.options[0];
+    
+    console.log('Before selection:', {
+      input_value: firstDepInput.value,
+      hidden_value: firstDepIdInput.value
     });
-    if (allAirports.length > 5) {
-      console.log(`   ... and ${allAirports.length - 5} more`);
-    }
-
-    console.log('\n🎉 All tests completed successfully!');
-    console.log('\n📋 Summary:');
-    console.log('   - Airport lookup by IATA code: ✅');
-    console.log('   - Non-existent airport handling: ✅');
-    console.log('   - Airport creation: ✅');
-    console.log('   - Idempotency: ✅');
-    console.log(`   - Database contains ${allAirports.length} airports`);
-
-  } catch (error) {
-    console.error('❌ Test failed:', error.message);
-    console.error('Full error:', error);
+    
+    // Simulate selection
+    firstDepInput.value = testOption.value;
+    firstDepInput.dispatchEvent(new Event('change'));
+    
+    console.log('After selection:', {
+      input_value: firstDepInput.value,
+      hidden_value: firstDepIdInput.value,
+      expected_id: testOption.dataset.id
+    });
   }
 }
 
-// Run the test
-testAirportLookup().catch(console.error);
+// Test function to validate form submission data
+function testFormSubmissionData() {
+  console.log('📝 Testing Form Submission Data Collection...');
+  
+  const form = document.getElementById('trip-form');
+  if (!form) {
+    console.log('❌ Form not found');
+    return;
+  }
+  
+  const formData = new FormData(form);
+  console.log('FormData entries:');
+  for (let [key, value] of formData.entries()) {
+    console.log(`${key}: ${value}`);
+  }
+  
+  // Test flight data collection
+  const flightForms = document.querySelectorAll('.flight-form');
+  console.log(`Found ${flightForms.length} flight forms`);
+  
+  flightForms.forEach((flightForm, index) => {
+    const depIdField = flightForm.querySelector('.departure-airport-id');
+    const arrIdField = flightForm.querySelector('.arrival-airport-id');
+    
+    console.log(`Flight ${index + 1} data:`, {
+      departure_id: depIdField?.value,
+      arrival_id: arrIdField?.value,
+      departure_name: depIdField?.name,
+      arrival_name: arrIdField?.name,
+      departure_valid: !!(depIdField?.value && !isNaN(parseInt(depIdField.value))),
+      arrival_valid: !!(arrIdField?.value && !isNaN(parseInt(arrIdField.value)))
+    });
+  });
+}
+
+// Test function to simulate flight fetch
+function testFlightFetch() {
+  console.log('✈️ Testing Flight Fetch Logic...');
+  
+  const firstFlightForm = document.querySelector('.flight-form');
+  if (!firstFlightForm) {
+    console.log('❌ No flight form found');
+    return;
+  }
+  
+  const flightNumberInput = firstFlightForm.querySelector('.flight-number');
+  if (flightNumberInput) {
+    flightNumberInput.value = 'AA1';
+    console.log('Set test flight number: AA1');
+    
+    // Simulate clicking fetch button
+    const fetchBtn = firstFlightForm.querySelector('.fetch-flight-btn');
+    if (fetchBtn) {
+      console.log('Simulating fetch button click...');
+      fetchBtn.click();
+    }
+  }
+}
+
+// Export functions to global scope for console access
+window.testAirportSelection = testAirportSelection;
+window.testFormSubmissionData = testFormSubmissionData;
+window.testFlightFetch = testFlightFetch;
+
+console.log('🎯 Debug functions available:');
+console.log('- testAirportSelection() - Test airport selection logic');
+console.log('- testFormSubmissionData() - Test form data collection');
+console.log('- testFlightFetch() - Test flight API fetch');

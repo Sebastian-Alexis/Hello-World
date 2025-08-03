@@ -2,6 +2,42 @@ import type { APIRoute } from 'astro';
 import { db } from '@/lib/db';
 import { executeQuery } from '@/lib/db';
 
+// Helper function for geocoding airports
+async function geocodeAirport(iataCode: string, airportName: string, city: string, country: string) {
+  try {
+    // Try to get coordinates from a geocoding service
+    // Using OpenStreetMap Nominatim as a free alternative
+    const query = encodeURIComponent(`${airportName} ${city} airport`);
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&addressdetails=1`,
+      { 
+        headers: { 'User-Agent': 'FlightTracker/1.0' }
+      }
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (data && data.length > 0) {
+        const result = data[0];
+        return {
+          latitude: parseFloat(result.lat) || 0.0,
+          longitude: parseFloat(result.lon) || 0.0,
+          country_code: result.address?.country_code?.toUpperCase() || 'XX'
+        };
+      }
+    }
+  } catch (error) {
+    console.warn(`Geocoding failed for ${iataCode} - ${airportName}:`, error.message);
+  }
+  
+  // Fallback to default coordinates
+  return {
+    latitude: 0.0,
+    longitude: 0.0,
+    country_code: 'XX'
+  };
+}
+
 export const POST: APIRoute = async ({ request }) => {
   try {
     const { iata_code, name, city, country } = await request.json();
@@ -51,24 +87,29 @@ export const POST: APIRoute = async ({ request }) => {
       airportCity = parts[0].trim();
     }
 
-    // Create the new airport with placeholder coordinates
-    // In a real app, you'd want to geocode these or get them from a proper source
+    // Geocode the airport location
+    const coordinates = await geocodeAirport(iata_code, name, airportCity, airportCountry);
+    
+    // Create the new airport with geocoded coordinates
     const result = await executeQuery(
       `INSERT INTO airports (
         iata_code, name, city, country, country_code,
         latitude, longitude, type, is_active,
+        has_visited, visit_count,
         created_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`,
       [
         iata_code,
         name,
         airportCity,
         airportCountry,
-        'XX', // Placeholder country code
-        0.0,  // Placeholder latitude
-        0.0,  // Placeholder longitude
+        coordinates.country_code,
+        coordinates.latitude,
+        coordinates.longitude,
         'airport',
-        1
+        1,
+        false,
+        0
       ]
     );
 
