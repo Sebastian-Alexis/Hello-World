@@ -76,86 +76,28 @@ try {
           </div>
         </div>
 
-        <!-- Flight Details Section -->
+        <!-- Flights Section -->
         <div class="border-t pt-6">
-          <h3 class="text-lg font-semibold mb-4">Flight Details</h3>
-          
-          <!-- Flight Number and Fetch Button -->
-          <div class="mb-4">
-            <label for="flight_number" class="block text-sm font-medium mb-2">
-              Flight Number <span class="text-red-500">*</span>
-            </label>
-            <div class="flex gap-2">
-              <Input
-                id="flight_number"
-                name="flight_number"
-                type="text"
-                required
-                placeholder="e.g., AA1, UA1, DL1, EK1"
-                class="flex-1"
-              />
-              <Button type="button" variant="secondary" id="fetch-flight-btn" title="Fetches the most recent flight data for the flight number">
-                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                </svg>
-                Fetch Flight Data
-              </Button>
-            </div>
-            <p class="text-sm text-gray-500 mt-1">
-              <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold">Flight Details</h3>
+            <Button type="button" variant="secondary" id="add-flight-btn">
+              <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
               </svg>
-              Fetches real-time flight data. Try these working examples: AA1, UA1, DL1, AF1, EK1, QF1 (free plan returns current schedules only).
-            </p>
+              Add Flight
+            </Button>
           </div>
-
-          <!-- Airline -->
-          <div class="mb-4">
-            <Input
-              id="airline_name"
-              name="airline_name"
-              type="text"
-              required
-              label="Airline"
-              placeholder="e.g., American Airlines, United"
-              list="airlines-list"
-            />
-            <input type="hidden" name="airline_code" id="airline_code">
-            <datalist id="airlines-list">
-              {airlines.map(airline => (
-                <option value={airline.name} data-code={airline.iata_code}>{airline.name}</option>
-              ))}
-            </datalist>
+          
+          <div id="flights-container">
+            <!-- Initial flight form will be inserted here by JavaScript -->
           </div>
-
-          <!-- Origin and Destination -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <Input
-                id="departure_airport"
-                name="departure_airport"
-                type="text"
-                required
-                label="Departure Airport"
-                placeholder="Search airport name or code..."
-                list="airports-list"
-              />
-              <input type="hidden" name="departure_airport_id" id="departure_airport_id" required>
-            </div>
-            
-            <div>
-              <Input
-                id="arrival_airport"
-                name="arrival_airport"
-                type="text"
-                required
-                label="Arrival Airport"
-                placeholder="Search airport name or code..."
-                list="airports-list"
-              />
-              <input type="hidden" name="arrival_airport_id" id="arrival_airport_id" required>
-            </div>
-          </div>
+          
+          <!-- Shared data lists for all flights -->
+          <datalist id="airlines-list">
+            {airlines.map(airline => (
+              <option value={airline.name} data-code={airline.iata_code}>{airline.name}</option>
+            ))}
+          </datalist>
           
           <datalist id="airports-list">
             {airports.map(airport => (
@@ -164,52 +106,6 @@ try {
               </option>
             ))}
           </datalist>
-
-          <!-- Departure and Arrival Times -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <Input
-                id="departure_time"
-                name="departure_time"
-                type="datetime-local"
-                required
-                label="Departure Time"
-              />
-            </div>
-            
-            <div>
-              <Input
-                id="arrival_time"
-                name="arrival_time"
-                type="datetime-local"
-                required
-                label="Arrival Time"
-              />
-            </div>
-          </div>
-
-          <!-- Aircraft and Seat -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            <div>
-              <Input
-                id="aircraft_type"
-                name="aircraft_type"
-                type="text"
-                label="Aircraft Type (Optional)"
-                placeholder="e.g., Boeing 737, Airbus A320"
-              />
-            </div>
-            
-            <div>
-              <Input
-                id="seat_number"
-                name="seat_number"
-                type="text"
-                label="Seat Number (Optional)"
-                placeholder="e.g., 12A, 27F"
-              />
-            </div>
-          </div>
         </div>
 
         <div>
@@ -274,6 +170,10 @@ try {
   </script>
 
   <script>
+    // Global flight counter for unique IDs
+    let flightCounter = 0;
+    const flights = [];
+
     // Enhanced notification system
     function showNotification(title, type = 'info', message = '') {
       // Remove existing notifications
@@ -325,45 +225,157 @@ try {
       }, autoRemoveTime);
     }
     
-    document.addEventListener('DOMContentLoaded', function() {
-      console.log('DOM loaded, initializing flight trip form...');
-      const form = document.getElementById('trip-form');
-      const fetchBtn = document.getElementById('fetch-flight-btn');
+    // Create flight form HTML template
+    function createFlightFormHTML(flightId) {
+      return `
+        <div class="flight-form border border-gray-200 rounded-lg p-6 mb-6 bg-gray-50" data-flight-id="${flightId}">
+          <div class="flex justify-between items-center mb-4">
+            <h4 class="text-md font-semibold text-gray-800">Flight ${flightId + 1}</h4>
+            <button type="button" class="remove-flight-btn text-red-600 hover:text-red-800 p-1" ${flightId === 0 ? 'disabled' : ''}>
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+          
+          <!-- Flight Number and Fetch Button -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">
+              Flight Number <span class="text-red-500">*</span>
+            </label>
+            <div class="flex gap-2">
+              <input
+                type="text"
+                class="flight-number flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., AA1, UA1, DL1, EK1"
+                required
+              />
+              <button type="button" class="fetch-flight-btn px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-colors">
+                <svg class="w-4 h-4 mr-2 inline" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Fetch Data
+              </button>
+            </div>
+            <p class="text-sm text-gray-500 mt-1">
+              <svg class="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Fetches real-time flight data. Try: AA1, UA1, DL1, AF1, EK1, QF1
+            </p>
+          </div>
+
+          <!-- Airline -->
+          <div class="mb-4">
+            <label class="block text-sm font-medium mb-2">Airline <span class="text-red-500">*</span></label>
+            <input
+              type="text"
+              class="airline-name w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              placeholder="e.g., American Airlines, United"
+              list="airlines-list"
+              required
+            />
+            <input type="hidden" class="airline-code">
+          </div>
+
+          <!-- Origin and Destination -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Departure Airport <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                class="departure-airport w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search airport name or code..."
+                list="airports-list"
+                required
+              />
+              <input type="hidden" class="departure-airport-id" name="flights[${flightId}][departure_airport_id]" required>
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium mb-2">Arrival Airport <span class="text-red-500">*</span></label>
+              <input
+                type="text"
+                class="arrival-airport w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="Search airport name or code..."
+                list="airports-list"
+                required
+              />
+              <input type="hidden" class="arrival-airport-id" name="flights[${flightId}][arrival_airport_id]" required>
+            </div>
+          </div>
+
+          <!-- Departure and Arrival Times -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Departure Time <span class="text-red-500">*</span></label>
+              <input
+                type="datetime-local"
+                class="departure-time w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium mb-2">Arrival Time <span class="text-red-500">*</span></label>
+              <input
+                type="datetime-local"
+                class="arrival-time w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                required
+              />
+            </div>
+          </div>
+
+          <!-- Aircraft and Seat -->
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label class="block text-sm font-medium mb-2">Aircraft Type (Optional)</label>
+              <input
+                type="text"
+                class="aircraft-type w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., Boeing 737, Airbus A320"
+              />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium mb-2">Seat Number (Optional)</label>
+              <input
+                type="text"
+                class="seat-number w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="e.g., 12A, 27F"
+              />
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // Add event listeners to a flight form
+    function addFlightEventListeners(flightForm) {
+      const flightId = parseInt(flightForm.dataset.flightId);
       
-      console.log('Fetch button found:', fetchBtn);
+      // Remove flight button
+      const removeBtn = flightForm.querySelector('.remove-flight-btn');
+      if (removeBtn && !removeBtn.disabled) {
+        removeBtn.addEventListener('click', () => removeFlight(flightId));
+      }
+      
+      // Fetch flight data button
+      const fetchBtn = flightForm.querySelector('.fetch-flight-btn');
+      fetchBtn.addEventListener('click', () => fetchFlightData(flightId));
       
       // Airport input handling
-      const departureInput = document.getElementById('departure_airport');
-      const arrivalInput = document.getElementById('arrival_airport');
-      const departureIdInput = document.getElementById('departure_airport_id');
-      const arrivalIdInput = document.getElementById('arrival_airport_id');
-      
-      // Update hidden airport ID when airport is selected
-      function updateAirportId(input, idInput) {
-        const value = input.value;
-        const datalist = document.getElementById('airports-list');
-        const option = Array.from(datalist.options).find(opt => opt.value === value);
-        
-        if (option) {
-          idInput.value = option.dataset.id;
-        } else {
-          // Try to find by IATA code only
-          const iataMatch = value.match(/^([A-Z]{3})/);
-          if (iataMatch) {
-            const airport = window.airportsData.find(a => a.iata_code === iataMatch[1]);
-            if (airport) {
-              idInput.value = airport.id;
-            }
-          }
-        }
-      }
+      const departureInput = flightForm.querySelector('.departure-airport');
+      const arrivalInput = flightForm.querySelector('.arrival-airport');
+      const departureIdInput = flightForm.querySelector('.departure-airport-id');
+      const arrivalIdInput = flightForm.querySelector('.arrival-airport-id');
       
       departureInput.addEventListener('change', () => updateAirportId(departureInput, departureIdInput));
       arrivalInput.addEventListener('change', () => updateAirportId(arrivalInput, arrivalIdInput));
       
-      // Airline code handling
-      const airlineInput = document.getElementById('airline_name');
-      const airlineCodeInput = document.getElementById('airline_code');
+      // Airline input handling
+      const airlineInput = flightForm.querySelector('.airline-name');
+      const airlineCodeInput = flightForm.querySelector('.airline-code');
       
       airlineInput.addEventListener('change', function() {
         const datalist = document.getElementById('airlines-list');
@@ -372,292 +384,444 @@ try {
           airlineCodeInput.value = option.dataset.code;
         }
       });
+    }
+
+    // Update hidden airport ID when airport is selected
+    function updateAirportId(input, idInput) {
+      const value = input.value;
+      const datalist = document.getElementById('airports-list');
+      const option = Array.from(datalist.options).find(opt => opt.value === value);
       
-      // Fetch flight data button
-      if (fetchBtn) {
-        console.log('Adding click handler to fetch button');
-        fetchBtn.addEventListener('click', async function() {
-          console.log('=== FETCH BUTTON CLICKED DEBUG ===');
-          console.log('Fetch button clicked!');
-          
-          const rawFlightNumber = document.getElementById('flight_number').value;
-          console.log('Raw flight number input:', rawFlightNumber);
-          
-          const flightNumber = rawFlightNumber.trim().toUpperCase();
-          console.log('Processed flight number:', flightNumber);
-          console.log('Flight number length:', flightNumber.length);
-          
+      if (option) {
+        idInput.value = option.dataset.id;
+      } else {
+        // Try to find by IATA code only
+        const iataMatch = value.match(/^([A-Z]{3})/);
+        if (iataMatch) {
+          const airport = window.airportsData.find(a => a.iata_code === iataMatch[1]);
+          if (airport) {
+            idInput.value = airport.id;
+          }
+        }
+      }
+    }
+
+    // Add a new flight form
+    function addFlight() {
+      const container = document.getElementById('flights-container');
+      const flightId = flightCounter++;
+      
+      const flightDiv = document.createElement('div');
+      flightDiv.innerHTML = createFlightFormHTML(flightId);
+      const flightForm = flightDiv.firstElementChild;
+      
+      container.appendChild(flightForm);
+      addFlightEventListeners(flightForm);
+      
+      flights.push(flightId);
+      updateFlightLabels();
+      
+      // Focus on the flight number input
+      flightForm.querySelector('.flight-number').focus();
+    }
+
+    // Remove a flight form
+    function removeFlight(flightId) {
+      if (flights.length <= 1) {
+        showNotification('Cannot remove flight', 'warning', 'At least one flight is required for a trip.');
+        return;
+      }
+      
+      const flightForm = document.querySelector(`[data-flight-id="${flightId}"]`);
+      if (flightForm) {
+        flightForm.remove();
+        const index = flights.indexOf(flightId);
+        if (index > -1) {
+          flights.splice(index, 1);
+        }
+        updateFlightLabels();
+      }
+    }
+
+    // Update flight labels to show correct numbering
+    function updateFlightLabels() {
+      const flightForms = document.querySelectorAll('.flight-form');
+      flightForms.forEach((form, index) => {
+        const header = form.querySelector('h4');
+        header.textContent = `Flight ${index + 1}`;
+        
+        const removeBtn = form.querySelector('.remove-flight-btn');
+        if (removeBtn) {
+          removeBtn.disabled = flightForms.length <= 1;
+          if (removeBtn.disabled) {
+            removeBtn.classList.add('opacity-50', 'cursor-not-allowed');
+          } else {
+            removeBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+          }
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+      console.log('DOM loaded, initializing dynamic flight trip form...');
+      
+      // Add initial flight form
+      addFlight();
+      
+      // Add flight button handler
+      const addFlightBtn = document.getElementById('add-flight-btn');
+      addFlightBtn.addEventListener('click', addFlight);
+      
+      // Fetch flight data for a specific flight
+      window.fetchFlightData = async function(flightId) {
+        const flightForm = document.querySelector(`[data-flight-id="${flightId}"]`);
+        if (!flightForm) return;
+        
+        const flightNumberInput = flightForm.querySelector('.flight-number');
+        const fetchBtn = flightForm.querySelector('.fetch-flight-btn');
+        
+        const rawFlightNumber = flightNumberInput.value;
+        const flightNumber = rawFlightNumber.trim().toUpperCase();
+        
         if (!flightNumber) {
-          console.log('Flight number is empty');
           showNotification('📝 Flight Number Required', 'warning', 'Please enter a flight number first (e.g., AA1, UA1, DL1)');
           return;
         }
         
         // Basic flight number format validation
         const formatRegex = /^[A-Z]{2,3}\d{1,5}$/i;
-        const formatMatch = formatRegex.test(flightNumber);
-        console.log('Flight number format validation:');
-        console.log('  Regex:', formatRegex);
-        console.log('  Test result:', formatMatch);
-        
-        if (!formatMatch) {
-          console.log('Flight number format validation failed');
+        if (!formatRegex.test(flightNumber)) {
           showNotification('✈️ Invalid Flight Number Format', 'warning', 'Flight number should be in format like: AA1, UA456, or DL1234');
           return;
         }
         
         // Update the input field with the formatted flight number
-        document.getElementById('flight_number').value = flightNumber;
-        console.log('Updated input field with formatted flight number:', flightNumber);
+        flightNumberInput.value = flightNumber;
         
-        // Show loading state with animation
+        // Show loading state
         fetchBtn.disabled = true;
+        const originalContent = fetchBtn.innerHTML;
         fetchBtn.innerHTML = `
-          <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-current inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          Fetching Flight Data...
+          Fetching...
         `;
         
         try {
-          // Detailed request logging
-          const requestPayload = {
-            flightIata: flightNumber,
-            // Note: flightDate is not supported on free Aviation Stack plan
-            // flightDate: new Date().toISOString().split('T')[0],
-          };
-          
-          console.log('=== FLIGHT FETCH REQUEST DEBUG ===');
-          console.log('Flight Number (formatted):', flightNumber);
-          console.log('Request URL:', '/api/flights/fetch');
-          console.log('Request Method:', 'POST');
-          console.log('Request Headers:', {
-            'Content-Type': 'application/json',
-          });
-          console.log('Request Payload:', requestPayload);
-          console.log('Request Body (stringified):', JSON.stringify(requestPayload));
-          console.log('Body length:', JSON.stringify(requestPayload).length);
-          
+          const requestPayload = { flightIata: flightNumber };
           const response = await fetch('/api/flights/fetch', {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(requestPayload),
           });
           
-          console.log('=== FLIGHT FETCH RESPONSE DEBUG ===');
-          console.log('Response status:', response.status);
-          console.log('Response statusText:', response.statusText);
-          console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-          console.log('Response ok:', response.ok);
-          
-          // Clone response to avoid consuming body twice
-          const responseClone = response.clone();
-          let rawResponseText;
-          try {
-            rawResponseText = await responseClone.text();
-            console.log('Raw response body:', rawResponseText);
-          } catch (textError) {
-            console.log('Error reading raw response:', textError);
-          }
-          
           const result = await response.json();
           
-          console.log('=== FLIGHT FETCH RESULT DEBUG ===');
-          console.log('Parsed result:', result);
-          console.log('Result type:', typeof result);
-          console.log('Result success:', result.success);
-          console.log('Result data:', result.data);
-          console.log('Result error:', result.error);
-          
           if (result.success && result.data) {
-            // Populate form fields with fetched data
             const data = result.data;
             
-            document.getElementById('airline_name').value = data.airline_name || '';
-            document.getElementById('airline_code').value = data.airline_code || '';
-            document.getElementById('aircraft_type').value = data.aircraft_type || '';
+            // Populate form fields with fetched data
+            flightForm.querySelector('.airline-name').value = data.airline_name || '';
+            flightForm.querySelector('.airline-code').value = data.airline_code || '';
+            flightForm.querySelector('.aircraft-type').value = data.aircraft_type || '';
             
-            // Set airports
-            if (data.departure_airport_name) {
-              document.getElementById('departure_airport').value = `${data.departure_iata} - ${data.departure_airport_name}`;
-              document.getElementById('departure_airport_id').value = data.departure_airport_id;
+            // Set airports using data from Aviation Stack API
+            if (data.departure_iata && data.departure_airport_name) {
+              // Set the airport input with name from API
+              flightForm.querySelector('.departure-airport').value = `${data.departure_iata} - ${data.departure_airport_name}`;
+              
+              // Lookup or create the airport in our database
+              try {
+                const depResponse = await fetch('/api/airports/lookup', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    iata_code: data.departure_iata,
+                    name: data.departure_airport_name,
+                    city: data.departure_airport_name.split(',')[0] || 'Unknown',
+                    country: 'Unknown'
+                  })
+                });
+                
+                if (depResponse.ok) {
+                  const depResult = await depResponse.json();
+                  flightForm.querySelector('.departure-airport-id').value = depResult.data.id;
+                  
+                  // Update our local airports data if it was created
+                  if (depResult.created) {
+                    window.airportsData.push(depResult.data);
+                  }
+                } else {
+                  console.error('Failed to lookup/create departure airport');
+                  showNotification('⚠️ Airport Lookup Failed', 'warning', `Could not find or create ${data.departure_iata} in database`);
+                }
+              } catch (error) {
+                console.error('Error looking up departure airport:', error);
+              }
             }
             
-            if (data.arrival_airport_name) {
-              document.getElementById('arrival_airport').value = `${data.arrival_iata} - ${data.arrival_airport_name}`;
-              document.getElementById('arrival_airport_id').value = data.arrival_airport_id;
+            if (data.arrival_iata && data.arrival_airport_name) {
+              // Set the airport input with name from API
+              flightForm.querySelector('.arrival-airport').value = `${data.arrival_iata} - ${data.arrival_airport_name}`;
+              
+              // Lookup or create the airport in our database
+              try {
+                const arrResponse = await fetch('/api/airports/lookup', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    iata_code: data.arrival_iata,
+                    name: data.arrival_airport_name,
+                    city: data.arrival_airport_name.split(',')[0] || 'Unknown',
+                    country: 'Unknown'
+                  })
+                });
+                
+                if (arrResponse.ok) {
+                  const arrResult = await arrResponse.json();
+                  flightForm.querySelector('.arrival-airport-id').value = arrResult.data.id;
+                  
+                  // Update our local airports data if it was created
+                  if (arrResult.created) {
+                    window.airportsData.push(arrResult.data);
+                  }
+                } else {
+                  console.error('Failed to lookup/create arrival airport');
+                  showNotification('⚠️ Airport Lookup Failed', 'warning', `Could not find or create ${data.arrival_iata} in database`);
+                }
+              } catch (error) {
+                console.error('Error looking up arrival airport:', error);
+              }
             }
             
             // Set times
             if (data.departure_time) {
               const depTime = new Date(data.departure_time);
-              document.getElementById('departure_time').value = depTime.toISOString().slice(0, 16);
+              flightForm.querySelector('.departure-time').value = depTime.toISOString().slice(0, 16);
             }
             
             if (data.arrival_time) {
               const arrTime = new Date(data.arrival_time);
-              document.getElementById('arrival_time').value = arrTime.toISOString().slice(0, 16);
+              flightForm.querySelector('.arrival-time').value = arrTime.toISOString().slice(0, 16);
             }
             
-            // Show success message with better UI
-            showNotification('✅ Flight data fetched successfully!', 'success', `Note: This shows the most recent flight information for ${flightNumber}. If you need data for a specific date, you may need to adjust the times manually.`);
+            showNotification('✅ Flight data fetched successfully!', 'success', `Flight ${flightNumber} data loaded. Note: Shows most recent schedule data.`);
           } else {
-            // Handle API limitations and provide helpful feedback
             const errorMessage = result.error || 'Failed to fetch flight data';
-            
-            console.log('=== FLIGHT FETCH ERROR DEBUG ===');
-            console.log('Error case - result.success:', result.success);
-            console.log('Error case - result.data:', result.data);
-            console.log('Error message:', errorMessage);
-            console.log('Full result object:', JSON.stringify(result, null, 2));
-            
-            if (errorMessage.includes('paid plan') || errorMessage.includes('function_access_restricted')) {
-              showNotification('⚠️ Unable to fetch flight data', 'warning', `This may be due to:\n• Flight number not found\n• API plan limitations\n• Network issues\n\nYou can manually enter the flight details below.`);
-            } else if (errorMessage.includes('not found')) {
-              showNotification('🔍 Flight not found', 'info', `Flight ${flightNumber} was not found. This could mean:\n• The flight number is incorrect\n• The flight is not currently active\n• Try a different flight number\n\nYou can manually enter the flight details below.`);
+            if (errorMessage.includes('not found')) {
+              showNotification('🔍 Flight not found', 'info', `Flight ${flightNumber} was not found. You can manually enter the flight details.`);
             } else {
-              showNotification('❌ Error fetching flight data', 'error', errorMessage);
+              showNotification('⚠️ Unable to fetch flight data', 'warning', 'You can manually enter the flight details below.');
             }
           }
         } catch (error) {
-          console.log('=== FLIGHT FETCH CATCH ERROR DEBUG ===');
           console.error('Fetch error:', error);
-          console.log('Error type:', typeof error);
-          console.log('Error name:', error.name);
-          console.log('Error message:', error.message);
-          console.log('Error stack:', error.stack);
-          
-          if (error instanceof TypeError) {
-            console.log('TypeError - likely network issue or CORS problem');
-          } else if (error instanceof SyntaxError) {
-            console.log('SyntaxError - likely JSON parsing issue');
-          } else {
-            console.log('Other error type:', error.constructor.name);
-          }
-          
-          showNotification('🌐 Network Error', 'error', 'Failed to connect to the flight data service. Please check your internet connection and try again.');
+          showNotification('🌐 Network Error', 'error', 'Failed to connect to the flight data service.');
         } finally {
           // Reset button state
           fetchBtn.disabled = false;
-          fetchBtn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Fetch Flight Data';
+          fetchBtn.innerHTML = originalContent;
         }
-      });
-      } else {
-        console.error('Fetch button not found!');
-      }
+      };
     });
 
-    // Blog post search functionality
-    const blogSearch = document.getElementById('blog-search') as HTMLInputElement;
-    const blogDropdown = document.getElementById('blog-dropdown');
-    const blogSelect = document.getElementById('blog_post_id') as HTMLSelectElement;
-    const blogOptions = blogDropdown.querySelectorAll('.blog-option');
+    // Blog post search functionality  
+    document.addEventListener('DOMContentLoaded', function() {
+      const blogSearch = document.getElementById('blog-search');
+      const blogDropdown = document.getElementById('blog-dropdown');
+      const blogSelect = document.getElementById('blog_post_id');
+      const blogOptions = blogDropdown?.querySelectorAll('.blog-option');
 
-    blogSearch.addEventListener('focus', () => {
-      blogDropdown.classList.remove('hidden');
-    });
-
-    blogSearch.addEventListener('input', (e) => {
-      const searchTerm = (e.target as HTMLInputElement).value.toLowerCase();
-      blogOptions.forEach(option => {
-        const title = option.getAttribute('data-title')?.toLowerCase() || '';
-        const text = option.textContent?.toLowerCase() || '';
-        if (title.includes(searchTerm) || text.includes(searchTerm)) {
-          (option as HTMLElement).style.display = 'block';
-        } else {
-          (option as HTMLElement).style.display = 'none';
-        }
-      });
-    });
-
-    blogOptions.forEach(option => {
-      option.addEventListener('click', () => {
-        const value = option.getAttribute('data-value') || '';
-        const title = option.getAttribute('data-title') || 'No blog post';
-        blogSelect.value = value;
-        blogSearch.value = title;
-        blogDropdown.classList.add('hidden');
-      });
-    });
-
-    document.addEventListener('click', (e) => {
-      if (!blogSearch.contains(e.target as Node) && !blogDropdown.contains(e.target as Node)) {
-        blogDropdown.classList.add('hidden');
-      }
-    });
-
-    // Form submission
-    document.getElementById('trip-form')?.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      
-      const submitBtn = e.target.querySelector('button[type="submit"]');
-      const originalText = submitBtn.textContent;
-      
-      try {
-        // Validate required fields
-        const departureIdInput = document.getElementById('departure_airport_id');
-        const arrivalIdInput = document.getElementById('arrival_airport_id');
-        
-        if (!departureIdInput.value || !arrivalIdInput.value) {
-          throw new Error('Please select valid departure and arrival airports');
-        }
-        
-        // Disable submit button and show loading state
-        submitBtn.disabled = true;
-        submitBtn.textContent = 'Creating Trip...';
-        
-        const formData = new FormData(e.target as HTMLFormElement);
-        
-        // Build trip data object with flight details
-        const tripData = {
-          name: formData.get('name'),
-          start_date: formData.get('start_date'),
-          end_date: formData.get('end_date'),
-          blog_post_id: formData.get('blog_post_id') || null,
-          flight_details: {
-            flight_number: formData.get('flight_number'),
-            airline_code: formData.get('airline_code') || null,
-            airline_name: formData.get('airline_name'),
-            aircraft_type: formData.get('aircraft_type') || null,
-            departure_airport_id: parseInt(departureIdInput.value),
-            arrival_airport_id: parseInt(arrivalIdInput.value),
-            departure_time: formData.get('departure_time'),
-            arrival_time: formData.get('arrival_time'),
-            seat_number: formData.get('seat_number') || null,
-          }
-        };
-
-        const response = await fetch('/api/flights/trips', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          credentials: 'same-origin',
-          body: JSON.stringify(tripData)
+      if (blogSearch && blogDropdown && blogSelect && blogOptions) {
+        blogSearch.addEventListener('focus', () => {
+          blogDropdown.classList.remove('hidden');
         });
 
-        if (response.ok) {
-          window.location.href = '/admin/flight/trips';
-        } else {
-          const error = await response.json();
-          if (response.status === 401) {
-            alert('Your session has expired. Please log in again.');
-            window.location.href = '/admin/login';
-          } else {
-            alert(`Failed to create trip: ${error.error || error.message || 'Unknown error'}`);
+        blogSearch.addEventListener('input', (e) => {
+          const searchTerm = e.target.value.toLowerCase();
+          blogOptions.forEach(option => {
+            const title = option.getAttribute('data-title')?.toLowerCase() || '';
+            const text = option.textContent?.toLowerCase() || '';
+            if (title.includes(searchTerm) || text.includes(searchTerm)) {
+              option.style.display = 'block';
+            } else {
+              option.style.display = 'none';
+            }
+          });
+        });
+
+        blogOptions.forEach(option => {
+          option.addEventListener('click', () => {
+            const value = option.getAttribute('data-value') || '';
+            const title = option.getAttribute('data-title') || 'No blog post';
+            blogSelect.value = value;
+            blogSearch.value = title;
+            blogDropdown.classList.add('hidden');
+          });
+        });
+
+        document.addEventListener('click', (e) => {
+          if (!blogSearch.contains(e.target) && !blogDropdown.contains(e.target)) {
+            blogDropdown.classList.add('hidden');
           }
-        }
-      } catch (error) {
-        console.error('Error creating trip:', error);
-        alert(error.message || 'Failed to create trip. Please check your input and try again.');
-        
-        // Re-enable submit button
-        submitBtn.disabled = false;
-        submitBtn.textContent = originalText;
+        });
       }
+    });
+
+    // Form submission with multiple flights support
+    document.addEventListener('DOMContentLoaded', function() {
+      const form = document.getElementById('trip-form');
+      if (!form) return;
+      
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.textContent;
+        
+        try {
+          // Collect all flight data
+          const flightForms = document.querySelectorAll('.flight-form');
+          if (flightForms.length === 0) {
+            throw new Error('At least one flight is required');
+          }
+          
+          const flightData = [];
+          let hasErrors = false;
+          const errors = [];
+          
+          // Validate and collect data from each flight form
+          for (let i = 0; i < flightForms.length; i++) {
+            const flightForm = flightForms[i];
+            const flightNumber = i + 1;
+            
+            // Get all input values
+            const depAirportIdValue = flightForm.querySelector('.departure-airport-id').value;
+            const arrAirportIdValue = flightForm.querySelector('.arrival-airport-id').value;
+            
+            console.log(`Flight ${flightNumber} airport IDs:`, {
+              departure_id_raw: depAirportIdValue,
+              arrival_id_raw: arrAirportIdValue,
+              departure_id_parsed: parseInt(depAirportIdValue),
+              arrival_id_parsed: parseInt(arrAirportIdValue)
+            });
+            
+            const flight = {
+              flight_number: flightForm.querySelector('.flight-number').value.trim(),
+              airline_code: flightForm.querySelector('.airline-code').value || null,
+              airline_name: flightForm.querySelector('.airline-name').value.trim(),
+              aircraft_type: flightForm.querySelector('.aircraft-type').value.trim() || null,
+              departure_airport_id: parseInt(depAirportIdValue),
+              arrival_airport_id: parseInt(arrAirportIdValue),
+              departure_time: flightForm.querySelector('.departure-time').value,
+              arrival_time: flightForm.querySelector('.arrival-time').value,
+              seat_number: flightForm.querySelector('.seat-number').value.trim() || null,
+            };
+            
+            // Validate required fields
+            if (!flight.flight_number) {
+              errors.push(`Flight ${flightNumber}: Flight number is required`);
+              hasErrors = true;
+            }
+            
+            if (!flight.airline_name) {
+              errors.push(`Flight ${flightNumber}: Airline name is required`);
+              hasErrors = true;
+            }
+            
+            if (!flight.departure_airport_id || isNaN(flight.departure_airport_id)) {
+              errors.push(`Flight ${flightNumber}: Please select a valid departure airport`);
+              hasErrors = true;
+            }
+            
+            if (!flight.arrival_airport_id || isNaN(flight.arrival_airport_id)) {
+              errors.push(`Flight ${flightNumber}: Please select a valid arrival airport`);
+              hasErrors = true;
+            }
+            
+            if (!flight.departure_time) {
+              errors.push(`Flight ${flightNumber}: Departure time is required`);
+              hasErrors = true;
+            }
+            
+            if (!flight.arrival_time) {
+              errors.push(`Flight ${flightNumber}: Arrival time is required`);
+              hasErrors = true;
+            }
+            
+            // Validate time logic
+            if (flight.departure_time && flight.arrival_time) {
+              const depTime = new Date(flight.departure_time);
+              const arrTime = new Date(flight.arrival_time);
+              if (depTime >= arrTime) {
+                errors.push(`Flight ${flightNumber}: Departure time must be before arrival time`);
+                hasErrors = true;
+              }
+            }
+            
+            if (!hasErrors || flightData.length === 0) {
+              flightData.push(flight);
+            }
+          }
+          
+          if (hasErrors) {
+            throw new Error(errors.join('\\n'));
+          }
+          
+          // Disable submit button and show loading state
+          submitBtn.disabled = true;
+          submitBtn.textContent = 'Creating Trip...';
+          
+          const formData = new FormData(form);
+          
+          // Build trip data object with multiple flights
+          const tripData = {
+            name: formData.get('name'),
+            start_date: formData.get('start_date'),
+            end_date: formData.get('end_date'),
+            blog_post_id: formData.get('blog_post_id') || null,
+            flights: flightData
+          };
+
+          console.log('Submitting trip data:', tripData);
+
+          const response = await fetch('/api/flights/trips', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(tripData)
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            showNotification('✅ Trip created successfully!', 'success', `Created trip with ${result.data.flights_created} flight(s)`);
+            setTimeout(() => {
+              window.location.href = '/admin/flight/trips';
+            }, 1500);
+          } else {
+            const error = await response.json();
+            if (response.status === 401) {
+              showNotification('🔐 Session expired', 'error', 'Please log in again.');
+              setTimeout(() => {
+                window.location.href = '/admin/login';
+              }, 2000);
+            } else {
+              throw new Error(error.error || error.message || 'Unknown error');
+            }
+          }
+        } catch (error) {
+          console.error('Error creating trip:', error);
+          showNotification('❌ Error creating trip', 'error', error.message || 'Please check your input and try again.');
+          
+          // Re-enable submit button
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      });
     });
   </script>
 

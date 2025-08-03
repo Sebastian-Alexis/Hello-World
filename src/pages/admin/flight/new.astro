@@ -358,6 +358,20 @@ try {
   // Make airports data globally available for form processing
   window.airportsData = ${JSON.stringify(airports)};
   
+  // Function to update the airports datalist
+  function updateAirportsDatalist(airportsData) {
+    const datalist = document.getElementById('airports-list');
+    datalist.innerHTML = '';
+    
+    airportsData.forEach(airport => {
+      const option = document.createElement('option');
+      option.value = `${airport.iata_code} - ${airport.name}, ${airport.city}`;
+      option.setAttribute('data-id', airport.id);
+      option.textContent = `${airport.iata_code} - ${airport.name}, ${airport.city}, ${airport.country}`;
+      datalist.appendChild(option);
+    });
+  }
+  
   document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('flight-form');
     const fetchBtn = document.getElementById('fetch-flight-btn');
@@ -440,12 +454,28 @@ try {
           // Set airports
           if (data.departure_airport_name) {
             document.getElementById('departure_airport').value = `${data.departure_iata} - ${data.departure_airport_name}`;
-            document.getElementById('departure_airport_id').value = data.departure_airport_id;
+            if (data.departure_airport_id) {
+              document.getElementById('departure_airport_id').value = data.departure_airport_id;
+            } else {
+              // Try to find the airport in existing data by IATA code
+              const airport = window.airportsData.find(a => a.iata_code === data.departure_iata);
+              if (airport) {
+                document.getElementById('departure_airport_id').value = airport.id;
+              }
+            }
           }
           
           if (data.arrival_airport_name) {
             document.getElementById('arrival_airport').value = `${data.arrival_iata} - ${data.arrival_airport_name}`;
-            document.getElementById('arrival_airport_id').value = data.arrival_airport_id;
+            if (data.arrival_airport_id) {
+              document.getElementById('arrival_airport_id').value = data.arrival_airport_id;
+            } else {
+              // Try to find the airport in existing data by IATA code
+              const airport = window.airportsData.find(a => a.iata_code === data.arrival_iata);
+              if (airport) {
+                document.getElementById('arrival_airport_id').value = airport.id;
+              }
+            }
           }
           
           // Set times
@@ -464,7 +494,27 @@ try {
             document.getElementById('flight_status').value = data.flight_status;
           }
           
-          alert('Flight data fetched successfully!');
+          // If new airports were created, refresh the airports data for future lookups
+          if (data.departure_airport_id || data.arrival_airport_id) {
+            try {
+              const airportsResponse = await fetch('/api/airports');
+              if (airportsResponse.ok) {
+                const airportsResult = await airportsResponse.json();
+                if (airportsResult.success) {
+                  window.airportsData = airportsResult.data;
+                  // Update the datalist with new airports
+                  updateAirportsDatalist(airportsResult.data);
+                }
+              }
+            } catch (e) {
+              console.warn('Failed to refresh airports data:', e);
+            }
+          }
+          
+          const message = data.warning ? 
+            `Flight data fetched successfully!\n\nNote: ${data.warning}` : 
+            'Flight data fetched successfully!';
+          alert(message);
         } else {
           alert(result.error || 'Failed to fetch flight data');
         }

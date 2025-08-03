@@ -2397,6 +2397,56 @@ export class DatabaseQueries {
     }));
   }
 
+  //finds airport by IATA code
+  async findAirportByIata(iataCode: string): Promise<Airport | null> {
+    const query = `
+      SELECT * FROM airports 
+      WHERE iata_code = ? AND is_active = TRUE 
+      LIMIT 1
+    `;
+    
+    const result = await executeQuery<Airport>(query, [iataCode.toUpperCase()]);
+    return result.rows[0] || null;
+  }
+
+  //finds or creates airport by IATA code with basic information
+  async findOrCreateAirport(airportData: {
+    iata_code: string;
+    name: string;
+    city?: string;
+    country?: string;
+    latitude?: number;
+    longitude?: number;
+  }): Promise<Airport> {
+    // First try to find existing airport
+    const existing = await this.findAirportByIata(airportData.iata_code);
+    if (existing) {
+      return existing;
+    }
+
+    // Create new airport with available data
+    const newAirportData = {
+      iata_code: airportData.iata_code.toUpperCase(),
+      icao_code: null,
+      name: airportData.name,
+      city: airportData.city || 'Unknown',
+      country: airportData.country || 'Unknown',
+      country_code: 'XX', // Default country code for unknown
+      latitude: airportData.latitude ?? 0,
+      longitude: airportData.longitude ?? 0,
+      altitude: null,
+      timezone: null,
+      type: 'airport' as const,
+      is_active: true,
+      has_visited: false,
+      visit_count: 0,
+      first_visit_date: null,
+      last_visit_date: null,
+    };
+
+    return this.createAirport(newAirportData);
+  }
+
   //updates airport visit information when flight is completed
   async updateAirportVisits(airportId: number, visitDate: string): Promise<void> {
     const query = `

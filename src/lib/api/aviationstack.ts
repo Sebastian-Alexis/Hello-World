@@ -129,10 +129,6 @@ export async function fetchFlightByIata(
 
   const url = `https://api.aviationstack.com/v1/flights?${params.toString()}`;
   
-  console.log('=== AVIATIONSTACK API DEBUG ===');
-  console.log('API URL:', url);
-  console.log('Request params:', Object.fromEntries(params.entries()));
-  
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -142,31 +138,17 @@ export async function fetchFlightByIata(
       },
     });
 
-    console.log('Aviation Stack API Response status:', response.status);
-    console.log('Aviation Stack API Response statusText:', response.statusText);
-    console.log('Aviation Stack API Response headers:', Object.fromEntries(response.headers.entries()));
 
     // Handle HTTP errors
     if (!response.ok) {
       const errorText = await response.text();
-      console.log('Aviation Stack API error response text:', errorText);
       throw new AviationstackError(
         `HTTP ${response.status}: ${response.statusText}. ${errorText}`,
         response.status
       );
     }
 
-    const responseText = await response.text();
-    console.log('Raw Aviation Stack API response:', responseText);
-    
-    let data: AviationstackFlightResponse;
-    try {
-      data = JSON.parse(responseText);
-      console.log('Parsed Aviation Stack API response:', data);
-    } catch (parseError) {
-      console.error('Aviation Stack API JSON parsing error:', parseError);
-      throw new AviationstackError('Invalid JSON response from Aviation Stack API');
-    }
+    const data: AviationstackFlightResponse = await response.json();
 
     // Handle API-specific errors
     if (data.error) {
@@ -196,18 +178,10 @@ export async function fetchFlightByIata(
     }
 
     // Return the first matching flight or null if no flights found
-    console.log('Flight search results:', {
-      hasData: !!data.data,
-      resultCount: data.data?.length || 0,
-      flights: data.data
-    });
-    
     if (data.data && data.data.length > 0) {
-      console.log('Returning first flight:', data.data[0]);
       return data.data[0];
     }
     
-    console.log('No flights found, returning null');
     return null;
   } catch (error) {
     if (error instanceof AviationstackError) {

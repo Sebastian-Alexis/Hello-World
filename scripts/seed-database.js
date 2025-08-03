@@ -131,6 +131,18 @@ async function seedDatabase() {
       { iata: 'JFK', name: 'John F. Kennedy International Airport', city: 'New York', country: 'United States', country_code: 'US', lat: 40.6413, lng: -73.7781 },
       { iata: 'LHR', name: 'London Heathrow Airport', city: 'London', country: 'United Kingdom', country_code: 'GB', lat: 51.4700, lng: -0.4543 },
       { iata: 'NRT', name: 'Tokyo Narita International Airport', city: 'Tokyo', country: 'Japan', country_code: 'JP', lat: 35.7720, lng: 140.3929 },
+      // Additional major airports for testing
+      { iata: 'SFO', name: 'San Francisco International Airport', city: 'San Francisco', country: 'United States', country_code: 'US', lat: 37.6213, lng: -122.3790 },
+      { iata: 'ORD', name: 'O\'Hare International Airport', city: 'Chicago', country: 'United States', country_code: 'US', lat: 41.9742, lng: -87.9073 },
+      { iata: 'ATL', name: 'Hartsfield-Jackson Atlanta International Airport', city: 'Atlanta', country: 'United States', country_code: 'US', lat: 33.6407, lng: -84.4277 },
+      { iata: 'DFW', name: 'Dallas Fort Worth International Airport', city: 'Dallas', country: 'United States', country_code: 'US', lat: 32.8998, lng: -97.0403 },
+      { iata: 'LAS', name: 'Harry Reid International Airport', city: 'Las Vegas', country: 'United States', country_code: 'US', lat: 36.0840, lng: -115.1537 },
+      { iata: 'MIA', name: 'Miami International Airport', city: 'Miami', country: 'United States', country_code: 'US', lat: 25.7959, lng: -80.2870 },
+      { iata: 'CDG', name: 'Charles de Gaulle Airport', city: 'Paris', country: 'France', country_code: 'FR', lat: 49.0097, lng: 2.5479 },
+      { iata: 'FRA', name: 'Frankfurt Airport', city: 'Frankfurt', country: 'Germany', country_code: 'DE', lat: 50.0379, lng: 8.5622 },
+      { iata: 'AMS', name: 'Amsterdam Airport Schiphol', city: 'Amsterdam', country: 'Netherlands', country_code: 'NL', lat: 52.3105, lng: 4.7683 },
+      { iata: 'YYZ', name: 'Toronto Pearson International Airport', city: 'Toronto', country: 'Canada', country_code: 'CA', lat: 43.6777, lng: -79.6248 },
+      { iata: 'SYD', name: 'Kingsford Smith Airport', city: 'Sydney', country: 'Australia', country_code: 'AU', lat: -33.9399, lng: 151.1753 },
     ];
 
     for (const airport of airports) {

@@ -141,20 +141,82 @@ export const POST: APIRoute = async ({ request }) => {
 
   try {
     const data = await request.json();
-    const { name, start_date, end_date, blog_post_id, flight_numbers } = data;
+    const { name, start_date, end_date, blog_post_id, flights } = data;
 
     // Validate required fields
-    if (!name || !start_date || !end_date || !flight_numbers?.length) {
+    if (!name || !start_date || !end_date || !flights || !Array.isArray(flights) || flights.length === 0) {
       return new Response(
         JSON.stringify({
           success: false,
-          error: 'Missing required fields'
+          error: 'Missing required fields. Trip name, dates, and at least one flight are required.'
         }),
         {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         }
       );
+    }
+
+    // Validate each flight has required fields
+    for (const [index, flight] of flights.entries()) {
+      const requiredFields = ['flight_number', 'departure_airport_id', 'arrival_airport_id', 'departure_time', 'arrival_time'];
+      const missingFields = requiredFields.filter(field => !flight[field]);
+      
+      if (missingFields.length > 0) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Flight ${index + 1} is missing required fields: ${missingFields.join(', ')}`
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Validate airport IDs are integers
+      if (!Number.isInteger(flight.departure_airport_id) || !Number.isInteger(flight.arrival_airport_id)) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Flight ${index + 1} has invalid airport IDs`
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      // Validate dates
+      const depTime = new Date(flight.departure_time);
+      const arrTime = new Date(flight.arrival_time);
+      if (isNaN(depTime.getTime()) || isNaN(arrTime.getTime())) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Flight ${index + 1} has invalid departure or arrival time`
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
+
+      if (depTime >= arrTime) {
+        return new Response(
+          JSON.stringify({
+            success: false,
+            error: `Flight ${index + 1} departure time must be before arrival time`
+          }),
+          {
+            status: 400,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
+      }
     }
 
     // Create trip
@@ -165,19 +227,57 @@ export const POST: APIRoute = async ({ request }) => {
 
     const tripId = result.insertId;
 
-    // Update flights with trip_id
-    for (const flightNumber of flight_numbers) {
-      await executeQuery(`
-        UPDATE flights 
-        SET trip_id = ?
-        WHERE flight_number = ?
-      `, [tripId, flightNumber]);
+    // Create flight records
+    const createdFlights = [];
+    for (const [index, flight] of flights.entries()) {
+      try {
+        // Calculate flight duration
+        const depTime = new Date(flight.departure_time);
+        const arrTime = new Date(flight.arrival_time);
+        const durationMinutes = Math.round((arrTime.getTime() - depTime.getTime()) / (1000 * 60));
+
+        const flightResult = await executeQuery(`
+          INSERT INTO flights (
+            flight_number, airline_code, airline_name, aircraft_type,
+            departure_airport_id, arrival_airport_id, 
+            departure_time, arrival_time, flight_duration,
+            seat_number, trip_id, flight_status,
+            created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+        `, [
+          flight.flight_number,
+          flight.airline_code || null,
+          flight.airline_name || null,
+          flight.aircraft_type || null,
+          flight.departure_airport_id,
+          flight.arrival_airport_id,
+          flight.departure_time,
+          flight.arrival_time,
+          durationMinutes,
+          flight.seat_number || null,
+          tripId
+        ]);
+
+        createdFlights.push({
+          id: flightResult.insertId,
+          flight_number: flight.flight_number
+        });
+      } catch (flightError) {
+        console.error(`Error creating flight ${index + 1}:`, flightError);
+        // If we fail to create a flight, we should rollback the trip
+        // For now, we'll continue but log the error
+        throw new Error(`Failed to create flight ${index + 1}: ${flight.flight_number}`);
+      }
     }
 
     return new Response(
       JSON.stringify({
         success: true,
-        data: { id: tripId }
+        data: { 
+          id: tripId,
+          flights_created: createdFlights.length,
+          flights: createdFlights
+        }
       }),
       {
         status: 201,
