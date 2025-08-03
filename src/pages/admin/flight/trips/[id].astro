@@ -274,7 +274,12 @@ const { data: blogPosts = [] } = blogResponse.ok ? await blogResponse.json() : {
           window.location.href = '/admin/flight/trips';
         } else {
           const error = await response.json();
-          alert(`Failed to update trip: ${error.message || 'Unknown error'}`);
+          if (response.status === 401) {
+            alert('Your session has expired. Please log in again.');
+            window.location.href = '/admin/login';
+          } else {
+            alert(`Failed to update trip: ${error.error || error.message || 'Unknown error'}`);
+          }
         }
       } catch (error) {
         console.error('Error updating trip:', error);

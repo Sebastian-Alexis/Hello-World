@@ -2063,6 +2063,53 @@ export class DatabaseQueries {
     };
   }
 
+  //gets comprehensive flight statistics including all statuses
+  async getComprehensiveFlightStatistics(): Promise<{
+    totalFlights: number;
+    completedFlights: number;
+    upcomingFlights: number;
+    totalDistance: number;
+    totalFlightTime: number;
+    uniqueAirports: number;
+    uniqueCountries: number;
+    uniqueAirlines: number;
+    favoriteAirline: string;
+    longestFlight: Flight | null;
+    mostVisitedAirport: string;
+  }> {
+    // Get counts for all flight statuses
+    const allFlightsResult = await executeQuery<{
+      total_flights: number;
+      completed_flights: number;
+      upcoming_flights: number;
+    }>(`
+      SELECT 
+        COUNT(*) as total_flights,
+        SUM(CASE WHEN flight_status = 'completed' THEN 1 ELSE 0 END) as completed_flights,
+        SUM(CASE WHEN flight_status = 'booked' OR flight_status = 'scheduled' THEN 1 ELSE 0 END) as upcoming_flights
+      FROM flights
+    `);
+
+    const allStats = allFlightsResult.rows[0];
+    
+    // Get the rest of the statistics from completed flights
+    const stats = await this.getFlightStatistics();
+    
+    return {
+      totalFlights: Number(allStats?.total_flights || 0),
+      completedFlights: Number(allStats?.completed_flights || 0),
+      upcomingFlights: Number(allStats?.upcoming_flights || 0),
+      totalDistance: stats.totalDistance,
+      totalFlightTime: stats.totalFlightTime,
+      uniqueAirports: stats.uniqueAirports,
+      uniqueCountries: stats.uniqueCountries,
+      uniqueAirlines: stats.uniqueAirlines,
+      favoriteAirline: stats.favoriteAirline,
+      longestFlight: stats.longestFlight,
+      mostVisitedAirport: stats.mostVisitedAirport
+    };
+  }
+
   //gets enhanced flight statistics for Plan 5
   async getFlightStatistics(): Promise<{
     totalFlights: number;

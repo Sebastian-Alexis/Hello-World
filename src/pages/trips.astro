@@ -1,0 +1,154 @@
+---
+import Layout from '@/layouts/Layout.astro';
+import { FlightMapTrips } from '@/components/flight-map';
+import Card from '@/components/ui/Card.astro';
+---
+
+<Layout title="My Trips" description="Interactive map showing all my travel destinations and trips">
+	<main>
+		<div class="hero-section">
+			<div class="container">
+				<h1>My Travel Map</h1>
+				<p class="hero-description">
+					Click on any airport pin to explore my trips, view flight details, and read related blog posts.
+				</p>
+			</div>
+		</div>
+
+		<section class="map-section">
+			<div class="container-fluid">
+				<Card className="map-card">
+					<FlightMapTrips 
+						client:load 
+						height="70vh"
+						onTripSelect={(trip) => console.log('Trip selected:', trip)}
+						onAirportSelect={(airport) => console.log('Airport selected:', airport)}
+					/>
+				</Card>
+			</div>
+		</section>
+
+		<section class="instructions">
+			<div class="container">
+				<Card>
+					<h2>How to Use This Map</h2>
+					<div class="instruction-grid">
+						<div class="instruction-item">
+							<div class="instruction-icon">📍</div>
+							<h3>Click Airport Pins</h3>
+							<p>Click on any blue pin to see trips associated with that airport. Red badges show the number of trips.</p>
+						</div>
+						<div class="instruction-item">
+							<div class="instruction-icon">✈️</div>
+							<h3>View Trip Details</h3>
+							<p>Select a trip to see flight numbers, dates, and links to related blog posts about the journey.</p>
+						</div>
+						<div class="instruction-item">
+							<div class="instruction-icon">🚀</div>
+							<h3>Jump Between Airports</h3>
+							<p>Use the "Jump to Destination" button to fly to the connected airport for each flight.</p>
+						</div>
+					</div>
+				</Card>
+			</div>
+		</section>
+	</main>
+</Layout>
+
+<style>
+	.hero-section {
+		padding: 4rem 0 2rem;
+		background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+		color: white;
+		margin-bottom: 2rem;
+	}
+
+	.hero-section h1 {
+		font-size: 3rem;
+		font-weight: 700;
+		margin-bottom: 1rem;
+		text-align: center;
+	}
+
+	.hero-description {
+		font-size: 1.25rem;
+		text-align: center;
+		max-width: 600px;
+		margin: 0 auto;
+		opacity: 0.95;
+	}
+
+	.container {
+		max-width: 1200px;
+		margin: 0 auto;
+		padding: 0 1rem;
+	}
+
+	.container-fluid {
+		padding: 0 1rem;
+	}
+
+	.map-section {
+		margin-bottom: 3rem;
+	}
+
+	.map-card {
+		padding: 0;
+		overflow: hidden;
+	}
+
+	.instructions {
+		padding: 2rem 0 4rem;
+	}
+
+	.instructions h2 {
+		font-size: 2rem;
+		font-weight: 600;
+		text-align: center;
+		margin-bottom: 3rem;
+		color: #1f2937;
+	}
+
+	.instruction-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+		gap: 2rem;
+	}
+
+	.instruction-item {
+		text-align: center;
+		padding: 1.5rem;
+	}
+
+	.instruction-icon {
+		font-size: 3rem;
+		margin-bottom: 1rem;
+	}
+
+	.instruction-item h3 {
+		font-size: 1.25rem;
+		font-weight: 600;
+		margin-bottom: 0.75rem;
+		color: #1f2937;
+	}
+
+	.instruction-item p {
+		color: #6b7280;
+		line-height: 1.6;
+	}
+
+	@media (max-width: 768px) {
+		.hero-section h1 {
+			font-size: 2rem;
+		}
+
+		.hero-description {
+			font-size: 1rem;
+		}
+
+		.instruction-grid {
+			grid-template-columns: 1fr;
+			gap: 1.5rem;
+		}
+	}
+</style>

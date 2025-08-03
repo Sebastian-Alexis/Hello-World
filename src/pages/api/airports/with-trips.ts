@@ -1,10 +1,11 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/lib/db';
+import { executeQuery } from '@/lib/db';
 
 export const GET: APIRoute = async () => {
   try {
     // Get all airports that have associated trips
-    const airports = await db.execute(`
+    const airports = await executeQuery(`
       SELECT DISTINCT
         a.id,
         a.iata_code,
@@ -32,7 +33,7 @@ export const GET: APIRoute = async () => {
     // For each airport, get the associated trips with flight details
     const airportsWithTrips = await Promise.all(
       airports.rows.map(async (airport) => {
-        const trips = await db.execute(`
+        const trips = await executeQuery(`
           SELECT DISTINCT
             t.id,
             t.name,
@@ -41,7 +42,7 @@ export const GET: APIRoute = async () => {
             t.blog_post_id,
             bp.title as blog_post_title,
             bp.slug as blog_post_slug,
-            bp.featured_image_url as blog_post_thumbnail,
+            bp.thumbnail_url as blog_post_thumbnail,
             bp.excerpt as blog_post_excerpt,
             f.id as flight_id,
             f.flight_number,
@@ -50,9 +51,11 @@ export const GET: APIRoute = async () => {
             f.departure_airport_id,
             f.arrival_airport_id,
             dep.iata_code as departure_iata,
+            dep.name as departure_name,
             dep.latitude as departure_lat,
             dep.longitude as departure_lng,
             arr.iata_code as arrival_iata,
+            arr.name as arrival_name,
             arr.latitude as arrival_lat,
             arr.longitude as arrival_lng,
             CASE 
@@ -63,6 +66,10 @@ export const GET: APIRoute = async () => {
               WHEN f.departure_airport_id = ? THEN arr.iata_code
               WHEN f.arrival_airport_id = ? THEN dep.iata_code
             END as next_airport_iata,
+            CASE 
+              WHEN f.departure_airport_id = ? THEN arr.name
+              WHEN f.arrival_airport_id = ? THEN dep.name
+            END as next_airport_name,
             CASE 
               WHEN f.departure_airport_id = ? THEN arr.latitude
               WHEN f.arrival_airport_id = ? THEN dep.latitude
@@ -82,6 +89,7 @@ export const GET: APIRoute = async () => {
         `, [
           airport.id, airport.id, // for flight_type
           airport.id, airport.id, // for next_airport_iata
+          airport.id, airport.id, // for next_airport_name
           airport.id, airport.id, // for next_airport_lat
           airport.id, airport.id, // for next_airport_lng
           airport.id, airport.id  // for WHERE clause
@@ -115,6 +123,7 @@ export const GET: APIRoute = async () => {
             flight_type: row.flight_type,
             next_airport: {
               iata: row.next_airport_iata,
+              name: row.next_airport_name,
               latitude: row.next_airport_lat,
               longitude: row.next_airport_lng
             }

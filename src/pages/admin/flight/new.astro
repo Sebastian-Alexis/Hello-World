@@ -446,6 +446,9 @@ try {
 </AdminLayout>
 
 <script>
+  //make airports data globally available for form processing
+  window.airportsData = ${JSON.stringify(airports)};
+  
   document.addEventListener('DOMContentLoaded', async function() {
     //mount media upload for flight photos using Svelte 5 syntax
     const { mount } = await import('svelte');
@@ -593,31 +596,242 @@ try {
     originInput.addEventListener('change', calculateDistance);
     destInput.addEventListener('change', calculateDistance);
     
-    //form submission
+    //helper function to show error messages
+    function showError(message) {
+      //create or update error message element
+      let errorEl = document.getElementById('flight-form-error');
+      if (!errorEl) {
+        errorEl = document.createElement('div');
+        errorEl.id = 'flight-form-error';
+        errorEl.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4';
+        errorEl.setAttribute('role', 'alert');
+        
+        const formHeader = document.querySelector('.mb-8');
+        formHeader.insertAdjacentElement('afterend', errorEl);
+      }
+      
+      errorEl.innerHTML = `
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          <span>${message}</span>
+        </div>
+      `;
+      
+      //scroll to error
+      errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+      //auto-hide after 10 seconds
+      setTimeout(() => {
+        errorEl.style.transition = 'opacity 0.5s';
+        errorEl.style.opacity = '0';
+        setTimeout(() => errorEl.remove(), 500);
+      }, 10000);
+    }
+    
+    //helper function to show success message
+    function showSuccess(message) {
+      //create success message element
+      const successEl = document.createElement('div');
+      successEl.className = 'bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4';
+      successEl.setAttribute('role', 'status');
+      successEl.innerHTML = `
+        <div class="flex items-center">
+          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+          </svg>
+          <span>${message}</span>
+        </div>
+      `;
+      
+      const formHeader = document.querySelector('.mb-8');
+      formHeader.insertAdjacentElement('afterend', successEl);
+      
+      //auto-hide after 3 seconds
+      setTimeout(() => {
+        successEl.style.transition = 'opacity 0.5s';
+        successEl.style.opacity = '0';
+        setTimeout(() => successEl.remove(), 500);
+      }, 3000);
+    }
+    
+    //helper function to extract airport ID from selected value
+    function extractAirportId(airportValue) {
+      if (!airportValue) return null;
+      
+      //extract IATA code from format "LAX - Los Angeles International"
+      const match = airportValue.match(/^([A-Z]{3})\s*-/);
+      if (!match) return null;
+      
+      const iataCode = match[1];
+      //find the airport in our airports array
+      const airport = window.airportsData.find(a => a.iata_code === iataCode);
+      return airport ? airport.id : null;
+    }
+    
+    //helper function to build flight data JSON
+    function buildFlightData(formData) {
+      //extract and transform airport IDs
+      const departureAirportId = extractAirportId(formData.get('origin_airport'));
+      const arrivalAirportId = extractAirportId(formData.get('destination_airport'));
+      
+      //parse photos if they exist
+      let photos = [];
+      try {
+        const photosJson = formData.get('photos');
+        if (photosJson) {
+          photos = JSON.parse(photosJson);
+        }
+      } catch (e) {
+        console.warn('Failed to parse photos:', e);
+      }
+      
+      //extract airline code from the airline name if possible
+      const airlineName = formData.get('airline') || null;
+      let airlineCode = null;
+      if (airlineName) {
+        //try to extract a 2-letter airline code from the beginning
+        const codeMatch = airlineName.match(/^([A-Z]{2})\s*-/);
+        if (codeMatch) {
+          airlineCode = codeMatch[1];
+        }
+      }
+      
+      //build the flight data object matching API expectations
+      return {
+        flight_number: formData.get('flight_number') || null,
+        airline_code: airlineCode,
+        airline_name: airlineName,
+        departure_airport_id: departureAirportId,
+        arrival_airport_id: arrivalAirportId,
+        departure_time: formData.get('departure_time'),
+        arrival_time: formData.get('arrival_time'),
+        aircraft_type: formData.get('aircraft_type') || null,
+        seat_number: formData.get('seat_number') || null,
+        class: formData.get('class') || null,
+        booking_reference: formData.get('booking_reference') || null,
+        ticket_price: formData.get('ticket_price') ? parseFloat(formData.get('ticket_price')) : null,
+        currency: 'USD', //default currency
+        notes: formData.get('notes') || null,
+        photos: photos,
+        trip_purpose: formData.get('purpose') || null,
+        flight_status: formData.get('flight_status') || 'completed',
+        is_favorite: false
+      };
+    }
+    
+    //enhanced form submission with proper error handling
     document.getElementById('flight-form').addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const formData = new FormData(this);
+      const submitBtn = this.querySelector('button[type="submit"]');
+      const originalText = submitBtn.textContent;
       
       try {
-        const response = await fetch('/api/admin/flights', {
+        //disable submit button and show loading state
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Saving...';
+        
+        const formData = new FormData(this);
+        const flightData = buildFlightData(formData);
+        
+        //validate required fields
+        if (!flightData.departure_airport_id) {
+          throw new Error('Please select a valid departure airport');
+        }
+        if (!flightData.arrival_airport_id) {
+          throw new Error('Please select a valid arrival airport');
+        }
+        if (!flightData.departure_time) {
+          throw new Error('Departure time is required');
+        }
+        if (!flightData.arrival_time) {
+          throw new Error('Arrival time is required');
+        }
+        
+        //send to correct API endpoint with JSON
+        const response = await fetch('/api/flights', {
           method: 'POST',
           headers: {
+            'Content-Type': 'application/json',
             'Authorization': `Bearer ${localStorage.getItem('access_token')}`
           },
-          body: formData
+          body: JSON.stringify(flightData)
         });
         
+        const result = await response.json();
+        
         if (response.ok) {
-          const result = await response.json();
-          window.location.href = `/admin/flights/${result.id}`;
+          //show success message
+          showSuccess('Flight saved successfully! Redirecting...');
+          
+          //redirect to flight details after a short delay
+          setTimeout(() => {
+            window.location.href = `/admin/flights/${result.data?.id || result.id}`;
+          }, 1000);
         } else {
-          alert('Failed to save flight');
+          //handle API errors
+          const errorMessage = result.error || result.message || 'Failed to save flight';
+          throw new Error(errorMessage);
         }
       } catch (error) {
         console.error('Form submission error:', error);
-        alert('Failed to save flight');
+        showError(error.message || 'Failed to save flight. Please check your input and try again.');
+        
+        //re-enable submit button
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
       }
     });
   });
 </script>
+
+<style>
+  /* Loading state for submit button */
+  button[disabled] {
+    position: relative;
+    opacity: 0.7;
+    cursor: not-allowed;
+  }
+  
+  button[disabled]::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    margin-left: 8px;
+    border: 2px solid transparent;
+    border-top-color: currentColor;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Enhanced error states for form fields */
+  input:invalid:not(:focus):not(:placeholder-shown),
+  select:invalid:not(:focus):not(:placeholder-shown) {
+    border-color: #ef4444;
+    background-color: #fef2f2;
+  }
+  
+  /* Smooth transitions */
+  #flight-form-error,
+  .bg-green-50 {
+    animation: slideIn 0.3s ease-out;
+  }
+  
+  @keyframes slideIn {
+    from {
+      transform: translateY(-10px);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+</style>

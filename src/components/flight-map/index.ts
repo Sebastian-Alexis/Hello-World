@@ -1,6 +1,7 @@
 //flight map component exports
 
 export { default as FlightMap } from './FlightMap.svelte';
+export { default as FlightMapTrips } from './FlightMapTrips.svelte';
 export type { 
 	Flight, 
 	Airport, 

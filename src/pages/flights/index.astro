@@ -3,6 +3,7 @@ import BaseLayout from '../../layouts/BaseLayout.astro';
 import type { Flight, Airport } from '../../components/flight-map/types';
 import { DatabaseQueries } from '../../lib/db/queries';
 import FlightMap from '../../components/flight-map/FlightMap.svelte';
+import FlightDebug from '../../components/FlightDebug.astro';
 
 //fetch flight statistics
 let flightStats = {
@@ -13,7 +14,13 @@ let flightStats = {
   uniqueAirlines: 0,
   visitedAirports: 0,
   totalAirports: 0,
-  countries: 0
+  countries: 0,
+  totalFlightTime: 0,
+  uniqueAirports: 0,
+  uniqueCountries: 0,
+  favoriteAirline: '',
+  longestFlight: null,
+  mostVisitedAirport: ''
 };
 
 //fetch all flights for map visualization
@@ -27,15 +34,76 @@ let errorMessage = '';
 try {
   const db = new DatabaseQueries();
 
+  // First, let's try to get the flight statistics to verify database connectivity
+  try {
+    const stats = await db.getComprehensiveFlightStatistics();
+    console.log('Comprehensive flight statistics:', stats);
+    
+    // Map the returned statistics to what the frontend expects
+    flightStats = {
+      totalFlights: stats.totalFlights,
+      totalDistance: stats.totalDistance,
+      completedFlights: stats.completedFlights,
+      upcomingFlights: stats.upcomingFlights,
+      uniqueAirlines: stats.uniqueAirlines,
+      visitedAirports: stats.uniqueAirports,
+      totalAirports: stats.uniqueAirports,
+      countries: stats.uniqueCountries,
+      totalFlightTime: stats.totalFlightTime,
+      uniqueAirports: stats.uniqueAirports,
+      uniqueCountries: stats.uniqueCountries,
+      favoriteAirline: stats.favoriteAirline,
+      longestFlight: stats.longestFlight,
+      mostVisitedAirport: stats.mostVisitedAirport
+    };
+  } catch (statsError) {
+    console.error('Error fetching flight statistics:', statsError);
+  }
+
   //fetch flights with high limit for map visualization
-  const flightsResponse = await db.getAllFlights(1, 1000);
-  flights = flightsResponse.data;
+  try {
+    console.log('Attempting to fetch flights...');
+    const flightsResponse = await db.getAllFlights(1, 1000);
+    console.log('Flight response:', JSON.stringify(flightsResponse, null, 2));
+    flights = flightsResponse.data;
+    console.log(`Fetched ${flights.length} flights from database`);
+    
+    // Log first flight if exists
+    if (flights.length > 0) {
+      console.log('First flight:', JSON.stringify(flights[0], null, 2));
+    }
+  } catch (flightError) {
+    console.error('Error fetching flights:', flightError);
+    console.error('Error details:', flightError.message);
+    console.error('Stack trace:', flightError.stack);
+    
+    // Try using the API endpoint instead
+    try {
+      console.log('Trying API fallback...');
+      const response = await fetch(`${Astro.url.origin}/api/flights?limit=1000`);
+      console.log('API response status:', response.status);
+      
+      if (response.ok) {
+        const apiData = await response.json();
+        console.log('API data:', JSON.stringify(apiData, null, 2));
+        
+        if (apiData.success && apiData.data?.data) {
+          flights = apiData.data.data;
+          console.log(`Fetched ${flights.length} flights from API`);
+        }
+      }
+    } catch (apiError) {
+      console.error('Error fetching from API:', apiError);
+    }
+  }
 
   //fetch airports
-  airports = await db.searchAirports(undefined, 500);
-
-  //fetch flight statistics
-  flightStats = await db.getFlightStatistics();
+  try {
+    airports = await db.searchAirports(undefined, 500);
+    console.log(`Fetched ${airports.length} airports`);
+  } catch (airportError) {
+    console.error('Error fetching airports:', airportError);
+  }
 
   //get recent flights (last 10)
   if (flights.length > 0) {
@@ -56,6 +124,27 @@ try {
       .map(([route, count]) => ({ route, count }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 5);
+  }
+
+  // Update flight stats with actual count if mismatch
+  if (flightStats.totalFlights === 0 && flights.length > 0) {
+    flightStats.totalFlights = flights.length;
+  }
+  
+  // Calculate completed and upcoming flights from actual data
+  if (flights.length > 0) {
+    const now = new Date();
+    flightStats.completedFlights = flights.filter(f => 
+      f.flight_status === 'completed' || new Date(f.arrival_time) < now
+    ).length;
+    flightStats.upcomingFlights = flights.filter(f => 
+      f.flight_status === 'booked' || new Date(f.departure_time) > now
+    ).length;
+    
+    // If the stats from the database don't match, use the actual count
+    if (flightStats.totalFlights === 0) {
+      flightStats.totalFlights = flights.length;
+    }
   }
 
 } catch (error) {
@@ -86,6 +175,8 @@ const currentYear = new Date().getFullYear();
 		}
 	}}
 >
+	<!-- Debug component -->
+	<FlightDebug flightStats={flightStats} flights={flights} error={errorMessage} />
 	<!-- Hero Section with Statistics -->
 	<section class="bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900 py-16">
 		<div class="max-w-7xl mx-auto px-4">
