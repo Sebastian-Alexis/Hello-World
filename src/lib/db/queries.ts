@@ -1869,8 +1869,8 @@ export class DatabaseQueries {
         departure_airport_id, arrival_airport_id, departure_time, arrival_time,
         flight_duration, distance_km, seat_number, class, booking_reference,
         ticket_price, currency, notes, photos, trip_purpose, is_favorite,
-        flight_status, blog_post_id
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        flight_status, blog_post_id, trip_id
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       RETURNING *
     `;
     
@@ -1896,6 +1896,7 @@ export class DatabaseQueries {
       flightData.is_favorite,
       flightData.flight_status,
       flightData.blog_post_id || null,
+      flightData.trip_id || null,
     ];
 
     const result = await executeQuery<Flight>(query, params);
@@ -2219,6 +2220,29 @@ export class DatabaseQueries {
   //gets all airports (legacy method - redirects to enhanced searchAirports)
   async getAirports(query?: string, limit = 100): Promise<Airport[]> {
     return this.searchAirports(query, limit);
+  }
+  
+  //gets all trips for flight association
+  async getTrips(activeOnly = true): Promise<Trip[]> {
+    const query = activeOnly
+      ? `SELECT * FROM trips WHERE is_active = 1 ORDER BY start_date DESC`
+      : `SELECT * FROM trips ORDER BY start_date DESC`;
+    
+    const result = await executeQuery<Trip>(query);
+    return result.rows;
+  }
+  
+  //gets unique airlines from flights
+  async getAirlines(): Promise<Array<{name: string; iata_code: string | null}>> {
+    const query = `
+      SELECT DISTINCT airline_name as name, airline_code as iata_code
+      FROM flights
+      WHERE airline_name IS NOT NULL
+      ORDER BY airline_name ASC
+    `;
+    
+    const result = await executeQuery<{name: string; iata_code: string | null}>(query);
+    return result.rows;
   }
 
   //gets flight routes for visualization

@@ -1,6 +1,6 @@
 ---
 export interface Props {
-  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search';
+  type?: 'text' | 'email' | 'password' | 'number' | 'tel' | 'url' | 'search' | 'date' | 'datetime-local';
   name?: string;
   id?: string;
   placeholder?: string;
@@ -12,6 +12,7 @@ export interface Props {
   label?: string;
   hint?: string;
   class?: string;
+  list?: string;
 }
 
 const {
@@ -27,6 +28,7 @@ const {
   label,
   hint,
   class: className = '',
+  list,
   ...props
 } = Astro.props;
 
@@ -61,6 +63,7 @@ const classes = `${baseClasses} ${stateClasses} ${disabledClasses} ${className}`
     required={required}
     disabled={disabled}
     readonly={readonly}
+    list={list}
     class={classes}
     {...props}
   />

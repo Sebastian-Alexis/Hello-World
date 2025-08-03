@@ -24,6 +24,7 @@ const envSchema = z.object({
   VITE_MAPBOX_ACCESS_TOKEN: z.string().optional(),
   PUBLIC_MAPBOX_ACCESS_TOKEN: z.string().optional(),
   MAPBOX_STYLE_URL: z.string().url().optional(),
+  AVIATION_STACK_API: z.string().optional(),
 
   // Site Configuration
   SITE_URL: z.string().url('Valid site URL is required'),
@@ -160,6 +161,16 @@ export function getAuthConfig() {
     jwtSecret: env.JWT_SECRET,
     bcryptRounds: env.BCRYPT_ROUNDS,
     sessionSecret: env.SESSION_SECRET,
+  };
+}
+
+//gets external API configuration
+export function getApiConfig() {
+  const env = getEnv();
+  return {
+    mapboxToken: env.VITE_MAPBOX_ACCESS_TOKEN,
+    mapboxStyleUrl: env.MAPBOX_STYLE_URL,
+    aviationStackApi: env.AVIATION_STACK_API,
   };
 }
 

@@ -2,18 +2,20 @@
 import AdminLayout from '../../../layouts/AdminLayout.astro';
 import { db } from '../../../lib/db/queries.js';
 
-//get airlines and airports for autocomplete
-let airlines, airports;
+// Get airlines, airports, and trips for form dropdowns
+let airlines, airports, trips;
 
 try {
-  [airlines, airports] = await Promise.all([
+  [airlines, airports, trips] = await Promise.all([
     db.getAirlines(),
-    db.getAirports()
+    db.getAirports(),
+    db.getTrips()
   ]);
 } catch (error) {
   console.error('Flight form error:', error);
   airlines = [];
   airports = [];
+  trips = [];
 }
 ---
 
@@ -52,79 +54,93 @@ try {
           <h3 class="text-lg font-medium text-gray-900 dark:text-white">Flight Details</h3>
         </div>
         <div class="p-6 space-y-6">
-          <!-- Flight Number and Airline -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="flight_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Flight Number *
-              </label>
+          <!-- Flight Number and Fetch Button -->
+          <div>
+            <label for="flight_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Flight Number *
+            </label>
+            <div class="flex space-x-2">
               <input 
                 type="text" 
                 name="flight_number" 
                 id="flight_number" 
                 required
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                class="flex-1 block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="e.g., AA1234, UA456"
               >
-            </div>
-            
-            <div>
-              <label for="airline" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Airline *
-              </label>
-              <input 
-                type="text" 
-                name="airline" 
-                id="airline" 
-                required
-                list="airlines-list"
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="e.g., American Airlines, United"
+              <button
+                type="button"
+                id="fetch-flight-btn"
+                class="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
-              <datalist id="airlines-list">
-                {airlines.map(airline => (
-                  <option value={airline.name}>{airline.name}</option>
-                ))}
-              </datalist>
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                Fetch Flight Data
+              </button>
             </div>
+          </div>
+          
+          <!-- Airline -->
+          <div>
+            <label for="airline_name" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Airline *
+            </label>
+            <input 
+              type="text" 
+              name="airline_name" 
+              id="airline_name" 
+              required
+              list="airlines-list"
+              class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              placeholder="e.g., American Airlines, United"
+            >
+            <input type="hidden" name="airline_code" id="airline_code">
+            <datalist id="airlines-list">
+              {airlines.map(airline => (
+                <option value={airline.name} data-code={airline.iata_code}>{airline.name}</option>
+              ))}
+            </datalist>
           </div>
           
           <!-- Origin and Destination -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label for="origin_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Origin Airport *
+              <label for="departure_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Departure Airport *
               </label>
               <input 
                 type="text" 
-                name="origin_airport" 
-                id="origin_airport" 
+                name="departure_airport" 
+                id="departure_airport" 
                 required
                 list="airports-list"
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Search airport name or code..."
               >
+              <input type="hidden" name="departure_airport_id" id="departure_airport_id" required>
             </div>
             
             <div>
-              <label for="destination_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Destination Airport *
+              <label for="arrival_airport" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Arrival Airport *
               </label>
               <input 
                 type="text" 
-                name="destination_airport" 
-                id="destination_airport" 
+                name="arrival_airport" 
+                id="arrival_airport" 
                 required
                 list="airports-list"
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 placeholder="Search airport name or code..."
               >
+              <input type="hidden" name="arrival_airport_id" id="arrival_airport_id" required>
             </div>
           </div>
           
           <datalist id="airports-list">
             {airports.map(airport => (
-              <option value={`${airport.iata_code} - ${airport.name}`}>
+              <option value={`${airport.iata_code} - ${airport.name}, ${airport.city}`} data-id={airport.id}>
                 {airport.iata_code} - {airport.name}, {airport.city}, {airport.country}
               </option>
             ))}
@@ -207,24 +223,12 @@ try {
                 id="class" 
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
+                <option value="">Select class</option>
                 <option value="economy">Economy</option>
                 <option value="premium_economy">Premium Economy</option>
                 <option value="business">Business</option>
                 <option value="first">First Class</option>
               </select>
-            </div>
-            
-            <div>
-              <label for="booking_class" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Booking Class
-              </label>
-              <input 
-                type="text" 
-                name="booking_class" 
-                id="booking_class" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="e.g., Y, W, J, F"
-              >
             </div>
             
             <div>
@@ -236,31 +240,52 @@ try {
                 id="flight_status" 
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
               >
-                <option value="scheduled">Scheduled</option>
-                <option value="completed">Completed</option>
+                <option value="completed" selected>Completed</option>
+                <option value="booked">Booked</option>
                 <option value="cancelled">Cancelled</option>
                 <option value="delayed">Delayed</option>
               </select>
             </div>
+            
+            <div>
+              <label for="trip_purpose" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Trip Purpose
+              </label>
+              <select 
+                name="trip_purpose" 
+                id="trip_purpose" 
+                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+              >
+                <option value="">Select purpose</option>
+                <option value="business">Business</option>
+                <option value="vacation">Vacation</option>
+                <option value="personal">Personal</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
           </div>
           
-          <!-- Miles and Price -->
+          <!-- Trip Association -->
+          <div>
+            <label for="trip_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Associated Trip
+            </label>
+            <select 
+              name="trip_id" 
+              id="trip_id" 
+              class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+            >
+              <option value="">No trip selected</option>
+              {trips.map(trip => (
+                <option value={trip.id}>
+                  {trip.name} ({new Date(trip.start_date).toLocaleDateString()} - {new Date(trip.end_date).toLocaleDateString()})
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <!-- Price and Booking -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="distance_miles" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Distance (miles)
-              </label>
-              <input 
-                type="number" 
-                name="distance_miles" 
-                id="distance_miles" 
-                min="0"
-                step="1"
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Auto-calculated if empty"
-              >
-            </div>
-            
             <div>
               <label for="ticket_price" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Ticket Price ($)
@@ -275,54 +300,29 @@ try {
                 placeholder="0.00"
               >
             </div>
-          </div>
-          
-          <!-- Purpose and Trip Type -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="purpose" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Travel Purpose
-              </label>
-              <select 
-                name="purpose" 
-                id="purpose" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              >
-                <option value="">Select purpose</option>
-                <option value="business">Business</option>
-                <option value="leisure">Leisure</option>
-                <option value="personal">Personal</option>
-                <option value="education">Education</option>
-                <option value="medical">Medical</option>
-                <option value="other">Other</option>
-              </select>
-            </div>
             
             <div>
-              <label for="trip_type" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Trip Type
+              <label for="booking_reference" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Booking Reference
               </label>
-              <select 
-                name="trip_type" 
-                id="trip_type" 
+              <input 
+                type="text" 
+                name="booking_reference" 
+                id="booking_reference" 
                 class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="e.g., ABC123, XYZ789"
               >
-                <option value="one_way">One Way</option>
-                <option value="round_trip">Round Trip</option>
-                <option value="multi_city">Multi-City</option>
-              </select>
             </div>
           </div>
         </div>
       </div>
 
-      <!-- Flight Notes & Media -->
+      <!-- Flight Notes -->
       <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
         <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Notes & Media</h3>
+          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Notes</h3>
         </div>
-        <div class="p-6 space-y-6">
-          <!-- Flight Notes -->
+        <div class="p-6">
           <div>
             <label for="notes" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Flight Notes
@@ -336,108 +336,17 @@ try {
             ></textarea>
           </div>
           
-          <!-- Flight Photos -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Flight Photos
+          <!-- Favorite Flight Toggle -->
+          <div class="mt-4">
+            <label class="inline-flex items-center">
+              <input 
+                type="checkbox" 
+                name="is_favorite" 
+                id="is_favorite"
+                class="rounded border-gray-300 text-blue-600 shadow-sm focus:border-blue-300 focus:ring focus:ring-blue-200 focus:ring-opacity-50"
+              >
+              <span class="ml-2 text-sm text-gray-700 dark:text-gray-300">Mark as favorite flight</span>
             </label>
-            <div id="flight-photos-upload">
-              <!-- MediaUpload component will be mounted here -->
-            </div>
-            <input type="hidden" name="photos" id="photos-input">
-            
-            <!-- Photos Preview -->
-            <div id="photos-preview" class="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4 hidden">
-              <!-- Flight photos will appear here -->
-            </div>
-          </div>
-          
-          <!-- Flight Rating -->
-          <div>
-            <label for="rating" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Overall Flight Rating
-            </label>
-            <div class="flex items-center space-x-2">
-              <div id="star-rating" class="flex space-x-1">
-                {Array.from({ length: 5 }, (_, i) => (
-                  <button
-                    type="button"
-                    class="star-btn text-2xl text-gray-300 hover:text-yellow-400 focus:outline-none"
-                    data-rating={i + 1}
-                  >
-                    ★
-                  </button>
-                ))}
-              </div>
-              <input type="hidden" name="rating" id="rating-input" value="0">
-              <span id="rating-text" class="text-sm text-gray-500 dark:text-gray-400">No rating</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Flight Tracking -->
-      <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-        <div class="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white">Tracking & References</h3>
-        </div>
-        <div class="p-6 space-y-6">
-          <!-- Confirmation and Record Locator -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="confirmation_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Confirmation Number
-              </label>
-              <input 
-                type="text" 
-                name="confirmation_number" 
-                id="confirmation_number" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="e.g., ABC123, XYZ789"
-              >
-            </div>
-            
-            <div>
-              <label for="record_locator" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Record Locator (PNR)
-              </label>
-              <input 
-                type="text" 
-                name="record_locator" 
-                id="record_locator" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="e.g., ABC123"
-              >
-            </div>
-          </div>
-          
-          <!-- Frequent Flyer and Gate Info -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label for="frequent_flyer_number" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Frequent Flyer Number
-              </label>
-              <input 
-                type="text" 
-                name="frequent_flyer_number" 
-                id="frequent_flyer_number" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="Your FF number for this airline"
-              >
-            </div>
-            
-            <div>
-              <label for="gate" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Gate
-              </label>
-              <input 
-                type="text" 
-                name="gate" 
-                id="gate" 
-                class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                placeholder="e.g., A15, B7, C22"
-              >
-            </div>
           </div>
         </div>
       </div>
@@ -446,340 +355,196 @@ try {
 </AdminLayout>
 
 <script>
-  //make airports data globally available for form processing
+  // Make airports data globally available for form processing
   window.airportsData = ${JSON.stringify(airports)};
   
-  document.addEventListener('DOMContentLoaded', async function() {
-    //mount media upload for flight photos using Svelte 5 syntax
-    const { mount } = await import('svelte');
-    const MediaUpload = (await import('../../../components/admin/MediaUpload.svelte')).default;
+  document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('flight-form');
+    const fetchBtn = document.getElementById('fetch-flight-btn');
     
-    let photosUpload;
-    try {
-      photosUpload = mount(MediaUpload, {
-        target: document.getElementById('flight-photos-upload'),
-        props: {
-          accept: 'image/*',
-          multiple: true,
-          maxSize: 5 * 1024 * 1024, // 5MB
-          onsuccess: (event) => {
-            flightPhotos = flightPhotos.concat(event.detail.files);
-            updatePhotosInput();
-            renderPhotosPreview();
-          },
-          onerror: (event) => {
-            alert(event.detail.message);
+    // Airport input handling
+    const departureInput = document.getElementById('departure_airport');
+    const arrivalInput = document.getElementById('arrival_airport');
+    const departureIdInput = document.getElementById('departure_airport_id');
+    const arrivalIdInput = document.getElementById('arrival_airport_id');
+    
+    // Update hidden airport ID when airport is selected
+    function updateAirportId(input, idInput) {
+      const value = input.value;
+      const datalist = document.getElementById('airports-list');
+      const option = Array.from(datalist.options).find(opt => opt.value === value);
+      
+      if (option) {
+        idInput.value = option.dataset.id;
+      } else {
+        // Try to find by IATA code only
+        const iataMatch = value.match(/^([A-Z]{3})/);
+        if (iataMatch) {
+          const airport = window.airportsData.find(a => a.iata_code === iataMatch[1]);
+          if (airport) {
+            idInput.value = airport.id;
           }
         }
-      });
-    } catch (error) {
-      console.error('Photos upload mount error:', error);
-    }
-    
-    let flightPhotos = [];
-    
-    function updatePhotosInput() {
-      document.getElementById('photos-input').value = JSON.stringify(flightPhotos.map(photo => photo.url));
-    }
-    
-    function renderPhotosPreview() {
-      const preview = document.getElementById('photos-preview');
-      preview.innerHTML = '';
-      
-      if (flightPhotos.length > 0) {
-        preview.classList.remove('hidden');
-        flightPhotos.forEach((photo, index) => {
-          const div = document.createElement('div');
-          div.className = 'relative group';
-          div.innerHTML = `
-            <img src="${photo.url}" alt="Flight photo ${index + 1}" class="w-full h-24 object-cover rounded-lg">
-            <button type="button" onclick="removeFlightPhoto(${index})" class="absolute top-1 right-1 bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity">
-              ×
-            </button>
-          `;
-          preview.appendChild(div);
-        });
-      } else {
-        preview.classList.add('hidden');
       }
     }
     
-    window.removeFlightPhoto = function(index) {
-      flightPhotos.splice(index, 1);
-      updatePhotosInput();
-      renderPhotosPreview();
-    };
+    departureInput.addEventListener('change', () => updateAirportId(departureInput, departureIdInput));
+    arrivalInput.addEventListener('change', () => updateAirportId(arrivalInput, arrivalIdInput));
     
-    //star rating functionality
-    const starBtns = document.querySelectorAll('.star-btn');
-    const ratingInput = document.getElementById('rating-input');
-    const ratingText = document.getElementById('rating-text');
+    // Airline code handling
+    const airlineInput = document.getElementById('airline_name');
+    const airlineCodeInput = document.getElementById('airline_code');
     
-    starBtns.forEach(btn => {
-      btn.addEventListener('click', function() {
-        const rating = parseInt(this.dataset.rating);
-        setRating(rating);
-      });
-      
-      btn.addEventListener('mouseenter', function() {
-        const rating = parseInt(this.dataset.rating);
-        highlightStars(rating);
-      });
+    airlineInput.addEventListener('change', function() {
+      const datalist = document.getElementById('airlines-list');
+      const option = Array.from(datalist.options).find(opt => opt.value === this.value);
+      if (option) {
+        airlineCodeInput.value = option.dataset.code;
+      }
     });
     
-    document.getElementById('star-rating').addEventListener('mouseleave', function() {
-      const currentRating = parseInt(ratingInput.value) || 0;
-      highlightStars(currentRating);
-    });
-    
-    function setRating(rating) {
-      ratingInput.value = rating;
-      highlightStars(rating);
-      updateRatingText(rating);
-    }
-    
-    function highlightStars(count) {
-      starBtns.forEach((btn, index) => {
-        if (index < count) {
-          btn.classList.add('text-yellow-400');
-          btn.classList.remove('text-gray-300');
-        } else {
-          btn.classList.remove('text-yellow-400');
-          btn.classList.add('text-gray-300');
-        }
-      });
-    }
-    
-    function updateRatingText(rating) {
-      const ratingTexts = {
-        0: 'No rating',
-        1: 'Poor',
-        2: 'Fair', 
-        3: 'Good',
-        4: 'Very Good',
-        5: 'Excellent'
-      };
-      ratingText.textContent = ratingTexts[rating] || 'No rating';
-    }
-    
-    //calculate flight duration and auto-populate distance
-    const departureInput = document.getElementById('departure_time');
-    const arrivalInput = document.getElementById('arrival_time');
-    const distanceInput = document.getElementById('distance_miles');
-    const originInput = document.getElementById('origin_airport');
-    const destInput = document.getElementById('destination_airport');
-    
-    //auto-calculate distance when airports change
-    function calculateDistance() {
-      const origin = originInput.value;
-      const dest = destInput.value;
-      
-      if (origin && dest && !distanceInput.value) {
-        //extract airport codes
-        const originCode = origin.split(' - ')[0];
-        const destCode = dest.split(' - ')[0];
-        
-        if (originCode && destCode && originCode !== destCode) {
-          //simulate distance calculation (in a real app, you'd use actual coordinates)
-          fetch(`/api/airports/distance?from=${originCode}&to=${destCode}`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.distance) {
-                distanceInput.value = Math.round(data.distance);
-              }
-            })
-            .catch(error => console.log('Distance calculation failed:', error));
-        }
-      }
-    }
-    
-    originInput.addEventListener('change', calculateDistance);
-    destInput.addEventListener('change', calculateDistance);
-    
-    //helper function to show error messages
-    function showError(message) {
-      //create or update error message element
-      let errorEl = document.getElementById('flight-form-error');
-      if (!errorEl) {
-        errorEl = document.createElement('div');
-        errorEl.id = 'flight-form-error';
-        errorEl.className = 'bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4';
-        errorEl.setAttribute('role', 'alert');
-        
-        const formHeader = document.querySelector('.mb-8');
-        formHeader.insertAdjacentElement('afterend', errorEl);
+    // Fetch flight data button
+    fetchBtn.addEventListener('click', async function() {
+      const flightNumber = document.getElementById('flight_number').value;
+      if (!flightNumber) {
+        alert('Please enter a flight number first');
+        return;
       }
       
-      errorEl.innerHTML = `
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
-          </svg>
-          <span>${message}</span>
-        </div>
-      `;
+      // Show loading state
+      fetchBtn.disabled = true;
+      fetchBtn.textContent = 'Fetching...';
       
-      //scroll to error
-      errorEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      
-      //auto-hide after 10 seconds
-      setTimeout(() => {
-        errorEl.style.transition = 'opacity 0.5s';
-        errorEl.style.opacity = '0';
-        setTimeout(() => errorEl.remove(), 500);
-      }, 10000);
-    }
-    
-    //helper function to show success message
-    function showSuccess(message) {
-      //create success message element
-      const successEl = document.createElement('div');
-      successEl.className = 'bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-4';
-      successEl.setAttribute('role', 'status');
-      successEl.innerHTML = `
-        <div class="flex items-center">
-          <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 20 20">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-          </svg>
-          <span>${message}</span>
-        </div>
-      `;
-      
-      const formHeader = document.querySelector('.mb-8');
-      formHeader.insertAdjacentElement('afterend', successEl);
-      
-      //auto-hide after 3 seconds
-      setTimeout(() => {
-        successEl.style.transition = 'opacity 0.5s';
-        successEl.style.opacity = '0';
-        setTimeout(() => successEl.remove(), 500);
-      }, 3000);
-    }
-    
-    //helper function to extract airport ID from selected value
-    function extractAirportId(airportValue) {
-      if (!airportValue) return null;
-      
-      //extract IATA code from format "LAX - Los Angeles International"
-      const match = airportValue.match(/^([A-Z]{3})\s*-/);
-      if (!match) return null;
-      
-      const iataCode = match[1];
-      //find the airport in our airports array
-      const airport = window.airportsData.find(a => a.iata_code === iataCode);
-      return airport ? airport.id : null;
-    }
-    
-    //helper function to build flight data JSON
-    function buildFlightData(formData) {
-      //extract and transform airport IDs
-      const departureAirportId = extractAirportId(formData.get('origin_airport'));
-      const arrivalAirportId = extractAirportId(formData.get('destination_airport'));
-      
-      //parse photos if they exist
-      let photos = [];
       try {
-        const photosJson = formData.get('photos');
-        if (photosJson) {
-          photos = JSON.parse(photosJson);
+        const response = await fetch('/api/flights/fetch', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            flightIata: flightNumber,
+            flightDate: new Date().toISOString().split('T')[0], // Today's date
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          // Populate form fields with fetched data
+          const data = result.data;
+          
+          document.getElementById('airline_name').value = data.airline_name || '';
+          document.getElementById('airline_code').value = data.airline_code || '';
+          document.getElementById('aircraft_type').value = data.aircraft_type || '';
+          
+          // Set airports
+          if (data.departure_airport_name) {
+            document.getElementById('departure_airport').value = `${data.departure_iata} - ${data.departure_airport_name}`;
+            document.getElementById('departure_airport_id').value = data.departure_airport_id;
+          }
+          
+          if (data.arrival_airport_name) {
+            document.getElementById('arrival_airport').value = `${data.arrival_iata} - ${data.arrival_airport_name}`;
+            document.getElementById('arrival_airport_id').value = data.arrival_airport_id;
+          }
+          
+          // Set times
+          if (data.departure_time) {
+            const depTime = new Date(data.departure_time);
+            document.getElementById('departure_time').value = depTime.toISOString().slice(0, 16);
+          }
+          
+          if (data.arrival_time) {
+            const arrTime = new Date(data.arrival_time);
+            document.getElementById('arrival_time').value = arrTime.toISOString().slice(0, 16);
+          }
+          
+          // Set flight status
+          if (data.flight_status) {
+            document.getElementById('flight_status').value = data.flight_status;
+          }
+          
+          alert('Flight data fetched successfully!');
+        } else {
+          alert(result.error || 'Failed to fetch flight data');
         }
-      } catch (e) {
-        console.warn('Failed to parse photos:', e);
+      } catch (error) {
+        console.error('Fetch error:', error);
+        alert('Failed to fetch flight data. Please try again.');
+      } finally {
+        // Reset button state
+        fetchBtn.disabled = false;
+        fetchBtn.innerHTML = '<svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>Fetch Flight Data';
       }
-      
-      //extract airline code from the airline name if possible
-      const airlineName = formData.get('airline') || null;
-      let airlineCode = null;
-      if (airlineName) {
-        //try to extract a 2-letter airline code from the beginning
-        const codeMatch = airlineName.match(/^([A-Z]{2})\s*-/);
-        if (codeMatch) {
-          airlineCode = codeMatch[1];
-        }
-      }
-      
-      //build the flight data object matching API expectations
-      return {
-        flight_number: formData.get('flight_number') || null,
-        airline_code: airlineCode,
-        airline_name: airlineName,
-        departure_airport_id: departureAirportId,
-        arrival_airport_id: arrivalAirportId,
-        departure_time: formData.get('departure_time'),
-        arrival_time: formData.get('arrival_time'),
-        aircraft_type: formData.get('aircraft_type') || null,
-        seat_number: formData.get('seat_number') || null,
-        class: formData.get('class') || null,
-        booking_reference: formData.get('booking_reference') || null,
-        ticket_price: formData.get('ticket_price') ? parseFloat(formData.get('ticket_price')) : null,
-        currency: 'USD', //default currency
-        notes: formData.get('notes') || null,
-        photos: photos,
-        trip_purpose: formData.get('purpose') || null,
-        flight_status: formData.get('flight_status') || 'completed',
-        is_favorite: false
-      };
-    }
+    });
     
-    //enhanced form submission with proper error handling
-    document.getElementById('flight-form').addEventListener('submit', async function(e) {
+    // Form submission
+    form.addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const submitBtn = this.querySelector('button[type="submit"]');
+      const submitBtn = form.querySelector('button[type="submit"]');
       const originalText = submitBtn.textContent;
       
       try {
-        //disable submit button and show loading state
+        // Validate required fields
+        if (!departureIdInput.value || !arrivalIdInput.value) {
+          throw new Error('Please select valid departure and arrival airports');
+        }
+        
+        // Disable submit button and show loading state
         submitBtn.disabled = true;
         submitBtn.textContent = 'Saving...';
         
-        const formData = new FormData(this);
-        const flightData = buildFlightData(formData);
+        const formData = new FormData(form);
         
-        //validate required fields
-        if (!flightData.departure_airport_id) {
-          throw new Error('Please select a valid departure airport');
-        }
-        if (!flightData.arrival_airport_id) {
-          throw new Error('Please select a valid arrival airport');
-        }
-        if (!flightData.departure_time) {
-          throw new Error('Departure time is required');
-        }
-        if (!flightData.arrival_time) {
-          throw new Error('Arrival time is required');
-        }
+        // Build flight data object
+        const flightData = {
+          flight_number: formData.get('flight_number'),
+          airline_code: formData.get('airline_code') || null,
+          airline_name: formData.get('airline_name'),
+          aircraft_type: formData.get('aircraft_type') || null,
+          departure_airport_id: parseInt(departureIdInput.value),
+          arrival_airport_id: parseInt(arrivalIdInput.value),
+          departure_time: formData.get('departure_time'),
+          arrival_time: formData.get('arrival_time'),
+          seat_number: formData.get('seat_number') || null,
+          class: formData.get('class') || null,
+          booking_reference: formData.get('booking_reference') || null,
+          ticket_price: formData.get('ticket_price') ? parseFloat(formData.get('ticket_price')) : null,
+          currency: 'USD',
+          notes: formData.get('notes') || null,
+          photos: [], // TODO: Implement photo upload
+          trip_purpose: formData.get('trip_purpose') || null,
+          is_favorite: formData.get('is_favorite') === 'on',
+          flight_status: formData.get('flight_status') || 'completed',
+          trip_id: formData.get('trip_id') ? parseInt(formData.get('trip_id')) : null,
+        };
         
-        //send to correct API endpoint with JSON
+        // Send to API
         const response = await fetch('/api/flights', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
           },
-          body: JSON.stringify(flightData)
+          body: JSON.stringify(flightData),
         });
         
         const result = await response.json();
         
         if (response.ok) {
-          //show success message
-          showSuccess('Flight saved successfully! Redirecting...');
-          
-          //redirect to flight details after a short delay
-          setTimeout(() => {
-            window.location.href = `/admin/flights/${result.data?.id || result.id}`;
-          }, 1000);
+          // Redirect to flights list
+          window.location.href = '/admin/flights';
         } else {
-          //handle API errors
+          // Handle API errors
           const errorMessage = result.error || result.message || 'Failed to save flight';
           throw new Error(errorMessage);
         }
       } catch (error) {
         console.error('Form submission error:', error);
-        showError(error.message || 'Failed to save flight. Please check your input and try again.');
+        alert(error.message || 'Failed to save flight. Please check your input and try again.');
         
-        //re-enable submit button
+        // Re-enable submit button
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
       }
@@ -795,43 +560,10 @@ try {
     cursor: not-allowed;
   }
   
-  button[disabled]::after {
-    content: '';
-    position: absolute;
-    width: 16px;
-    height: 16px;
-    margin-left: 8px;
-    border: 2px solid transparent;
-    border-top-color: currentColor;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-  }
-  
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-  
-  /* Enhanced error states for form fields */
+  /* Enhanced form field styles */
   input:invalid:not(:focus):not(:placeholder-shown),
   select:invalid:not(:focus):not(:placeholder-shown) {
     border-color: #ef4444;
     background-color: #fef2f2;
-  }
-  
-  /* Smooth transitions */
-  #flight-form-error,
-  .bg-green-50 {
-    animation: slideIn 0.3s ease-out;
-  }
-  
-  @keyframes slideIn {
-    from {
-      transform: translateY(-10px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
   }
 </style>
