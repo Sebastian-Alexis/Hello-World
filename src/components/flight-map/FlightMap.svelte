@@ -298,15 +298,7 @@
 						'line-cap': 'round'
 					},
 					paint: {
-						'line-color': [
-							'match',
-							['get', 'status'],
-							'completed', '#22c55e',  // green
-							'booked', '#3b82f6',     // blue
-							'cancelled', '#ef4444',  // red
-							'delayed', '#f59e0b',    // amber
-							'#6b7280'               // gray (fallback)
-						],
+						'line-color': '#000000',  // Pure black for all paths
 						'line-width': [
 							'interpolate',
 							['linear'],
@@ -315,8 +307,7 @@
 							5, 2.5,
 							10, 3.5
 						],
-						'line-opacity': 0.7,
-						// Removed dasharray for smooth curved lines
+						'line-opacity': 0.8,
 						'line-blur': 0.5 // Slight blur for smoother appearance
 					}
 				});
@@ -1130,10 +1121,12 @@
 		border-radius: 4px;
 		cursor: pointer;
 		transition: all 0.2s;
+		color: #374151; /* Dark text for light mode */
 	}
 
 	.clear-btn:hover {
 		background: #e5e7eb;
+		color: #1f2937; /* Darker text on hover */
 	}
 
 	.filter-group {
@@ -1162,16 +1155,18 @@
 		cursor: pointer;
 		transition: all 0.2s;
 		white-space: nowrap;
+		color: #374151; /* Dark text for light mode */
 	}
 
 	.filter-item:hover {
 		background: #f3f4f6;
 		border-color: #d1d5db;
+		color: #1f2937; /* Darker text on hover */
 	}
 
 	.filter-item.active {
-		background: #3b82f6;
-		border-color: #3b82f6;
+		background: #374151; /* Dark grey */
+		border-color: #374151;
 		color: white;
 	}
 
@@ -1181,10 +1176,15 @@
 		gap: 0.5rem;
 		font-size: 0.875rem;
 		cursor: pointer;
+		color: #374151; /* Dark text for light mode */
 	}
 
 	.animation-toggle input {
 		margin: 0;
+	}
+
+	.animation-toggle span {
+		color: #374151; /* Dark text for light mode */
 	}
 
 	.stats {
@@ -1422,9 +1422,9 @@
 	}
 
 	:global(.dark) .filter-item.active {
-		background: #3b82f6;
-		border-color: #3b82f6;
-		color: white;
+		background: #e5e7eb; /* Light grey for dark mode */
+		border-color: #e5e7eb;
+		color: #111827; /* Dark text */
 	}
 
 	:global(.dark) .clear-btn {
@@ -1573,30 +1573,31 @@
 	}
 
 	:global(.flight-popup .visited) {
-		color: #059669;
+		color: #374151; /* Dark grey */
 	}
 
 	:global(.flight-popup .unvisited) {
-		color: #6b7280;
+		color: #6b7280; /* Medium grey */
 	}
 
 	:global(.flight-popup .status-completed) {
-		color: #059669;
+		color: #111827; /* Very dark grey/black */
 		text-transform: capitalize;
+		font-weight: 600;
 	}
 
 	:global(.flight-popup .status-booked) {
-		color: #3b82f6;
+		color: #374151; /* Dark grey */
 		text-transform: capitalize;
 	}
 
 	:global(.flight-popup .status-cancelled) {
-		color: #dc2626;
+		color: #9ca3af; /* Light grey */
 		text-transform: capitalize;
 	}
 
 	:global(.flight-popup .status-delayed) {
-		color: #d97706;
+		color: #6b7280; /* Medium grey */
 		text-transform: capitalize;
 	}
 
@@ -1649,42 +1650,44 @@
 		height: 20px;
 		border-radius: 50%;
 		cursor: pointer;
-		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-		border: 2px solid white;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+		border: 3px solid #6b7280; /* Grey outline */
+		background: white; /* White center */
 		display: block;
 	}
 
-	/* Visited airports - green */
-	:global(.airport-marker--visited) {
-		background: linear-gradient(135deg, #22c55e, #16a34a);
-	}
-
-	/* Unvisited airports - blue */
+	/* Both visited and unvisited use same style now */
+	:global(.airport-marker--visited),
 	:global(.airport-marker--unvisited) {
-		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		background: white;
+		border-color: #6b7280;
 	}
 
 	/* Size variations */
 	:global(.airport-marker--small) {
 		width: 16px;
 		height: 16px;
+		border-width: 2px;
 	}
 
 	:global(.airport-marker--medium) {
 		width: 20px;
 		height: 20px;
+		border-width: 3px;
 	}
 
 	:global(.airport-marker--large) {
 		width: 24px;
 		height: 24px;
+		border-width: 3px;
 	}
 
 	/* Hover effects */
 	:global(.airport-marker:hover) {
 		transform: scale(1.2);
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
 		z-index: 1000;
+		border-color: #374151; /* Darker grey on hover */
 	}
 
 	/* Dark theme support for markers */

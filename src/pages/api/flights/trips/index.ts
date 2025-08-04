@@ -327,6 +327,36 @@ export const POST: APIRoute = async ({ request }) => {
         const arrTime = new Date(flight.arrival_time);
         const durationMinutes = Math.round((arrTime.getTime() - depTime.getTime()) / (1000 * 60));
 
+        // Get airport coordinates for distance calculation
+        const departureAirport = await executeQuery<{ latitude: number; longitude: number }>(
+          'SELECT latitude, longitude FROM airports WHERE id = ?',
+          [departureAirportId]
+        );
+        
+        const arrivalAirport = await executeQuery<{ latitude: number; longitude: number }>(
+          'SELECT latitude, longitude FROM airports WHERE id = ?',
+          [arrivalAirportId]
+        );
+
+        // Calculate distance between airports
+        let distanceKm = null;
+        if (departureAirport.rows[0] && arrivalAirport.rows[0] &&
+            departureAirport.rows[0].latitude && departureAirport.rows[0].longitude &&
+            arrivalAirport.rows[0].latitude && arrivalAirport.rows[0].longitude) {
+          // Haversine formula for distance calculation
+          const R = 6371; // Earth's radius in kilometers
+          const lat1 = departureAirport.rows[0].latitude * Math.PI / 180;
+          const lat2 = arrivalAirport.rows[0].latitude * Math.PI / 180;
+          const deltaLat = (arrivalAirport.rows[0].latitude - departureAirport.rows[0].latitude) * Math.PI / 180;
+          const deltaLon = (arrivalAirport.rows[0].longitude - departureAirport.rows[0].longitude) * Math.PI / 180;
+
+          const a = Math.sin(deltaLat/2) * Math.sin(deltaLat/2) +
+                    Math.cos(lat1) * Math.cos(lat2) *
+                    Math.sin(deltaLon/2) * Math.sin(deltaLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          distanceKm = Math.round(R * c);
+        }
+
         processedFlights.push({
           flight_number: flight.flight_number,
           airline_code: flight.airline_code || null,
@@ -337,6 +367,7 @@ export const POST: APIRoute = async ({ request }) => {
           departure_time: flight.departure_time,
           arrival_time: flight.arrival_time,
           flight_duration: durationMinutes,
+          distance_km: distanceKm,
           seat_number: flight.seat_number || null
         });
       } catch (flightError) {
@@ -369,9 +400,9 @@ export const POST: APIRoute = async ({ request }) => {
               flight_number, airline_code, airline_name, aircraft_type,
               departure_airport_id, arrival_airport_id, 
               departure_time, arrival_time, flight_duration,
-              seat_number, trip_id, flight_status,
+              distance_km, seat_number, trip_id, flight_status,
               created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'completed', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
           `,
           params: [
             flight.flight_number,
@@ -383,6 +414,7 @@ export const POST: APIRoute = async ({ request }) => {
             flight.departure_time,
             flight.arrival_time,
             flight.flight_duration,
+            flight.distance_km,
             flight.seat_number,
             tripId
           ]
