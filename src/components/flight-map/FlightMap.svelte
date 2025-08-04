@@ -34,7 +34,10 @@
 		isValidCoordinate,
 		isNullIsland,
 		crossesDateLine,
-		isPolarRegion
+		isPolarRegion,
+		generateGreatCirclePath,
+		generateBezierPath,
+		calculateDistance
 	} from './utils';
 
 	//props
@@ -282,7 +285,7 @@
 					data: flightsToGeoJSON($filteredFlights)
 				});
 
-				// Add dotted line layer for flight paths
+				// Add smooth curved line layer for flight paths
 				map.addLayer({
 					id: 'flight-paths',
 					type: 'line',
@@ -305,12 +308,13 @@
 							'interpolate',
 							['linear'],
 							['zoom'],
-							1, 1,
-							5, 2,
-							10, 3
+							1, 1.5,
+							5, 2.5,
+							10, 3.5
 						],
-						'line-opacity': 0.8,
-						'line-dasharray': [2, 4] // Creates dotted pattern
+						'line-opacity': 0.7,
+						// Removed dasharray for smooth curved lines
+						'line-blur': 0.5 // Slight blur for smoother appearance
 					}
 				});
 
@@ -449,11 +453,29 @@
 				
 				// Only include flights with valid coordinates
 				if (origin && destination) {
+					// Calculate distance to determine path type
+					const distance = calculateDistance(origin, destination);
+					
+					// Generate curved path based on distance
+					let pathCoordinates: [number, number][];
+					
+					if (distance > 5000) {
+						// Long distance flights: use great circle path
+						pathCoordinates = generateGreatCirclePath(origin, destination, 100);
+					} else if (distance > 500) {
+						// Medium distance flights: use bezier curve with moderate height
+						const curveHeight = Math.min(0.3, distance / 10000);
+						pathCoordinates = generateBezierPath(origin, destination, curveHeight, 75);
+					} else {
+						// Short distance flights: use slight bezier curve
+						pathCoordinates = generateBezierPath(origin, destination, 0.1, 50);
+					}
+					
 					return {
 						type: 'Feature',
 						geometry: {
 							type: 'LineString',
-							coordinates: [origin, destination]
+							coordinates: pathCoordinates
 						},
 						properties: {
 							id: flight.flight_id,
@@ -462,7 +484,7 @@
 							flightNumber: flight.flight_number,
 							departureAirport: flight.departure_airport_name,
 							arrivalAirport: flight.arrival_airport_name,
-							distance: flight.distance_km,
+							distance: distance,
 							departureTime: flight.departure_time,
 							// Add validation info for debugging
 							validationIssues: issues.length > 0 ? issues : undefined,
@@ -787,17 +809,6 @@
 		});
 	}
 
-	function toggleStatus(status: string) {
-		selectedStatuses.update(set => {
-			const newSet = new Set(set);
-			if (newSet.has(status)) {
-				newSet.delete(status);
-			} else {
-				newSet.add(status);
-			}
-			return newSet;
-		});
-	}
 
 	function clearAllFilters() {
 		selectedAirlines.set(new Set());
@@ -870,21 +881,6 @@
 					</div>
 				</div>
 
-				<!-- Status Filter -->
-				<div class="filter-group">
-					<h4>Status</h4>
-					<div class="filter-items">
-						{#each ['booked', 'completed', 'cancelled', 'delayed'] as status}
-							<button 
-								class="filter-item"
-								class:active={$selectedStatuses.has(status)}
-								on:click={() => toggleStatus(status)}
-							>
-								<span class="capitalize">{status}</span>
-							</button>
-						{/each}
-					</div>
-				</div>
 
 				<!-- Animation Toggle -->
 				<div class="filter-group">
@@ -897,29 +893,6 @@
 					</label>
 				</div>
 
-				<!-- Stats -->
-				<div class="stats">
-					<div class="stat">
-						<span class="stat-value">{$filteredFlights.length}</span>
-						<span class="stat-label">Valid Flights</span>
-					</div>
-					<div class="stat">
-						<span class="stat-value">{$dataValidation.validAirports}</span>
-						<span class="stat-label">Valid Airports</span>
-					</div>
-					{#if $dataValidation.invalidFlights > 0}
-						<div class="stat warning">
-							<span class="stat-value">{$dataValidation.invalidFlights}</span>
-							<span class="stat-label">Invalid Flights</span>
-						</div>
-					{/if}
-					{#if $dataValidation.invalidAirports > 0}
-						<div class="stat warning">
-							<span class="stat-value">{$dataValidation.invalidAirports}</span>
-							<span class="stat-label">Invalid Airports</span>
-						</div>
-					{/if}
-				</div>
 
 				<!-- Data Quality Info -->
 				{#if $dataValidation.issues.length > 0 || $dataValidation.overlappingGroups.length > 0}

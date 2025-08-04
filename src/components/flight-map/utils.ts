@@ -73,6 +73,103 @@ export function isPolarRegion(lat: number): boolean {
 	return Math.abs(lat) > 80;
 }
 
+/**
+ * Generates a great circle path between two points
+ * @param start Starting coordinates [lng, lat]
+ * @param end Ending coordinates [lng, lat]
+ * @param numPoints Number of intermediate points to generate
+ * @returns Array of coordinates representing the curved path
+ */
+export function generateGreatCirclePath(
+	start: [number, number],
+	end: [number, number],
+	numPoints: number = 100
+): [number, number][] {
+	const [lng1, lat1] = start;
+	const [lng2, lat2] = end;
+	
+	// Convert to radians
+	const phi1 = lat1 * Math.PI / 180;
+	const phi2 = lat2 * Math.PI / 180;
+	const lambda1 = lng1 * Math.PI / 180;
+	const lambda2 = lng2 * Math.PI / 180;
+	
+	// Calculate the angular distance
+	const deltaSigma = Math.acos(
+		Math.sin(phi1) * Math.sin(phi2) + 
+		Math.cos(phi1) * Math.cos(phi2) * Math.cos(lambda2 - lambda1)
+	);
+	
+	const path: [number, number][] = [];
+	
+	for (let i = 0; i <= numPoints; i++) {
+		const fraction = i / numPoints;
+		
+		// Calculate intermediate point
+		const a = Math.sin((1 - fraction) * deltaSigma) / Math.sin(deltaSigma);
+		const b = Math.sin(fraction * deltaSigma) / Math.sin(deltaSigma);
+		
+		const x = a * Math.cos(phi1) * Math.cos(lambda1) + b * Math.cos(phi2) * Math.cos(lambda2);
+		const y = a * Math.cos(phi1) * Math.sin(lambda1) + b * Math.cos(phi2) * Math.sin(lambda2);
+		const z = a * Math.sin(phi1) + b * Math.sin(phi2);
+		
+		const phi = Math.atan2(z, Math.sqrt(x * x + y * y));
+		const lambda = Math.atan2(y, x);
+		
+		// Convert back to degrees
+		const lat = phi * 180 / Math.PI;
+		const lng = lambda * 180 / Math.PI;
+		
+		path.push([lng, lat]);
+	}
+	
+	return path;
+}
+
+/**
+ * Generates a bezier curve path for shorter flights
+ * @param start Starting coordinates [lng, lat]
+ * @param end Ending coordinates [lng, lat]
+ * @param curveHeight Height of the curve (0-1, where 1 is very curved)
+ * @returns Array of coordinates representing the curved path
+ */
+export function generateBezierPath(
+	start: [number, number],
+	end: [number, number],
+	curveHeight: number = 0.2,
+	numPoints: number = 50
+): [number, number][] {
+	const [lng1, lat1] = start;
+	const [lng2, lat2] = end;
+	
+	// Calculate midpoint
+	const midLng = (lng1 + lng2) / 2;
+	const midLat = (lat1 + lat2) / 2;
+	
+	// Calculate perpendicular direction for curve
+	const dx = lng2 - lng1;
+	const dy = lat2 - lat1;
+	const distance = Math.sqrt(dx * dx + dy * dy);
+	
+	// Control point offset perpendicular to flight direction
+	const offsetLng = midLng - (dy / distance) * distance * curveHeight;
+	const offsetLat = midLat + (dx / distance) * distance * curveHeight;
+	
+	const path: [number, number][] = [];
+	
+	for (let i = 0; i <= numPoints; i++) {
+		const t = i / numPoints;
+		
+		// Quadratic Bezier curve formula
+		const lng = (1 - t) * (1 - t) * lng1 + 2 * (1 - t) * t * offsetLng + t * t * lng2;
+		const lat = (1 - t) * (1 - t) * lat1 + 2 * (1 - t) * t * offsetLat + t * t * lat2;
+		
+		path.push([lng, lat]);
+	}
+	
+	return path;
+}
+
 //helper function to extract coordinates from proxy objects
 function extractFromProxy(value: any): any {
 	if (value === null || value === undefined) return null;
