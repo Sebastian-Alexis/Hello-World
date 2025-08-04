@@ -19,6 +19,13 @@ export interface Flight {
 	destination: [number, number]; // [lng, lat]
 }
 
+export interface Trip {
+	id: number;
+	name: string;
+	start_date?: string;
+	end_date?: string;
+}
+
 export interface Airport {
 	id: number;
 	name: string;
@@ -36,6 +43,7 @@ export interface Airport {
 	has_visited: boolean;
 	visit_count: number;
 	coordinates: [number, number]; // [lng, lat]
+	trips?: Trip[]; // Optional trips array
 }
 
 export interface FlightMapProps {

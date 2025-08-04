@@ -558,15 +558,53 @@
 		const markerElement = document.createElement('div');
 		markerElement.className = 'airport-marker';
 		
-		// Add visited class if airport has been visited
-		if (airport.has_visited) {
+		// Helper function to check if a flight is related to this airport
+		const isFlightRelatedToAirport = (flight: Flight, airport: Airport): boolean => {
+			// Check departure airport
+			if (flight.departure_airport_name) {
+				if (flight.departure_airport_name === airport.name ||
+					flight.departure_airport_name.includes(airport.iata_code) ||
+					flight.departure_airport_name.includes(`(${airport.iata_code})`) ||
+					airport.name.includes(flight.departure_airport_name)) {
+					return true;
+				}
+			}
+			
+			// Check arrival airport
+			if (flight.arrival_airport_name) {
+				if (flight.arrival_airport_name === airport.name ||
+					flight.arrival_airport_name.includes(airport.iata_code) ||
+					flight.arrival_airport_name.includes(`(${airport.iata_code})`) ||
+					airport.name.includes(flight.arrival_airport_name)) {
+					return true;
+				}
+			}
+			
+			// Also check by coordinates if available (within small tolerance)
+			const tolerance = 0.01; // About 1km
+			if (flight.origin && Math.abs(flight.origin[0] - airport.longitude) < tolerance && 
+				Math.abs(flight.origin[1] - airport.latitude) < tolerance) {
+				return true;
+			}
+			if (flight.destination && Math.abs(flight.destination[0] - airport.longitude) < tolerance && 
+				Math.abs(flight.destination[1] - airport.latitude) < tolerance) {
+				return true;
+			}
+			
+			return false;
+		};
+		
+		// Calculate visit count from actual flights data
+		const visitCount = $filteredFlights.filter(flight => isFlightRelatedToAirport(flight, airport)).length;
+		
+		// Add visited class based on actual flight count
+		if (visitCount > 0) {
 			markerElement.classList.add('airport-marker--visited');
 		} else {
 			markerElement.classList.add('airport-marker--unvisited');
 		}
 		
-		// Add size class based on visit count
-		const visitCount = airport.visit_count || 0;
+		// Add size class based on flight count
 		if (visitCount >= 5) {
 			markerElement.classList.add('airport-marker--large');
 		} else if (visitCount >= 2) {
@@ -631,6 +669,51 @@
 			if (isAtNullIsland) coordinateWarnings.push('⚠️ Located at Null Island');
 			if (isInPolarRegion) coordinateWarnings.push('⚠️ Polar region airport');
 			
+			// Check if airport has trip information
+			const hasTripInfo = airport.trips && Array.isArray(airport.trips) && airport.trips.length > 0;
+			
+			// Helper function to check if a flight is related to this airport
+			const isFlightRelatedToAirport = (flight: Flight, airport: Airport): boolean => {
+				// Check departure airport
+				if (flight.departure_airport_name) {
+					if (flight.departure_airport_name === airport.name ||
+						flight.departure_airport_name.includes(airport.iata_code) ||
+						flight.departure_airport_name.includes(`(${airport.iata_code})`) ||
+						airport.name.includes(flight.departure_airport_name)) {
+						return true;
+					}
+				}
+				
+				// Check arrival airport
+				if (flight.arrival_airport_name) {
+					if (flight.arrival_airport_name === airport.name ||
+						flight.arrival_airport_name.includes(airport.iata_code) ||
+						flight.arrival_airport_name.includes(`(${airport.iata_code})`) ||
+						airport.name.includes(flight.arrival_airport_name)) {
+						return true;
+					}
+				}
+				
+				// Also check by coordinates if available (within small tolerance)
+				const tolerance = 0.01; // About 1km
+				if (flight.origin && Math.abs(flight.origin[0] - airport.longitude) < tolerance && 
+					Math.abs(flight.origin[1] - airport.latitude) < tolerance) {
+					return true;
+				}
+				if (flight.destination && Math.abs(flight.destination[0] - airport.longitude) < tolerance && 
+					Math.abs(flight.destination[1] - airport.latitude) < tolerance) {
+					return true;
+				}
+				
+				return false;
+			};
+			
+			// Calculate visit count from actual flights data
+			const visitCount = $filteredFlights.filter(flight => isFlightRelatedToAirport(flight, airport)).length;
+			
+			// Airport is visited if there's at least one flight
+			const hasBeenVisited = visitCount > 0;
+			
 			const popupContent = `
 				<div class="flight-popup airport-popup">
 					<div class="popup-header">
@@ -644,19 +727,28 @@
 								${coordinateWarnings.map(warning => `<p class="warning">${warning}</p>`).join('')}
 							</div>
 						` : ''}
+						${hasTripInfo ? `
+							<div class="trip-info">
+								<div class="stat-item">
+									<span class="stat-label">Trips:</span>
+									<div class="trip-list">
+										${airport.trips.slice(0, 3).map(trip => `
+											<span class="trip-name">${trip.name || 'Unnamed Trip'}</span>
+										`).join(', ')}
+										${airport.trips.length > 3 ? `<span class="trip-more">+${airport.trips.length - 3} more</span>` : ''}
+									</div>
+								</div>
+							</div>
+						` : ''}
 						<div class="airport-stats">
 							<div class="stat-item">
-								<span class="stat-label">Coordinates:</span>
-								<span class="stat-value">${lng.toFixed(4)}, ${lat.toFixed(4)}</span>
-							</div>
-							<div class="stat-item">
-								<span class="stat-label">Visits:</span>
-								<span class="stat-value">${airport.visit_count}</span>
+								<span class="stat-label">Flights:</span>
+								<span class="stat-value">${visitCount}</span>
 							</div>
 							<div class="stat-item">
 								<span class="stat-label">Status:</span>
-								<span class="stat-value ${airport.has_visited ? 'visited' : 'unvisited'}">
-									${airport.has_visited ? 'Visited' : 'Not visited'}
+								<span class="stat-value ${hasBeenVisited ? 'visited' : 'unvisited'}">
+									${hasBeenVisited ? 'Visited' : 'Unvisited'}
 								</span>
 							</div>
 						</div>
@@ -1619,6 +1711,46 @@
 
 	:global(.flight-popup .coordinate-warnings .warning:last-child) {
 		margin-bottom: 0;
+	}
+
+	/* Trip information styles */
+	:global(.flight-popup .trip-info) {
+		margin: 12px 0;
+		padding: 8px 0;
+		border-top: 1px solid #e5e7eb;
+		border-bottom: 1px solid #e5e7eb;
+	}
+
+	:global(.flight-popup .trip-list) {
+		margin-top: 4px;
+		font-size: 12px;
+		line-height: 1.5;
+	}
+
+	:global(.flight-popup .trip-name) {
+		color: #3b82f6;
+		font-weight: 500;
+	}
+
+	:global(.flight-popup .trip-more) {
+		color: #6b7280;
+		font-style: italic;
+		font-size: 11px;
+		margin-left: 4px;
+	}
+
+	/* Dark theme trip styles */
+	:global(.dark .flight-popup .trip-info) {
+		border-top-color: #374151;
+		border-bottom-color: #374151;
+	}
+
+	:global(.dark .flight-popup .trip-name) {
+		color: #60a5fa;
+	}
+
+	:global(.dark .flight-popup .trip-more) {
+		color: #9ca3af;
 	}
 
 	/* Dark theme popup styles */
