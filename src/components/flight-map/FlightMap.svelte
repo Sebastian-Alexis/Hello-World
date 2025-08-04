@@ -565,10 +565,9 @@
 			// Create custom marker element
 			const markerElement = createCustomMarker(airport);
 
-			// Create Mapbox marker
+			// Create Mapbox marker - simplified configuration
 			const marker = new mapboxgl.Marker({
-				element: markerElement,
-				anchor: 'bottom'
+				element: markerElement
 			})
 				.setLngLat(position)
 				.addTo(map);
@@ -1581,98 +1580,56 @@
 		color: #f9fafb;
 	}
 
-	/* Airport marker styles */
+	/* Airport marker styles - simple circular pin */
 	:global(.airport-marker) {
-		width: 40px;
-		height: 40px;
+		width: 20px;
+		height: 20px;
 		border-radius: 50%;
-		border: 3px solid #fff;
 		cursor: pointer;
-		transition: all 0.2s ease;
-		transform: translate(-50%, -100%);
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-		position: relative;
-	}
-
-	:global(.airport-marker::before) {
-		content: '';
-		position: absolute;
-		bottom: -8px;
-		left: 50%;
-		transform: translateX(-50%);
-		width: 0;
-		height: 0;
-		border-left: 8px solid transparent;
-		border-right: 8px solid transparent;
-		border-top: 8px solid #fff;
+		box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+		border: 2px solid white;
+		display: block;
 	}
 
 	/* Visited airports - green */
 	:global(.airport-marker--visited) {
 		background: linear-gradient(135deg, #22c55e, #16a34a);
-		border-color: #15803d;
-	}
-
-	:global(.airport-marker--visited::before) {
-		border-top-color: #15803d;
 	}
 
 	/* Unvisited airports - blue */
 	:global(.airport-marker--unvisited) {
 		background: linear-gradient(135deg, #3b82f6, #2563eb);
-		border-color: #1d4ed8;
-	}
-
-	:global(.airport-marker--unvisited::before) {
-		border-top-color: #1d4ed8;
 	}
 
 	/* Size variations */
 	:global(.airport-marker--small) {
-		width: 32px;
-		height: 32px;
+		width: 16px;
+		height: 16px;
 	}
 
 	:global(.airport-marker--medium) {
-		width: 40px;
-		height: 40px;
+		width: 20px;
+		height: 20px;
 	}
 
 	:global(.airport-marker--large) {
-		width: 48px;
-		height: 48px;
+		width: 24px;
+		height: 24px;
 	}
 
 	/* Hover effects */
 	:global(.airport-marker:hover) {
-		transform: translate(-50%, -100%) scale(1.2);
-		box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+		transform: scale(1.2);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
 		z-index: 1000;
 	}
 
 	/* Dark theme support for markers */
 	:global(.dark .airport-marker) {
+		filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.6));
+	}
+
+	:global(.dark .airport-marker::after) {
 		border-color: #374151;
-		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
-	}
-
-	:global(.dark .airport-marker::before) {
-		border-top-color: #374151;
-	}
-
-	:global(.dark .airport-marker--visited) {
-		border-color: #166534;
-	}
-
-	:global(.dark .airport-marker--visited::before) {
-		border-top-color: #166534;
-	}
-
-	:global(.dark .airport-marker--unvisited) {
-		border-color: #1e40af;
-	}
-
-	:global(.dark .airport-marker--unvisited::before) {
-		border-top-color: #1e40af;
 	}
 </style>
