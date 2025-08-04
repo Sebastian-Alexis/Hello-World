@@ -19,9 +19,18 @@ async function geocodeAirport(iataCode: string, airportName: string, city: strin
       const data = await response.json();
       if (data && data.length > 0) {
         const result = data[0];
+        const latitude = parseFloat(result.lat);
+        const longitude = parseFloat(result.lon);
+        
+        // Check if parseFloat returned NaN
+        if (isNaN(latitude) || isNaN(longitude)) {
+          console.warn(`Invalid coordinates from geocoding for ${iataCode}: lat=${result.lat}, lon=${result.lon}`);
+          return null;
+        }
+        
         return {
-          latitude: parseFloat(result.lat) || 0.0,
-          longitude: parseFloat(result.lon) || 0.0,
+          latitude,
+          longitude,
           country_code: result.address?.country_code?.toUpperCase() || 'XX'
         };
       }
@@ -88,8 +97,8 @@ export const POST: APIRoute = async ({ request }) => {
     const coordinates = await geocodeAirport(iata_code, name, airportCity, airportCountry);
     
     // Handle failed geocoding - use null for coordinates instead of 0,0
-    const latitude = coordinates?.latitude || null;
-    const longitude = coordinates?.longitude || null;
+    const latitude = coordinates?.latitude ?? null;
+    const longitude = coordinates?.longitude ?? null;
     const countryCode = coordinates?.country_code || 'XX';
     
     // Log geocoding attempt

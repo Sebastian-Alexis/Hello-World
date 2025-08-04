@@ -2330,9 +2330,18 @@ export class DatabaseQueries {
         const data = await response.json();
         if (data && data.length > 0) {
           const result = data[0];
+          const latitude = parseFloat(result.lat);
+          const longitude = parseFloat(result.lon);
+          
+          // Check if parseFloat returned NaN
+          if (isNaN(latitude) || isNaN(longitude)) {
+            console.warn(`Invalid coordinates from geocoding for ${iataCode}: lat=${result.lat}, lon=${result.lon}`);
+            return null;
+          }
+          
           return {
-            latitude: parseFloat(result.lat) || 0.0,
-            longitude: parseFloat(result.lon) || 0.0,
+            latitude,
+            longitude,
             country_code: result.address?.country_code?.toUpperCase() || 'XX'
           };
         }
@@ -2464,7 +2473,7 @@ export class DatabaseQueries {
     let countryCode = 'XX';
 
     // Automatic geocoding if coordinates are not provided
-    if (!latitude || !longitude) {
+    if (latitude == null || longitude == null) {
       console.log(`🔍 Attempting to geocode airport: ${airportData.iata_code} - ${airportData.name}`);
       
       const coordinates = await this.geocodeAirport(

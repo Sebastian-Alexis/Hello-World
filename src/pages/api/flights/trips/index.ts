@@ -257,6 +257,13 @@ export const POST: APIRoute = async ({ request }) => {
       // Create new airport with geocoding
       const coordinates = await geocodeAirport(iata_code, airport_name, city, country);
       
+      // Log geocoding result
+      if (!coordinates) {
+        console.warn(`⚠️ Failed to geocode airport ${iata_code} - ${airport_name}. Storing with null coordinates.`);
+      } else {
+        console.log(`✅ Successfully geocoded ${iata_code}: [${coordinates.longitude}, ${coordinates.latitude}]`);
+      }
+      
       const airportResult = await executeQuery(`
         INSERT INTO airports (
           iata_code, name, city, country, country_code,
@@ -269,9 +276,9 @@ export const POST: APIRoute = async ({ request }) => {
         airport_name,
         city || 'Unknown',
         country || 'Unknown',
-        coordinates.country_code || 'XX',
-        coordinates.latitude,
-        coordinates.longitude,
+        coordinates?.country_code || 'XX',
+        coordinates?.latitude ?? null,
+        coordinates?.longitude ?? null,
         'airport',
         1,
         false,
@@ -299,9 +306,18 @@ export const POST: APIRoute = async ({ request }) => {
           const data = await response.json();
           if (data && data.length > 0) {
             const result = data[0];
+            const latitude = parseFloat(result.lat);
+            const longitude = parseFloat(result.lon);
+            
+            // Check if parseFloat returned NaN
+            if (isNaN(latitude) || isNaN(longitude)) {
+              console.warn(`Invalid coordinates from geocoding for ${iataCode}: lat=${result.lat}, lon=${result.lon}`);
+              return null;
+            }
+            
             return {
-              latitude: parseFloat(result.lat) || 0.0,
-              longitude: parseFloat(result.lon) || 0.0,
+              latitude,
+              longitude,
               country_code: result.address?.country_code?.toUpperCase() || 'XX'
             };
           }
@@ -310,12 +326,8 @@ export const POST: APIRoute = async ({ request }) => {
         console.warn(`Geocoding failed for ${iataCode} - ${airportName}:`, error.message);
       }
       
-      // Fallback to default coordinates
-      return {
-        latitude: 0.0,
-        longitude: 0.0,
-        country_code: 'XX'
-      };
+      // Return null to indicate geocoding failure
+      return null;
     }
 
     // Process airports first to ensure they exist
