@@ -2,6 +2,7 @@
 
 export interface Flight {
 	id: number;
+	flight_id: string; // Add missing flight_id property
 	flight_number?: string;
 	airline_name?: string;
 	departure_airport_name?: string;

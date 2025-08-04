@@ -3,9 +3,9 @@
 	import { writable, derived } from 'svelte/store';
 	import mapboxgl from 'mapbox-gl';
 	import 'mapbox-gl/dist/mapbox-gl.css';
-	import { Deck } from '@deck.gl/core';
-	import { MapboxOverlay } from '@deck.gl/mapbox';
-	import { ScatterplotLayer, ArcLayer } from '@deck.gl/layers';
+	// Deck.GL imports removed - using native Mapbox layers only
+	// import { Deck } from '@deck.gl/core';
+	// import { MapboxOverlay } from '@deck.gl/mapbox';
 	import type { 
 		Flight, 
 		Airport, 
@@ -15,17 +15,24 @@
 	} from './types';
 	import { 
 		filterFlights, 
+		filterFlightsEnhanced,
 		getUniqueAirlines, 
 		getUniqueYears,
 		calculateBounds,
 		formatDate,
 		formatTime,
 		getStatusColor,
-		getArcHeight,
 		getAirportRadius,
 		debounce,
-		throttle,
-		validateMapboxToken
+		validateMapboxToken,
+		getValidAirportCoordinates,
+		getValidFlightCoordinates,
+		validateDatasetPerformance,
+		detectOverlappingAirports,
+		isValidCoordinate,
+		isNullIsland,
+		crossesDateLine,
+		isPolarRegion
 	} from './utils';
 
 	//props
@@ -54,37 +61,91 @@
 	const isLoading = writable(true);
 	const hasError = writable(false);
 	const errorMessage = writable('');
+	
+	// Data validation tracking
+	const dataValidation = writable({
+		validFlights: 0,
+		invalidFlights: 0,
+		validAirports: 0,
+		invalidAirports: 0,
+		issues: [] as Array<{ type: 'flight' | 'airport'; item: any; issues: string[] }>,
+		performance: { isLargeDataset: false, estimatedRenderTime: 0 },
+		overlappingGroups: [] as Array<{ location: string; airports: Airport[]; avgCoordinates: [number, number] }>
+	});
 
 	//reactive unique values for filter options
 	$: uniqueAirlines = getUniqueAirlines(flights);
 	$: uniqueYears = getUniqueYears(flights);
 
-	//filtered data derived from stores with performance optimization
+	// Debug logging for airports data structure
+	$: {
+		console.log('🛫 AIRPORTS DATA ANALYSIS:', {
+			airportsCount: airports.length,
+			firstAirport: airports[0],
+			firstFewAirports: airports.slice(0, 3),
+			coordinateFields: airports.length > 0 ? Object.keys(airports[0]).filter(key => 
+				key.toLowerCase().includes('coord') || 
+				key.toLowerCase().includes('lat') || 
+				key.toLowerCase().includes('lng') || 
+				key.toLowerCase().includes('lon')
+			) : [],
+			allFields: airports.length > 0 ? Object.keys(airports[0]) : [],
+			hasCoordinatesField: airports.length > 0 && 'coordinates' in airports[0],
+			coordinatesType: airports.length > 0 ? typeof airports[0].coordinates : 'N/A',
+			coordinatesValue: airports.length > 0 ? airports[0].coordinates : 'N/A'
+		});
+	}
+
+	//filtered data derived from stores with enhanced validation
 	const filteredFlights = derived(
 		[selectedAirlines, selectedYears, selectedStatuses],
 		([$airlines, $years, $statuses]) => {
-			return filterFlights(flights, {
+			const result = filterFlightsEnhanced(flights, {
 				airlines: $airlines,
 				years: $years,
 				statuses: $statuses
 			});
+			
+			// Update validation tracking
+			dataValidation.update(prev => ({
+				...prev,
+				validFlights: result.validFlights.length,
+				invalidFlights: result.invalidFlights.length,
+				issues: [
+					...prev.issues.filter(issue => issue.type !== 'flight'),
+					...result.issues.map(issue => ({
+						type: 'flight' as const,
+						item: issue.flight,
+						issues: issue.issues
+					}))
+				]
+			}));
+			
+			// Log invalid flights for debugging
+			if (result.invalidFlights.length > 0) {
+				console.warn(`⚠️ ${result.invalidFlights.length} flights filtered out due to invalid coordinates:`, 
+					result.issues.map(i => ({ id: i.flight.flight_id, issues: i.issues })));
+			}
+			
+			return result.validFlights;
 		}
 	);
 
 	//map container and instances
 	let mapContainer: HTMLDivElement;
 	let map: mapboxgl.Map | null = null;
-	let deckOverlay: MapboxOverlay | null = null;
+	// Deck.GL overlay removed - using native Mapbox layers only
+	// let deckOverlay: MapboxOverlay | null = null;
 	let mounted = false;
 	let mapboxToken: string | undefined;
-	let animationId: number | null = null;
 
 	//popup handling
-	let popup: mapboxgl.Popup | null = null;
+	let flightPopup: mapboxgl.Popup | null = null;
+	let airportPopups: Map<string, mapboxgl.Popup> = new Map();
 	let hoveredObject: any = null;
 
-	//animation time for arcs
-	let animationTime = 0;
+	//marker management
+	let airportMarkers: mapboxgl.Marker[] = [];
 
 	//theme styles
 	const mapStyles = {
@@ -93,6 +154,9 @@
 	};
 
 	onMount(async () => {
+		// Validate data on mount
+		validateDataOnMount();
+		
 		// Access token inside onMount to avoid SSR issues
 		// Try both VITE_ and PUBLIC_ prefixes
 		mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
@@ -138,7 +202,6 @@
 			if (mapContainer && mounted) {
 				console.log('Map container ready, initializing...');
 				initializeMap();
-				startAnimation();
 			} else {
 				console.error('Map container not available after waiting');
 				console.error('Debug info:', {
@@ -196,25 +259,155 @@
 			map.addControl(new mapboxgl.AttributionControl({ compact: true }));
 			map.addControl(new mapboxgl.NavigationControl(), 'top-right');
 
-			//create deck overlay with performance optimizations
-			deckOverlay = new MapboxOverlay({
-				interleaved: true,
-				pickable: true,
-				onHover: throttle(handleHover, 50), //throttle hover events
-				onClick: handleClick
-			});
-
-			map.addControl(deckOverlay);
+			// Deck.GL overlay removed - using native Mapbox layers only
+			// Previously used for flight arcs, now using native dotted lines
 
 			//update layers when filters change (debounced for performance)
 			const debouncedUpdateLayers = debounce(updateLayers, 100);
 			filteredFlights.subscribe(debouncedUpdateLayers);
+			
+			//update markers when airports data changes
+			const debouncedUpdateMarkers = debounce(updateMarkers, 100);
 
 			map.on('load', () => {
 				console.log('Map loaded successfully');
+				
+				// Add flight paths GeoJSON source
+				if (!map) return;
+				
+				map.addSource('flight-paths', {
+					type: 'geojson',
+					data: flightsToGeoJSON($filteredFlights)
+				});
+
+				// Add dotted line layer for flight paths
+				map.addLayer({
+					id: 'flight-paths',
+					type: 'line',
+					source: 'flight-paths',
+					layout: {
+						'line-join': 'round',
+						'line-cap': 'round'
+					},
+					paint: {
+						'line-color': [
+							'match',
+							['get', 'status'],
+							'completed', '#22c55e',  // green
+							'booked', '#3b82f6',     // blue
+							'cancelled', '#ef4444',  // red
+							'delayed', '#f59e0b',    // amber
+							'#6b7280'               // gray (fallback)
+						],
+						'line-width': [
+							'interpolate',
+							['linear'],
+							['zoom'],
+							1, 1,
+							5, 2,
+							10, 3
+						],
+						'line-opacity': 0.8,
+						'line-dasharray': [2, 4] // Creates dotted pattern
+					}
+				});
+
+				// Add hover cursor for flight paths
+				map.on('mouseenter', 'flight-paths', () => {
+					if (map) map.getCanvas().style.cursor = 'pointer';
+				});
+
+				map.on('mouseleave', 'flight-paths', () => {
+					if (map) map.getCanvas().style.cursor = '';
+				});
+
+				// Add click handler for flight paths
+				map.on('click', 'flight-paths', (e) => {
+					if (e.features && e.features.length > 0) {
+						const feature = e.features[0];
+						const flightId = feature.properties?.id;
+						
+						// Find the corresponding flight object
+						const flight = $filteredFlights.find(f => f.flight_id === flightId);
+						if (flight) {
+							selectedFlight = flight;
+							dispatch('flightSelect', flight);
+							if (onFlightSelect) onFlightSelect(flight);
+						}
+					}
+				});
+
+				// Add hover popup for flight paths with validation info
+				map.on('mouseenter', 'flight-paths', (e) => {
+					if (e.features && e.features.length > 0) {
+						const feature = e.features[0];
+						const props = feature.properties;
+						
+						// Add validation warnings
+						const warnings = [];
+						if (props?.crossesDateLine) warnings.push('⚠️ Crosses international date line');
+						if (props?.isPolarOrigin) warnings.push('⚠️ Origin in polar region');
+						if (props?.isPolarDestination) warnings.push('⚠️ Destination in polar region');
+						if (props?.validationIssues?.length > 0) {
+							warnings.push(...props.validationIssues.map(issue => `⚠️ ${issue}`));
+						}
+						
+						const content = `
+							<div class="flight-popup flight-popup">
+								<div class="popup-header">
+									<h3>${props?.airline || 'Unknown Airline'}</h3>
+									<span class="flight-number">${props?.flightNumber || ''}</span>
+								</div>
+								<div class="popup-content">
+									<p class="route">${props?.departureAirport} → ${props?.arrivalAirport}</p>
+									${warnings.length > 0 ? `
+										<div class="coordinate-warnings">
+											${warnings.map(warning => `<p class="warning">${warning}</p>`).join('')}
+										</div>
+									` : ''}
+									<div class="flight-details">
+										<div class="detail-item">
+											<span class="detail-label">Date:</span>
+											<span class="detail-value">${formatDate(props?.departureTime)}</span>
+										</div>
+										<div class="detail-item">
+											<span class="detail-label">Status:</span>
+											<span class="detail-value status-${props?.status}">${props?.status}</span>
+										</div>
+										${props?.distance ? `
+											<div class="detail-item">
+												<span class="detail-label">Distance:</span>
+												<span class="detail-value">${props.distance.toLocaleString()} km</span>
+											</div>
+										` : ''}
+									</div>
+								</div>
+							</div>
+						`;
+
+						if (flightPopup) flightPopup.remove();
+						flightPopup = new mapboxgl.Popup({ 
+							closeButton: false, 
+							closeOnClick: false,
+							className: 'flight-map-popup'
+						})
+							.setLngLat(e.lngLat)
+							.setHTML(content)
+							.addTo(map);
+					}
+				});
+
+				map.on('mouseleave', 'flight-paths', () => {
+					if (flightPopup) {
+						flightPopup.remove();
+						flightPopup = null;
+					}
+				});
+				
 				updateLayers();
+				updateMarkers();
 				isLoading.set(false);
-				dispatch('mapReady', map!);
+				dispatch('mapReady', map);
 			});
 
 			map.on('error', (e) => {
@@ -247,202 +440,283 @@
 		}
 	}
 
+	function flightsToGeoJSON(flights: Flight[]) {
+		const validFeatures = flights
+			.map(flight => {
+				const { origin, destination, issues } = getValidFlightCoordinates(flight);
+				
+				// Only include flights with valid coordinates
+				if (origin && destination) {
+					return {
+						type: 'Feature',
+						geometry: {
+							type: 'LineString',
+							coordinates: [origin, destination]
+						},
+						properties: {
+							id: flight.flight_id,
+							status: flight.flight_status,
+							airline: flight.airline_name,
+							flightNumber: flight.flight_number,
+							departureAirport: flight.departure_airport_name,
+							arrivalAirport: flight.arrival_airport_name,
+							distance: flight.distance_km,
+							departureTime: flight.departure_time,
+							// Add validation info for debugging
+							validationIssues: issues.length > 0 ? issues : undefined,
+							crossesDateLine: crossesDateLine(origin[0], destination[0]),
+							isPolarOrigin: isPolarRegion(origin[1]),
+							isPolarDestination: isPolarRegion(destination[1])
+						}
+					};
+				}
+				
+				// Log invalid flights for debugging
+				if (issues.length > 0) {
+					console.warn(`⚠️ Skipping flight ${flight.flight_id} due to coordinate issues:`, issues);
+				}
+				
+				return null;
+			})
+			.filter(Boolean);
+		
+		return {
+			type: 'FeatureCollection',
+			features: validFeatures
+		};
+	}
+
 	function updateLayers() {
-		if (!deckOverlay || !mounted) return;
+		if (!map || !mounted) return;
 
 		const currentFlights = $filteredFlights;
 		
-		//airport scatter layer with enhanced styling
-		const airportLayer = new ScatterplotLayer({
-			id: 'airports',
-			data: airports,
-			pickable: true,
-			getPosition: (d: Airport) => d.coordinates,
-			getRadius: (d: Airport) => getAirportRadius(d.visit_count),
-			getFillColor: (d: Airport) => d.has_visited ? [34, 197, 94, 200] : [59, 130, 246, 200],
-			getLineColor: (d: Airport) => d.has_visited ? [22, 163, 74, 255] : [37, 99, 235, 255],
-			getLineWidth: 2000,
-			radiusScale: 1,
-			radiusMinPixels: 4,
-			radiusMaxPixels: 25,
-			stroked: true,
-			filled: true,
-			updateTriggers: {
-				getRadius: [airports],
-				getFillColor: [airports],
-				getLineColor: [airports]
+		// Update flight paths source data
+		if (map.getSource('flight-paths')) {
+			const source = map.getSource('flight-paths') as mapboxgl.GeoJSONSource;
+			source.setData(flightsToGeoJSON(currentFlights));
+		}
+
+		// Using native Mapbox layers only - no Deck.GL layers needed
+		// Flight paths: native GeoJSON line layer with dotted pattern
+		// Airport markers: native Mapbox markers with custom HTML elements
+	}
+
+	function createCustomMarker(airport: Airport): HTMLElement {
+		const markerElement = document.createElement('div');
+		markerElement.className = 'airport-marker';
+		
+		// Add visited class if airport has been visited
+		if (airport.has_visited) {
+			markerElement.classList.add('airport-marker--visited');
+		} else {
+			markerElement.classList.add('airport-marker--unvisited');
+		}
+		
+		// Add size class based on visit count
+		const visitCount = airport.visit_count || 0;
+		if (visitCount >= 5) {
+			markerElement.classList.add('airport-marker--large');
+		} else if (visitCount >= 2) {
+			markerElement.classList.add('airport-marker--medium');
+		} else {
+			markerElement.classList.add('airport-marker--small');
+		}
+		
+		return markerElement;
+	}
+
+	function getAirportPosition(airport: Airport): [number, number] | null {
+		return getValidAirportCoordinates(airport);
+	}
+
+	function clearAirportMarkers() {
+		// Remove all existing markers
+		airportMarkers.forEach(marker => marker.remove());
+		airportMarkers = [];
+		
+		// Clean up airport popups
+		airportPopups.forEach(popup => popup.remove());
+		airportPopups.clear();
+	}
+
+	function updateMarkers() {
+		if (!map || !mounted) return;
+
+		// Clear existing markers
+		clearAirportMarkers();
+
+		let validMarkers = 0;
+		let invalidMarkers = 0;
+
+		// Create new markers for each airport with valid coordinates
+		airports.forEach(airport => {
+			const position = getAirportPosition(airport);
+			
+			// Skip airports with invalid coordinates
+			if (!position) {
+				invalidMarkers++;
+				console.warn(`⚠️ Skipping airport ${airport.name || airport.iata_code} - invalid coordinates`);
+				return;
 			}
+
+			// Create custom marker element
+			const markerElement = createCustomMarker(airport);
+
+			// Create Mapbox marker
+			const marker = new mapboxgl.Marker({
+				element: markerElement,
+				anchor: 'bottom'
+			})
+				.setLngLat(position)
+				.addTo(map);
+
+			// Add popup functionality with enhanced coordinate info
+			const [lng, lat] = position;
+			const isAtNullIsland = isNullIsland(lng, lat);
+			const isInPolarRegion = isPolarRegion(lat);
+			
+			const coordinateWarnings = [];
+			if (isAtNullIsland) coordinateWarnings.push('⚠️ Located at Null Island');
+			if (isInPolarRegion) coordinateWarnings.push('⚠️ Polar region airport');
+			
+			const popupContent = `
+				<div class="flight-popup airport-popup">
+					<div class="popup-header">
+						<h3>${airport.name}</h3>
+						<span class="iata-code">${airport.iata_code}</span>
+					</div>
+					<div class="popup-content">
+						<p class="location">${airport.city}, ${airport.country}</p>
+						${coordinateWarnings.length > 0 ? `
+							<div class="coordinate-warnings">
+								${coordinateWarnings.map(warning => `<p class="warning">${warning}</p>`).join('')}
+							</div>
+						` : ''}
+						<div class="airport-stats">
+							<div class="stat-item">
+								<span class="stat-label">Coordinates:</span>
+								<span class="stat-value">${lng.toFixed(4)}, ${lat.toFixed(4)}</span>
+							</div>
+							<div class="stat-item">
+								<span class="stat-label">Visits:</span>
+								<span class="stat-value">${airport.visit_count}</span>
+							</div>
+							<div class="stat-item">
+								<span class="stat-label">Status:</span>
+								<span class="stat-value ${airport.has_visited ? 'visited' : 'unvisited'}">
+									${airport.has_visited ? 'Visited' : 'Not visited'}
+								</span>
+							</div>
+						</div>
+					</div>
+				</div>
+			`;
+
+			const airportPopup = new mapboxgl.Popup({
+				closeButton: false,
+				closeOnClick: false,
+				className: 'flight-map-popup'
+			}).setHTML(popupContent);
+
+			// Add hover events
+			markerElement.addEventListener('mouseenter', () => {
+				airportPopup.setLngLat(position).addTo(map);
+			});
+
+			markerElement.addEventListener('mouseleave', () => {
+				airportPopup.remove();
+			});
+
+			// Store popup for cleanup
+			airportPopups.set(airport.iata_code, airportPopup);
+
+			// Add click event
+			markerElement.addEventListener('click', () => {
+				dispatch('airportSelect', airport);
+				if (onAirportSelect) onAirportSelect(airport);
+			});
+
+			// Store marker for cleanup
+			airportMarkers.push(marker);
+			validMarkers++;
 		});
 
-		//flight arc layer with dynamic styling
-		const flightLayer = new ArcLayer({
-			id: 'flights',
-			data: currentFlights,
-			pickable: true,
-			getSourcePosition: (d: Flight) => d.origin,
-			getTargetPosition: (d: Flight) => d.destination,
-			getSourceColor: (d: Flight) => {
-				const baseColor = getStatusColor(d.flight_status);
-				if ($showAnimations) {
-					const progress = (animationTime % 3000) / 3000;
-					const alpha = Math.sin(progress * Math.PI * 2) * 60 + 140;
-					return [baseColor[0], baseColor[1], baseColor[2], alpha];
-				}
-				return baseColor;
-			},
-			getTargetColor: (d: Flight) => {
-				const progress = (animationTime % 3000) / 3000;
-				const alpha = $showAnimations 
-					? Math.sin((progress + 0.5) * Math.PI * 2) * 60 + 140
-					: 180;
-				return [239, 68, 68, alpha]; //red destination
-			},
-			getWidth: (d: Flight) => Math.max(1, Math.min(8, (d.distance_km || 1000) / 1500)),
-			getTilt: (d: Flight) => Math.min(30, (d.distance_km || 1000) / 500),
-			getHeight: (d: Flight) => getArcHeight(d.distance_km || 1000),
-			updateTriggers: {
-				getSourceColor: [$showAnimations, animationTime, currentFlights],
-				getTargetColor: [$showAnimations, animationTime],
-				getWidth: [currentFlights],
-				getHeight: [currentFlights],
-				getTilt: [currentFlights]
-			}
-		});
+		// Update validation tracking
+		dataValidation.update(prev => ({
+			...prev,
+			validAirports: validMarkers,
+			invalidAirports: invalidMarkers
+		}));
 
-		deckOverlay.setProps({
-			layers: [flightLayer, airportLayer]
-		});
+		console.log(`✅ Created ${validMarkers} airport markers, skipped ${invalidMarkers} invalid airports`);
 	}
 
 	function handleHover(info: any) {
-		if (!map) return;
-
-		hoveredObject = info.object;
-
-		if (info.object) {
-			map.getCanvas().style.cursor = 'pointer';
-			
-			//create enhanced popup content
-			let content = '';
-			if (info.layer?.id === 'airports') {
-				const airport = info.object as Airport;
-				content = `
-					<div class="flight-popup airport-popup">
-						<div class="popup-header">
-							<h3>${airport.name}</h3>
-							<span class="iata-code">${airport.iata_code}</span>
-						</div>
-						<div class="popup-content">
-							<p class="location">${airport.city}, ${airport.country}</p>
-							<div class="airport-stats">
-								<div class="stat-item">
-									<span class="stat-label">Visits:</span>
-									<span class="stat-value">${airport.visit_count}</span>
-								</div>
-								<div class="stat-item">
-									<span class="stat-label">Status:</span>
-									<span class="stat-value ${airport.has_visited ? 'visited' : 'unvisited'}">
-										${airport.has_visited ? 'Visited' : 'Not visited'}
-									</span>
-								</div>
-							</div>
-						</div>
-					</div>
-				`;
-			} else if (info.layer?.id === 'flights') {
-				const flight = info.object as Flight;
-				content = `
-					<div class="flight-popup flight-popup">
-						<div class="popup-header">
-							<h3>${flight.airline_name || 'Unknown Airline'}</h3>
-							<span class="flight-number">${flight.flight_number || ''}</span>
-						</div>
-						<div class="popup-content">
-							<p class="route">${flight.departure_airport_name} → ${flight.arrival_airport_name}</p>
-							<div class="flight-details">
-								<div class="detail-item">
-									<span class="detail-label">Date:</span>
-									<span class="detail-value">${formatDate(flight.departure_time)}</span>
-								</div>
-								<div class="detail-item">
-									<span class="detail-label">Status:</span>
-									<span class="detail-value status-${flight.flight_status}">${flight.flight_status}</span>
-								</div>
-								${flight.distance_km ? `
-									<div class="detail-item">
-										<span class="detail-label">Distance:</span>
-										<span class="detail-value">${flight.distance_km.toLocaleString()} km</span>
-									</div>
-								` : ''}
-							</div>
-						</div>
-					</div>
-				`;
-			}
-
-			if (content) {
-				if (popup) popup.remove();
-				popup = new mapboxgl.Popup({ 
-					closeButton: false, 
-					closeOnClick: false,
-					className: 'flight-map-popup'
-				})
-					.setLngLat(info.coordinate)
-					.setHTML(content)
-					.addTo(map);
-			}
-		} else {
-			map.getCanvas().style.cursor = '';
-			if (popup) {
-				popup.remove();
-				popup = null;
-			}
-		}
+		// This function is now unused since we're using native Mapbox events
+		// for flight path interactions. Airport interactions are handled
+		// directly in updateMarkers() function.
+		return;
 	}
 
 	function handleClick(info: any) {
-		if (info.object) {
-			if (info.layer?.id === 'flights') {
-				selectedFlight = info.object;
-				dispatch('flightSelect', info.object);
-				if (onFlightSelect) onFlightSelect(info.object);
-			} else if (info.layer?.id === 'airports') {
-				dispatch('airportSelect', info.object);
-				if (onAirportSelect) onAirportSelect(info.object);
-			}
-		}
+		// This function is now unused since we're using native Mapbox events
+		// for flight path interactions. Airport interactions are handled
+		// directly in updateMarkers() function.
+		return;
 	}
 
 	function startAnimation() {
-		function animate() {
-			if (!mounted) return;
-			
-			animationTime += 16; //roughly 60fps
-			if ($showAnimations) {
-				updateLayers();
-			}
-			animationId = requestAnimationFrame(animate);
+		// Animation is no longer needed since we're using static dotted lines
+		// instead of animated arcs. The showAnimations toggle is preserved
+		// for potential future animation features.
+		return;
+	}
+
+	function validateDataOnMount() {
+		console.log('🔍 Validating flight map data...');
+		
+		// Validate performance
+		const perfValidation = validateDatasetPerformance(flights, airports);
+		console.log('Performance validation:', perfValidation);
+		
+		// Detect overlapping airports
+		const overlapValidation = detectOverlappingAirports(airports);
+		console.log('Overlap validation:', overlapValidation);
+		
+		// Update data validation store
+		dataValidation.update(prev => ({
+			...prev,
+			performance: perfValidation.performance,
+			overlappingGroups: overlapValidation.overlappingGroups
+		}));
+		
+		// Log warnings and recommendations
+		if (perfValidation.warnings.length > 0) {
+			console.warn('Performance warnings:', perfValidation.warnings);
 		}
-		animate();
+		if (perfValidation.recommendations.length > 0) {
+			console.info('Performance recommendations:', perfValidation.recommendations);
+		}
+		if (overlapValidation.recommendations.length > 0) {
+			console.info('Overlap recommendations:', overlapValidation.recommendations);
+		}
 	}
 
 	function cleanup() {
 		mounted = false;
 		
-		if (animationId) {
-			cancelAnimationFrame(animationId);
-			animationId = null;
+		// Clean up flight popup
+		if (flightPopup) {
+			flightPopup.remove();
+			flightPopup = null;
 		}
 		
-		if (popup) {
-			popup.remove();
-			popup = null;
-		}
+		// Clean up airport markers and their popups
+		clearAirportMarkers();
 		
-		if (deckOverlay && map) {
-			map.removeControl(deckOverlay);
-			deckOverlay = null;
-		}
+		// Deck.GL cleanup removed - not using Deck.GL overlay anymore
+		// Cleanup handled by native Mapbox layers and markers
 		
 		if (map) {
 			map.remove();
@@ -453,6 +727,11 @@
 	//reactive updates for theme
 	$: if (map && mounted) {
 		map.setStyle(mapStyles[theme]);
+	}
+
+	//reactive updates for airports data
+	$: if (airports && map && mounted) {
+		updateMarkers();
 	}
 
 	//toggle functions for filters
@@ -594,13 +873,50 @@
 				<div class="stats">
 					<div class="stat">
 						<span class="stat-value">{$filteredFlights.length}</span>
-						<span class="stat-label">Flights Shown</span>
+						<span class="stat-label">Valid Flights</span>
 					</div>
 					<div class="stat">
-						<span class="stat-value">{airports.length}</span>
-						<span class="stat-label">Airports</span>
+						<span class="stat-value">{$dataValidation.validAirports}</span>
+						<span class="stat-label">Valid Airports</span>
 					</div>
+					{#if $dataValidation.invalidFlights > 0}
+						<div class="stat warning">
+							<span class="stat-value">{$dataValidation.invalidFlights}</span>
+							<span class="stat-label">Invalid Flights</span>
+						</div>
+					{/if}
+					{#if $dataValidation.invalidAirports > 0}
+						<div class="stat warning">
+							<span class="stat-value">{$dataValidation.invalidAirports}</span>
+							<span class="stat-label">Invalid Airports</span>
+						</div>
+					{/if}
 				</div>
+
+				<!-- Data Quality Info -->
+				{#if $dataValidation.issues.length > 0 || $dataValidation.overlappingGroups.length > 0}
+					<div class="data-quality-info">
+						<h4>Data Quality</h4>
+						{#if $dataValidation.performance.isLargeDataset}
+							<div class="quality-item warning">
+								<span class="quality-icon">⚠️</span>
+								<span class="quality-text">Large dataset - performance may be affected</span>
+							</div>
+						{/if}
+						{#if $dataValidation.overlappingGroups.length > 0}
+							<div class="quality-item info">
+								<span class="quality-icon">ℹ️</span>
+								<span class="quality-text">{$dataValidation.overlappingGroups.length} cities with multiple airports</span>
+							</div>
+						{/if}
+						{#if $dataValidation.issues.length > 0}
+							<div class="quality-item warning">
+								<span class="quality-icon">⚠️</span>
+								<span class="quality-text">{$dataValidation.issues.length} data validation issues</span>
+							</div>
+						{/if}
+					</div>
+				{/if}
 			</div>
 		{/if}
 
@@ -855,6 +1171,58 @@
 	.stat-label {
 		font-size: 0.75rem;
 		color: #6b7280;
+	}
+
+	.stat.warning {
+		border-left: 3px solid #f59e0b;
+		padding-left: 0.5rem;
+	}
+
+	.stat.warning .stat-value {
+		color: #f59e0b;
+	}
+
+	.data-quality-info {
+		margin-top: 1rem;
+		padding-top: 0.5rem;
+		border-top: 1px solid #e5e7eb;
+	}
+
+	.data-quality-info h4 {
+		margin: 0 0 0.5rem 0;
+		font-size: 0.875rem;
+		font-weight: 500;
+		color: #374151;
+	}
+
+	.quality-item {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.5rem;
+		margin-bottom: 0.5rem;
+		padding: 0.25rem;
+		border-radius: 4px;
+	}
+
+	.quality-item.warning {
+		background-color: #fef3c7;
+		border: 1px solid #f59e0b;
+	}
+
+	.quality-item.info {
+		background-color: #dbeafe;
+		border: 1px solid #3b82f6;
+	}
+
+	.quality-icon {
+		font-size: 0.875rem;
+		flex-shrink: 0;
+	}
+
+	.quality-text {
+		font-size: 0.75rem;
+		color: #374151;
+		line-height: 1.2;
 	}
 
 	.flight-details {
@@ -1141,6 +1509,26 @@
 		text-transform: capitalize;
 	}
 
+	/* Coordinate warnings in popups */
+	:global(.flight-popup .coordinate-warnings) {
+		margin: 8px 0;
+		padding: 6px 8px;
+		background-color: #fef3c7;
+		border: 1px solid #f59e0b;
+		border-radius: 4px;
+	}
+
+	:global(.flight-popup .coordinate-warnings .warning) {
+		margin: 0 0 4px 0;
+		font-size: 11px;
+		color: #92400e;
+		font-weight: 500;
+	}
+
+	:global(.flight-popup .coordinate-warnings .warning:last-child) {
+		margin-bottom: 0;
+	}
+
 	/* Dark theme popup styles */
 	:global(.dark .flight-map-popup .mapboxgl-popup-content) {
 		background: #1f2937;
@@ -1162,5 +1550,100 @@
 	:global(.dark .flight-popup .stat-value,
 	.dark .flight-popup .detail-value) {
 		color: #f9fafb;
+	}
+
+	/* Airport marker styles */
+	:global(.airport-marker) {
+		width: 40px;
+		height: 40px;
+		border-radius: 50%;
+		border: 3px solid #fff;
+		cursor: pointer;
+		transition: all 0.2s ease;
+		transform: translate(-50%, -100%);
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+		position: relative;
+	}
+
+	:global(.airport-marker::before) {
+		content: '';
+		position: absolute;
+		bottom: -8px;
+		left: 50%;
+		transform: translateX(-50%);
+		width: 0;
+		height: 0;
+		border-left: 8px solid transparent;
+		border-right: 8px solid transparent;
+		border-top: 8px solid #fff;
+	}
+
+	/* Visited airports - green */
+	:global(.airport-marker--visited) {
+		background: linear-gradient(135deg, #22c55e, #16a34a);
+		border-color: #15803d;
+	}
+
+	:global(.airport-marker--visited::before) {
+		border-top-color: #15803d;
+	}
+
+	/* Unvisited airports - blue */
+	:global(.airport-marker--unvisited) {
+		background: linear-gradient(135deg, #3b82f6, #2563eb);
+		border-color: #1d4ed8;
+	}
+
+	:global(.airport-marker--unvisited::before) {
+		border-top-color: #1d4ed8;
+	}
+
+	/* Size variations */
+	:global(.airport-marker--small) {
+		width: 32px;
+		height: 32px;
+	}
+
+	:global(.airport-marker--medium) {
+		width: 40px;
+		height: 40px;
+	}
+
+	:global(.airport-marker--large) {
+		width: 48px;
+		height: 48px;
+	}
+
+	/* Hover effects */
+	:global(.airport-marker:hover) {
+		transform: translate(-50%, -100%) scale(1.2);
+		box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+		z-index: 1000;
+	}
+
+	/* Dark theme support for markers */
+	:global(.dark .airport-marker) {
+		border-color: #374151;
+		box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+	}
+
+	:global(.dark .airport-marker::before) {
+		border-top-color: #374151;
+	}
+
+	:global(.dark .airport-marker--visited) {
+		border-color: #166534;
+	}
+
+	:global(.dark .airport-marker--visited::before) {
+		border-top-color: #166534;
+	}
+
+	:global(.dark .airport-marker--unvisited) {
+		border-color: #1e40af;
+	}
+
+	:global(.dark .airport-marker--unvisited::before) {
+		border-top-color: #1e40af;
 	}
 </style>
