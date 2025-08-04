@@ -73,34 +73,209 @@ export function isPolarRegion(lat: number): boolean {
 	return Math.abs(lat) > 80;
 }
 
+//helper function to extract coordinates from proxy objects
+function extractFromProxy(value: any): any {
+	if (value === null || value === undefined) return null;
+	
+	// If it's a Proxy object, try to extract the actual values
+	if (typeof value === 'object') {
+		// Special handling for Svelte stores and reactive objects
+		if (value && typeof value.subscribe === 'function') {
+			// It's a Svelte store, try to get current value
+			let storeValue: any = null;
+			try {
+				value.subscribe((val: any) => {
+					storeValue = val;
+				})();
+				return storeValue;
+			} catch (e) {
+				// Silent fail
+			}
+		}
+		
+		// Try to access the proxy directly by converting to string and parsing
+		try {
+			const str = JSON.stringify(value);
+			if (str && str !== '{}' && str !== 'null') {
+				return JSON.parse(str);
+			}
+		} catch (e) {
+			// If JSON approach fails, try direct property access
+		}
+		
+		// Try to iterate through proxy properties
+		try {
+			const keys = Object.keys(value);
+			if (keys.length > 0) {
+				const extracted: any = {};
+				for (const key of keys) {
+					try {
+						const val = value[key];
+						if (val !== undefined) {
+							extracted[key] = val;
+						}
+					} catch (e) {
+						// Skip this property
+					}
+				}
+				if (Object.keys(extracted).length > 0) {
+					return extracted;
+				}
+			}
+		} catch (e) {
+			// Silent fail - proxy access blocked
+		}
+		
+		// Try Reflect.ownKeys for better proxy detection
+		try {
+			const keys = Reflect.ownKeys(value);
+			if (keys.length > 0) {
+				const extracted: any = {};
+				for (const key of keys) {
+					try {
+						const val = Reflect.get(value, key);
+						if (val !== undefined) {
+							extracted[key as string] = val;
+						}
+					} catch (e) {
+						// Skip this property
+					}
+				}
+				if (Object.keys(extracted).length > 0) {
+					return extracted;
+				}
+			}
+		} catch (e) {
+			// Silent fail
+		}
+	}
+	
+	return value;
+}
+
+//helper function to extract array from coordinates proxy
+function extractCoordinatesArray(coordinates: any): [number, number] | null {
+	if (!coordinates) return null;
+	
+	// Direct array check
+	if (Array.isArray(coordinates) && coordinates.length === 2) {
+		const [lng, lat] = coordinates;
+		if (isValidCoordinate(lng, lat) && !isNullIsland(lng, lat)) {
+			return [lng, lat];
+		}
+	}
+	
+	// Handle proxy objects
+	const extracted = extractFromProxy(coordinates);
+	if (extracted && Array.isArray(extracted) && extracted.length === 2) {
+		const [lng, lat] = extracted;
+		if (isValidCoordinate(lng, lat) && !isNullIsland(lng, lat)) {
+			return [lng, lat];
+		}
+	}
+	
+	// Try accessing as object with numeric indices
+	if (typeof coordinates === 'object') {
+		try {
+			// Try multiple ways to access array-like object
+			let lng = coordinates[0] || coordinates['0'];
+			let lat = coordinates[1] || coordinates['1'];
+			
+			// Try Reflect.get for proxies
+			if (lng === undefined) lng = Reflect.get(coordinates, 0);
+			if (lat === undefined) lat = Reflect.get(coordinates, 1);
+			
+			// Try direct property descriptor access
+			if (lng === undefined) {
+				const desc0 = Object.getOwnPropertyDescriptor(coordinates, '0') || Object.getOwnPropertyDescriptor(coordinates, 0);
+				lng = desc0?.value;
+			}
+			if (lat === undefined) {
+				const desc1 = Object.getOwnPropertyDescriptor(coordinates, '1') || Object.getOwnPropertyDescriptor(coordinates, 1);
+				lat = desc1?.value;
+			}
+			
+			if (isValidCoordinate(lng, lat) && !isNullIsland(lng, lat)) {
+				return [lng, lat];
+			}
+		} catch (e) {
+			// Silent fail
+		}
+	}
+	
+	return null;
+}
+
 //sanitize and validate airport coordinates with fallback options
 export function getValidAirportCoordinates(airport: Airport): [number, number] | null {
+	// Enhanced debugging for proxy issues (only log problematic cases)
+	const isProblematic = (
+		(airport.coordinates !== null && airport.coordinates !== undefined) ||
+		(airport.latitude === 0 && airport.longitude === 0) ||
+		(airport.latitude === null || airport.longitude === null)
+	);
+	
+	const shouldLog = isProblematic && Math.random() < 0.2; // Log 20% of problematic airports
+	if (shouldLog) {
+		console.log(`🔍 Processing airport ${airport.name || airport.iata_code}:`, {
+			coordinates: airport.coordinates,
+			coordinatesType: typeof airport.coordinates,
+			coordinatesConstructor: airport.coordinates?.constructor?.name,
+			isArray: Array.isArray(airport.coordinates),
+			latitude: airport.latitude,
+			longitude: airport.longitude,
+			latitudeType: typeof airport.latitude,
+			longitudeType: typeof airport.longitude,
+			isNullIsland: isNullIsland(airport.longitude || 0, airport.latitude || 0)
+		});
+	}
+	
 	// Helper to get coordinates from airport object with multiple fallback options
 	const attempts = [
-		// Try coordinates field first
+		// Try coordinates field first - with proxy handling
 		() => {
-			if (Array.isArray(airport.coordinates) && airport.coordinates.length === 2) {
-				const [lng, lat] = airport.coordinates;
-				if (isValidCoordinate(lng, lat) && !isNullIsland(lng, lat)) {
-					return [lng, lat];
-				}
+			const coords = extractCoordinatesArray(airport.coordinates);
+			if (coords) {
+				if (shouldLog) console.log(`✅ Extracted coordinates from coordinates field: [${coords[0]}, ${coords[1]}]`);
+				return coords;
 			}
 			return null;
 		},
 		// Try lat/lng fields
 		() => {
-			if (isValidCoordinate(airport.longitude, airport.latitude) && 
-				!isNullIsland(airport.longitude, airport.latitude)) {
-				return [airport.longitude, airport.latitude];
+			// Handle both null/undefined and 0 values
+			const lng = airport.longitude;
+			const lat = airport.latitude;
+			
+			if (lng !== null && lng !== undefined && 
+				lat !== null && lat !== undefined &&
+				isValidCoordinate(lng, lat) && 
+				!isNullIsland(lng, lat)) {
+				if (shouldLog) console.log(`✅ Extracted coordinates from lat/lng fields: [${lng}, ${lat}]`);
+				return [lng, lat];
 			}
 			return null;
 		},
 		// Try alternative field names
 		() => {
-			const altLng = (airport as any).lng || (airport as any).lon;
-			const altLat = (airport as any).lat;
+			const extracted = extractFromProxy(airport as any);
+			const altLng = extracted?.lng || extracted?.lon || (airport as any).lng || (airport as any).lon;
+			const altLat = extracted?.lat || (airport as any).lat;
 			if (isValidCoordinate(altLng, altLat) && !isNullIsland(altLng, altLat)) {
+				if (shouldLog) console.log(`✅ Extracted coordinates from alternative fields: [${altLng}, ${altLat}]`);
 				return [altLng, altLat];
+			}
+			return null;
+		},
+		// Try extracting from the entire airport object if it's a proxy
+		() => {
+			const extracted = extractFromProxy(airport);
+			if (extracted && extracted !== airport) {
+				if (isValidCoordinate(extracted.longitude, extracted.latitude) && 
+					!isNullIsland(extracted.longitude, extracted.latitude)) {
+					if (shouldLog) console.log(`✅ Extracted coordinates from proxy airport: [${extracted.longitude}, ${extracted.latitude}]`);
+					return [extracted.longitude, extracted.latitude];
+				}
 			}
 			return null;
 		}
@@ -109,20 +284,89 @@ export function getValidAirportCoordinates(airport: Airport): [number, number] |
 	// Try each method in order
 	for (const attempt of attempts) {
 		const result = attempt();
-		if (result) return result;
+		if (result) return result as [number, number];
 	}
 
-	// Log warning for problematic airport
+	// Enhanced warning for problematic airport with proxy debugging
 	console.warn(`⚠️ Invalid coordinates for airport ${airport.name || airport.iata_code}:`, {
 		coordinates: airport.coordinates,
+		coordinatesStringified: (() => {
+			try {
+				return JSON.stringify(airport.coordinates);
+			} catch (e) {
+				return 'Unable to stringify coordinates';
+			}
+		})(),
+		coordinatesKeys: (() => {
+			try {
+				return Object.keys(airport.coordinates || {});
+			} catch (e) {
+				return 'Unable to get keys';
+			}
+		})(),
 		latitude: airport.latitude,
 		longitude: airport.longitude,
 		lng: (airport as any).lng,
 		lat: (airport as any).lat,
-		lon: (airport as any).lon
+		lon: (airport as any).lon,
+		extractedAirport: extractFromProxy(airport),
+		extractedCoordinates: extractFromProxy(airport.coordinates)
 	});
 
 	return null;
+}
+
+//check if airport needs geocoding (has coordinates at Null Island or invalid)
+export function airportNeedsGeocoding(airport: Airport): boolean {
+	const coords = getValidAirportCoordinates(airport);
+	
+	// No valid coordinates found
+	if (!coords) return true;
+	
+	// Coordinates are at Null Island (0, 0)
+	const [lng, lat] = coords;
+	if (isNullIsland(lng, lat)) return true;
+	
+	return false;
+}
+
+//identify airports that need geocoding
+export function identifyAirportsNeedingGeocoding(airports: Airport[]): {
+	needsGeocoding: Airport[];
+	hasValidCoordinates: Airport[];
+	summary: {
+		total: number;
+		needsGeocoding: number;
+		hasValid: number;
+		percentageNeedsGeocoding: number;
+	};
+} {
+	const needsGeocoding: Airport[] = [];
+	const hasValidCoordinates: Airport[] = [];
+	
+	airports.forEach(airport => {
+		if (airportNeedsGeocoding(airport)) {
+			needsGeocoding.push(airport);
+		} else {
+			hasValidCoordinates.push(airport);
+		}
+	});
+	
+	const total = airports.length;
+	const needsGeocodingCount = needsGeocoding.length;
+	const hasValidCount = hasValidCoordinates.length;
+	const percentageNeedsGeocoding = total > 0 ? (needsGeocodingCount / total) * 100 : 0;
+	
+	return {
+		needsGeocoding,
+		hasValidCoordinates,
+		summary: {
+			total,
+			needsGeocoding: needsGeocodingCount,
+			hasValid: hasValidCount,
+			percentageNeedsGeocoding
+		}
+	};
 }
 
 //sanitize and validate flight coordinates
@@ -457,6 +701,107 @@ export function detectOverlappingAirports(airports: Airport[]): {
 	}
 	
 	return { overlappingGroups, recommendations };
+}
+
+//geocode a single airport using external service
+export async function geocodeAirportExternal(airport: Airport): Promise<{
+	latitude: number;
+	longitude: number;
+	success: boolean;
+	error?: string;
+}> {
+	try {
+		const query = encodeURIComponent(`${airport.name} ${airport.city} airport`);
+		const response = await fetch(
+			`https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&addressdetails=1`,
+			{ 
+				headers: { 'User-Agent': 'FlightTracker/1.0' }
+			}
+		);
+		
+		if (response.ok) {
+			const data = await response.json();
+			if (data && data.length > 0) {
+				const result = data[0];
+				const latitude = parseFloat(result.lat);
+				const longitude = parseFloat(result.lon);
+				
+				if (isValidCoordinate(longitude, latitude) && !isNullIsland(longitude, latitude)) {
+					return {
+						latitude,
+						longitude,
+						success: true
+					};
+				}
+			}
+		}
+	} catch (error) {
+		return {
+			latitude: 0,
+			longitude: 0,
+			success: false,
+			error: error instanceof Error ? error.message : 'Unknown error'
+		};
+	}
+	
+	return {
+		latitude: 0,
+		longitude: 0,
+		success: false,
+		error: 'No results found'
+	};
+}
+
+//batch geocode airports (with rate limiting)
+export async function batchGeocodeAirports(
+	airports: Airport[], 
+	options: {
+		batchSize?: number;
+		delayMs?: number;
+		onProgress?: (completed: number, total: number) => void;
+		onError?: (airport: Airport, error: string) => void;
+	} = {}
+): Promise<Array<{
+	airport: Airport;
+	result: { latitude: number; longitude: number; success: boolean; error?: string };
+}>> {
+	const { batchSize = 5, delayMs = 1000, onProgress, onError } = options;
+	const results: Array<{
+		airport: Airport;
+		result: { latitude: number; longitude: number; success: boolean; error?: string };
+	}> = [];
+	
+	console.log(`🌍 Starting batch geocoding of ${airports.length} airports...`);
+	
+	for (let i = 0; i < airports.length; i += batchSize) {
+		const batch = airports.slice(i, i + batchSize);
+		
+		// Process batch in parallel
+		const batchPromises = batch.map(async (airport) => {
+			const result = await geocodeAirportExternal(airport);
+			if (!result.success && onError) {
+				onError(airport, result.error || 'Unknown error');
+			}
+			return { airport, result };
+		});
+		
+		const batchResults = await Promise.all(batchPromises);
+		results.push(...batchResults);
+		
+		// Report progress
+		if (onProgress) {
+			onProgress(Math.min(i + batchSize, airports.length), airports.length);
+		}
+		
+		// Rate limiting delay (except for last batch)
+		if (i + batchSize < airports.length) {
+			await new Promise(resolve => setTimeout(resolve, delayMs));
+		}
+	}
+	
+	console.log(`✅ Batch geocoding completed. ${results.filter(r => r.result.success).length}/${airports.length} successful`);
+	
+	return results;
 }
 
 //enhanced filter function that handles edge cases in flight data

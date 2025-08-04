@@ -2313,6 +2313,38 @@ export class DatabaseQueries {
   // ENHANCED AIRPORT MANAGEMENT - Plan 5 Extensions
   // =============================================================================
 
+  // Helper function for geocoding airports
+  private async geocodeAirport(iataCode: string, airportName: string, city: string, country: string) {
+    try {
+      // Try to get coordinates from a geocoding service
+      // Using OpenStreetMap Nominatim as a free alternative
+      const query = encodeURIComponent(`${airportName} ${city} airport`);
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&addressdetails=1`,
+        { 
+          headers: { 'User-Agent': 'FlightTracker/1.0' }
+        }
+      );
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const result = data[0];
+          return {
+            latitude: parseFloat(result.lat) || 0.0,
+            longitude: parseFloat(result.lon) || 0.0,
+            country_code: result.address?.country_code?.toUpperCase() || 'XX'
+          };
+        }
+      }
+    } catch (error) {
+      console.warn(`Geocoding failed for ${iataCode} - ${airportName}:`, error.message);
+    }
+    
+    // Return null to indicate geocoding failure
+    return null;
+  }
+
   //creates a new airport with visit tracking
   async createAirport(airportData: Omit<Airport, 'id' | 'created_at' | 'updated_at'>): Promise<Airport> {
     const query = `
@@ -2424,16 +2456,47 @@ export class DatabaseQueries {
       return existing;
     }
 
+    // Prepare airport data
+    let city = airportData.city || 'Unknown';
+    let country = airportData.country || 'Unknown';
+    let latitude = airportData.latitude;
+    let longitude = airportData.longitude;
+    let countryCode = 'XX';
+
+    // Automatic geocoding if coordinates are not provided
+    if (!latitude || !longitude) {
+      console.log(`🔍 Attempting to geocode airport: ${airportData.iata_code} - ${airportData.name}`);
+      
+      const coordinates = await this.geocodeAirport(
+        airportData.iata_code,
+        airportData.name,
+        city,
+        country
+      );
+      
+      if (coordinates) {
+        latitude = coordinates.latitude;
+        longitude = coordinates.longitude;
+        countryCode = coordinates.country_code;
+        console.log(`✅ Successfully geocoded ${airportData.iata_code}: [${coordinates.longitude}, ${coordinates.latitude}]`);
+      } else {
+        console.warn(`⚠️ Failed to geocode airport ${airportData.iata_code}. Storing with null coordinates.`);
+        // Set to null instead of 0,0 to indicate missing data
+        latitude = null;
+        longitude = null;
+      }
+    }
+    
     // Create new airport with available data
     const newAirportData = {
       iata_code: airportData.iata_code.toUpperCase(),
       icao_code: null,
       name: airportData.name,
-      city: airportData.city || 'Unknown',
-      country: airportData.country || 'Unknown',
-      country_code: 'XX', // Default country code for unknown
-      latitude: airportData.latitude ?? 0,
-      longitude: airportData.longitude ?? 0,
+      city: city,
+      country: country,
+      country_code: countryCode,
+      latitude: latitude,
+      longitude: longitude,
       altitude: null,
       timezone: null,
       type: 'airport' as const,

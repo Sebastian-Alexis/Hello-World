@@ -356,7 +356,7 @@ try {
 
 <script>
   // Make airports data globally available for form processing
-  window.airportsData = ${JSON.stringify(airports)};
+  window.airportsData = JSON.parse('${JSON.stringify(airports).replace(/'/g, "\\'")}');
   
   // Function to update the airports datalist
   function updateAirportsDatalist(airportsData) {

@@ -29,6 +29,8 @@
 		getValidFlightCoordinates,
 		validateDatasetPerformance,
 		detectOverlappingAirports,
+		identifyAirportsNeedingGeocoding,
+		airportNeedsGeocoding,
 		isValidCoordinate,
 		isNullIsland,
 		crossesDateLine,
@@ -684,11 +686,38 @@
 		const overlapValidation = detectOverlappingAirports(airports);
 		console.log('Overlap validation:', overlapValidation);
 		
+		// Analyze geocoding status
+		const geocodingAnalysis = identifyAirportsNeedingGeocoding(airports);
+		console.log('🌍 Geocoding analysis:', geocodingAnalysis.summary);
+		
+		if (geocodingAnalysis.summary.needsGeocoding > 0) {
+			console.warn(`⚠️ ${geocodingAnalysis.summary.needsGeocoding} airports (${geocodingAnalysis.summary.percentageNeedsGeocoding.toFixed(1)}%) need geocoding:`, 
+				geocodingAnalysis.needsGeocoding.slice(0, 5).map(a => ({ 
+					iata: a.iata_code, 
+					name: a.name, 
+					coords: [a.longitude, a.latitude],
+					hasCoordinates: !!a.coordinates,
+					coordinatesType: typeof a.coordinates
+				}))
+			);
+			
+			console.info('💡 To fix coordinate issues:', [
+				'1. Check if geocoding API is working properly',
+				'2. Verify database has valid latitude/longitude values', 
+				'3. Ensure coordinates field is properly populated',
+				'4. Consider running a geocoding batch job for missing airports'
+			]);
+		} else {
+			console.log('✅ All airports have valid coordinates!');
+		}
+		
 		// Update data validation store
 		dataValidation.update(prev => ({
 			...prev,
 			performance: perfValidation.performance,
-			overlappingGroups: overlapValidation.overlappingGroups
+			overlappingGroups: overlapValidation.overlappingGroups,
+			validAirports: geocodingAnalysis.summary.hasValid,
+			invalidAirports: geocodingAnalysis.summary.needsGeocoding
 		}));
 		
 		// Log warnings and recommendations

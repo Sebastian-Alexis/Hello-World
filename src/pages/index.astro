@@ -2,6 +2,49 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Button from '../components/ui/Button.astro';
 import Card from '../components/ui/Card.astro';
+import { DatabaseQueries } from '../lib/db/queries';
+import type { BlogPost } from '../lib/db/types';
+
+// Fetch latest blog posts
+let latestPosts: BlogPost[] = [];
+let hasError = false;
+
+try {
+  const db = new DatabaseQueries();
+  const response = await db.getBlogPosts({
+    page: 1,
+    limit: 3,
+    status: 'published',
+    sortBy: 'published_at',
+    sortOrder: 'DESC',
+    includeAuthor: true,
+    includeCategories: true,
+    includeTags: true
+  });
+  
+  latestPosts = response.data;
+  console.log(`Fetched ${latestPosts.length} blog posts for homepage`);
+} catch (error) {
+  console.error('Error fetching blog posts:', error);
+  hasError = true;
+}
+
+// Helper function to calculate reading time
+function calculateReadingTime(content: string): number {
+  const wordsPerMinute = 200;
+  const wordCount = content.split(/\s+/).length;
+  return Math.ceil(wordCount / wordsPerMinute);
+}
+
+// Helper function to format date
+function formatDate(dateString: string): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric'
+  });
+}
 ---
 
 <BaseLayout 
@@ -167,71 +210,45 @@ import Card from '../components/ui/Card.astro';
       </div>
       
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <!-- Blog Post 1 -->
-        <Card variant="default" class="group hover:shadow-lg transition-shadow">
-          <div class="mb-4">
-            <span class="text-sm text-accent-primary font-medium">Tutorial</span>
-            <span class="text-text-tertiary mx-2">•</span>
-            <span class="text-sm text-text-secondary">5 min read</span>
+        {hasError ? (
+          <div class="col-span-full text-center py-8">
+            <p class="text-text-secondary">Unable to load blog posts at this time.</p>
           </div>
-          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
-            Building Ultra-Fast Web Apps with Astro
-          </h3>
-          <p class="text-text-secondary mb-4 leading-relaxed">
-            Learn how to leverage Astro's island architecture to build 
-            lightning-fast websites with minimal JavaScript.
-          </p>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-text-secondary">Dec 15, 2024</span>
-            <Button variant="ghost" size="sm" href="/blog/building-ultra-fast-web-apps-with-astro">
-              Read More
-            </Button>
+        ) : latestPosts.length > 0 ? (
+          latestPosts.map((post) => (
+            <Card variant="default" class="group hover:shadow-lg transition-shadow">
+              <div class="mb-4">
+                <span class="text-sm text-accent-primary font-medium">
+                  {post.categories && post.categories.length > 0 
+                    ? post.categories[0].name 
+                    : 'Blog'}
+                </span>
+                <span class="text-text-tertiary mx-2">•</span>
+                <span class="text-sm text-text-secondary">
+                  {calculateReadingTime(post.content)} min read
+                </span>
+              </div>
+              <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
+                {post.title}
+              </h3>
+              <p class="text-text-secondary mb-4 leading-relaxed line-clamp-3">
+                {post.excerpt || post.content.substring(0, 150) + '...'}
+              </p>
+              <div class="flex items-center justify-between">
+                <span class="text-sm text-text-secondary">
+                  {formatDate(post.published_at || post.created_at)}
+                </span>
+                <Button variant="ghost" size="sm" href={`/blog/${post.slug}`}>
+                  Read More
+                </Button>
+              </div>
+            </Card>
+          ))
+        ) : (
+          <div class="col-span-full text-center py-8">
+            <p class="text-text-secondary">No blog posts available yet.</p>
           </div>
-        </Card>
-
-        <!-- Blog Post 2 -->
-        <Card variant="default" class="group hover:shadow-lg transition-shadow">
-          <div class="mb-4">
-            <span class="text-sm text-accent-primary font-medium">Guide</span>
-            <span class="text-text-tertiary mx-2">•</span>
-            <span class="text-sm text-text-secondary">8 min read</span>
-          </div>
-          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
-            Mastering Core Web Vitals in 2024
-          </h3>
-          <p class="text-text-secondary mb-4 leading-relaxed">
-            A comprehensive guide to understanding and optimizing Core Web Vitals 
-            for better user experience and SEO rankings.
-          </p>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-text-secondary">Dec 10, 2024</span>
-            <Button variant="ghost" size="sm" href="/blog/mastering-core-web-vitals-2024">
-              Read More
-            </Button>
-          </div>
-        </Card>
-
-        <!-- Blog Post 3 -->
-        <Card variant="default" class="group hover:shadow-lg transition-shadow">
-          <div class="mb-4">
-            <span class="text-sm text-accent-primary font-medium">Experience</span>
-            <span class="text-text-tertiary mx-2">•</span>
-            <span class="text-sm text-text-secondary">6 min read</span>
-          </div>
-          <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
-            Remote Work from Bali: Lessons Learned
-          </h3>
-          <p class="text-text-secondary mb-4 leading-relaxed">
-            Three months of remote work from Indonesia taught me valuable lessons 
-            about productivity, culture, and work-life balance.
-          </p>
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-text-secondary">Dec 5, 2024</span>
-            <Button variant="ghost" size="sm" href="/blog/remote-work-from-bali-lessons-learned">
-              Read More
-            </Button>
-          </div>
-        </Card>
+        )}
       </div>
     </div>
   </section>
@@ -273,5 +290,12 @@ import Card from '../components/ui/Card.astro';
       opacity: 1;
       transform: translateY(0);
     }
+  }
+  
+  .line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
 </style>

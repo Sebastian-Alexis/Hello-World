@@ -30,12 +30,9 @@ async function geocodeAirport(iataCode: string, airportName: string, city: strin
     console.warn(`Geocoding failed for ${iataCode} - ${airportName}:`, error.message);
   }
   
-  // Fallback to default coordinates
-  return {
-    latitude: 0.0,
-    longitude: 0.0,
-    country_code: 'XX'
-  };
+  // Instead of fallback to Null Island (0,0), return null to indicate failure
+  // This prevents the database from being populated with invalid coordinates
+  return null;
 }
 
 export const POST: APIRoute = async ({ request }) => {
@@ -90,7 +87,19 @@ export const POST: APIRoute = async ({ request }) => {
     // Geocode the airport location
     const coordinates = await geocodeAirport(iata_code, name, airportCity, airportCountry);
     
-    // Create the new airport with geocoded coordinates
+    // Handle failed geocoding - use null for coordinates instead of 0,0
+    const latitude = coordinates?.latitude || null;
+    const longitude = coordinates?.longitude || null;
+    const countryCode = coordinates?.country_code || 'XX';
+    
+    // Log geocoding attempt
+    if (!coordinates) {
+      console.warn(`⚠️ Failed to geocode airport ${iata_code} - ${name}. Storing with null coordinates.`);
+    } else {
+      console.log(`✅ Successfully geocoded ${iata_code}: [${longitude}, ${latitude}]`);
+    }
+    
+    // Create the new airport with geocoded coordinates (null if geocoding failed)
     const result = await executeQuery(
       `INSERT INTO airports (
         iata_code, name, city, country, country_code,
@@ -103,9 +112,9 @@ export const POST: APIRoute = async ({ request }) => {
         name,
         airportCity,
         airportCountry,
-        coordinates.country_code,
-        coordinates.latitude,
-        coordinates.longitude,
+        countryCode,
+        latitude,
+        longitude,
         'airport',
         1,
         false,
