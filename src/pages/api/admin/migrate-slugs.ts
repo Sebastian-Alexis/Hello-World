@@ -2,7 +2,7 @@
 //accessible only by admin users for security
 
 import type { APIRoute } from 'astro';
-import { checkAndFixBlogSlugs, validateExistingSlugs, quickSlugCheck } from '../../../fix-blog-slugs';
+import { checkAndFixBlogSlugs, validateExistingSlugs, quickSlugCheck } from '../../../../fix-blog-slugs';
 
 export const POST: APIRoute = async ({ request }) => {
   try {

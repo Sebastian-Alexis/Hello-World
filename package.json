@@ -58,6 +58,7 @@
     "validate:final": "node scripts/run-final-validation.cjs"
   },
   "dependencies": {
+    "@astrojs/cloudflare": "^12.6.2",
     "@astrojs/sitemap": "^3.4.2",
     "@astrojs/svelte": "^7.1.0",
     "@astrojs/tailwind": "^6.0.2",
@@ -123,6 +124,7 @@
     "prettier-plugin-astro": "^0.14.1",
     "prettier-plugin-svelte": "^3.4.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
+    "vitest": "^3.2.4",
+    "wrangler": "^4.27.0"
   }
 }

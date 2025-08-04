@@ -352,9 +352,11 @@ const totalPages = Math.ceil(totalProjects / 20);
           </a>
         )}
         
-        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-          const pageNum = Math.max(1, Math.min(totalPages - 4, page - 2)) + i;
-          return pageNum <= totalPages ? (
+        {Array.from({ length: Math.min(5, totalPages) }, (_, i) => 
+          Math.max(1, Math.min(totalPages - 4, page - 2)) + i
+        )
+          .filter(pageNum => pageNum <= totalPages)
+          .map(pageNum => (
             <a 
               href={`?page=${pageNum}&search=${search}&status=${status}&category=${category}&sort=${sortBy}&order=${sortOrder}`}
               class={`px-3 py-2 border text-sm font-medium rounded-md ${
@@ -365,8 +367,7 @@ const totalPages = Math.ceil(totalProjects / 20);
             >
               {pageNum}
             </a>
-          ) : null;
-        })}
+          ))}
         
         {page < totalPages && (
           <a 

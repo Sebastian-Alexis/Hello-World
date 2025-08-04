@@ -354,9 +354,9 @@ try {
   </div>
 </AdminLayout>
 
-<script>
+<script define:vars={{ airports }}>
   // Make airports data globally available for form processing
-  window.airportsData = JSON.parse('${JSON.stringify(airports).replace(/'/g, "\\'")}');
+  window.airportsData = airports;
   
   // Function to update the airports datalist
   function updateAirportsDatalist(airportsData) {

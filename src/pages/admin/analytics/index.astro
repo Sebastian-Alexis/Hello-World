@@ -245,7 +245,7 @@ try {
       </div>
       <div class="p-6">
         <div class="space-y-4">
-          {#each analyticsData.topPages.slice(0, 5) as page, index}
+          {analyticsData.topPages.slice(0, 5).map((page, index) => (
             <div class="flex items-center justify-between">
               <div class="flex items-center space-x-3">
                 <div class="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-bold">
@@ -264,7 +264,7 @@ try {
                 {page.view_count.toLocaleString()}
               </div>
             </div>
-          {/each}
+          ))}
         </div>
       </div>
     </div>
@@ -279,19 +279,19 @@ try {
       </div>
       <div class="p-6">
         <div class="space-y-3">
-          {#each analyticsData.browserStats.slice(0, 5) as browser}
+          {analyticsData.browserStats.slice(0, 5).map(browser => (
             <div class="flex items-center justify-between">
               <span class="text-sm text-gray-700 dark:text-gray-300">{browser.name}</span>
               <div class="flex items-center space-x-2">
                 <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div class="bg-blue-600 h-2 rounded-full" style="width: {browser.percentage}%"></div>
+                  <div class="bg-blue-600 h-2 rounded-full" style={{width: `${browser.percentage}%`}}></div>
                 </div>
                 <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
                   {browser.percentage.toFixed(1)}%
                 </span>
               </div>
             </div>
-          {/each}
+          ))}
         </div>
       </div>
     </div>
@@ -303,19 +303,19 @@ try {
       </div>
       <div class="p-6">
         <div class="space-y-3">
-          {#each analyticsData.deviceStats as device}
+          {analyticsData.deviceStats.map(device => (
             <div class="flex items-center justify-between">
               <span class="text-sm text-gray-700 dark:text-gray-300">{device.name}</span>
               <div class="flex items-center space-x-2">
                 <div class="w-24 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                  <div class="bg-green-600 h-2 rounded-full" style="width: {device.percentage}%"></div>
+                  <div class="bg-green-600 h-2 rounded-full" style={{width: `${device.percentage}%`}}></div>
                 </div>
                 <span class="text-sm font-medium text-gray-900 dark:text-white w-12 text-right">
                   {device.percentage.toFixed(1)}%
                 </span>
               </div>
             </div>
-          {/each}
+          ))}
         </div>
       </div>
     </div>

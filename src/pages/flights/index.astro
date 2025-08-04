@@ -170,17 +170,16 @@ const currentYear = new Date().getFullYear();
 					Flight Map
 				</h1>
 				<p class="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-8">
-					Explore my travel journey with an interactive map showing flight routes, airports, and detailed statistics.
-					Discover patterns, filter by preferences, and track adventures across the globe.
+					An awesome 3d map that shows all flights I have been on around that world! Will continue to update as I go to events throughout my life. Stay tuned!
 				</p>
 				<div class="flex flex-wrap justify-center gap-4">
-					<a href="/flights/list" class="inline-flex items-center px-6 py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg transition-colors duration-200">
+					<a href="#flight-map" class="inline-flex items-center px-6 py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg transition-all duration-200 hover:transform hover:scale-105">
 						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"></path>
+							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
 						</svg>
-						View All Flights
+						View Flight Map
 					</a>
-					<a href="#recent-flights" class="inline-flex items-center px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-200">
+					<a href="#recent-flights" class="inline-flex items-center px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:transform hover:scale-105">
 						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
 						</svg>
@@ -245,13 +244,13 @@ const currentYear = new Date().getFullYear();
 			</div>
 		) : (
 			<!-- Interactive Map Section -->
-			<section class="mb-12">
+			<section id="flight-map" class="mb-12 scroll-mt-20">
 				<div class="mb-6">
 					<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
 						Interactive Flight Map
 					</h2>
 					<p class="text-gray-600 dark:text-gray-400">
-						Explore flight routes with filtering and detailed information. Click flights for more details.
+						See the flights I have taken. White dots represent airports, black lines represent flight paths. Hover over airports for more details.
 					</p>
 				</div>
 
@@ -275,7 +274,7 @@ const currentYear = new Date().getFullYear();
 
 		<!-- Recent Flights -->
 		{!hasError && (
-			<section id="recent-flights" class="mb-12">
+			<section id="recent-flights" class="mb-12 scroll-mt-20">
 				<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
 					Recent Flights
 				</h2>
@@ -412,6 +411,11 @@ const currentYear = new Date().getFullYear();
 
 
 <style>
+	/* Smooth scrolling for the entire page */
+	html {
+		scroll-behavior: smooth;
+	}
+
 	.map-wrapper {
 		border-radius: 12px;
 		overflow: hidden;

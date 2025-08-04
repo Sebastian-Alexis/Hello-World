@@ -1,4 +1,3 @@
-import { randomBytes } from 'crypto';
 import { getEnv } from '../env/index.ts';
 import type { User, UserSession } from '../db/types.ts';
 
@@ -42,7 +41,11 @@ export interface SessionData {
 
 //generates cryptographically secure session id
 export function generateSessionId(length: number = 32): string {
-  return randomBytes(length).toString('hex');
+  const bytes = new Uint8Array(length);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes)
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 //creates a new session

@@ -3,6 +3,7 @@ import svelte from '@astrojs/svelte';
 import tailwind from '@astrojs/tailwind';
 import sitemap from '@astrojs/sitemap';
 import compress from 'astro-compress';
+import cloudflare from '@astrojs/cloudflare';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -11,6 +12,11 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export default defineConfig({
   site: 'https://yoursite.com',
   output: 'server',
+  adapter: cloudflare({
+    platformProxy: {
+      enabled: true
+    }
+  }),
   integrations: [
     svelte(),
     tailwind({

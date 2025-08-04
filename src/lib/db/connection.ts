@@ -1,7 +1,5 @@
 import { createClient, type Client } from '@libsql/client';
 import { getDbConfig, isDev } from '@/lib/env';
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { ConnectionPoolMonitor } from './performance';
 
 let _client: Client | null = null;
@@ -56,48 +54,8 @@ export async function initDatabase(): Promise<void> {
     return;
   }
 
-  try {
-    console.log('Initializing local database schema...');
-    
-    const schemaPath = join(process.cwd(), 'database', 'schema.sql');
-    const performanceIndexesPath = join(process.cwd(), 'database', 'performance-indexes.sql');
-    
-    const schema = readFileSync(schemaPath, 'utf-8');
-    const performanceIndexes = readFileSync(performanceIndexesPath, 'utf-8');
-    
-    const client = getDbClient();
-    
-    // Split schema into individual statements
-    const schemaStatements = schema
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
-    const performanceStatements = performanceIndexes
-      .split(';')
-      .map(stmt => stmt.trim())
-      .filter(stmt => stmt.length > 0 && !stmt.startsWith('--'));
-    
-    // Execute schema statements
-    for (const statement of schemaStatements) {
-      if (statement.trim()) {
-        await client.execute(statement);
-      }
-    }
-    
-    // Execute performance optimization statements
-    for (const statement of performanceStatements) {
-      if (statement.trim()) {
-        await client.execute(statement);
-      }
-    }
-    
-    console.log(`✅ Database schema initialized successfully (${schemaStatements.length + performanceStatements.length} statements)`);
-    console.log('✅ Performance indexes and monitoring tables created');
-  } catch (error) {
-    console.error('❌ Failed to initialize database schema:', error);
-    throw error;
-  }
+  console.log('Database initialization is not available in Cloudflare Workers environment');
+  console.log('Please run database setup locally before deploying');
 }
 
 //runs database migrations
