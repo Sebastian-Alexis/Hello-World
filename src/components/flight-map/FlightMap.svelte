@@ -3,6 +3,8 @@
 	import { writable, derived } from 'svelte/store';
 	import mapboxgl from 'mapbox-gl';
 	import 'mapbox-gl/dist/mapbox-gl.css';
+	import greatCircle from '@turf/great-circle';
+	import { point } from '@turf/helpers';
 	// Deck.GL imports removed - using native Mapbox layers only
 	// import { Deck } from '@deck.gl/core';
 	// import { MapboxOverlay } from '@deck.gl/mapbox';
@@ -459,7 +461,42 @@
 				const distance = calculateDistance(origin, destination);
 				const crossesAntimeridian = crossesDateLine(origin[0], destination[0]);
 				
-				// Generate curved path based on distance
+				// For flights crossing the Pacific, we need to use a MultiLineString
+				if (crossesAntimeridian && distance > 5000) {
+					// Use Turf great circle which returns proper segments
+					try {
+						const gc = greatCircle(point(origin), point(destination), {
+							npoints: 100
+						});
+						
+						if (gc && gc.geometry) {
+							allFeatures.push({
+								type: 'Feature',
+								geometry: gc.geometry, // Use Turf's geometry directly (MultiLineString)
+								properties: {
+									id: flight.flight_id,
+									flightId: flight.flight_id,
+									status: flight.flight_status,
+									airline: flight.airline_name,
+									flightNumber: flight.flight_number,
+									departureAirport: flight.departure_airport_name,
+									arrivalAirport: flight.arrival_airport_name,
+									distance: distance,
+									departureTime: flight.departure_time,
+									validationIssues: issues.length > 0 ? issues : undefined,
+									crossesDateLine: true,
+									isPolarOrigin: isPolarRegion(origin[1]),
+									isPolarDestination: isPolarRegion(destination[1])
+								}
+							});
+							return; // Skip the regular path generation
+						}
+					} catch (error) {
+						console.warn('Failed to generate great circle for crossing flight:', error);
+					}
+				}
+				
+				// Generate curved path for non-crossing or shorter flights
 				let pathCoordinates: [number, number][];
 				
 				if (distance > 5000) {
@@ -475,7 +512,6 @@
 				}
 				
 				// Create a single feature for the flight path
-				// Turf's great circle should handle antimeridian crossing correctly
 				allFeatures.push({
 					type: 'Feature',
 					geometry: {

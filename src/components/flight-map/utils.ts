@@ -98,9 +98,19 @@ export function generateGreatCirclePath(
 			npoints: numPoints + 1
 		});
 		
-		// Extract coordinates from the LineString
-		if (gc && gc.geometry && gc.geometry.coordinates) {
-			return gc.geometry.coordinates as [number, number][];
+		// Extract coordinates from the LineString or MultiLineString
+		if (gc && gc.geometry) {
+			if (gc.geometry.type === 'LineString') {
+				return gc.geometry.coordinates as [number, number][];
+			} else if (gc.geometry.type === 'MultiLineString') {
+				// Turf returns MultiLineString for paths crossing antimeridian
+				// Flatten all segments into a single array
+				const allCoords: [number, number][] = [];
+				for (const segment of gc.geometry.coordinates) {
+					allCoords.push(...(segment as [number, number][]));
+				}
+				return allCoords;
+			}
 		}
 	} catch (error) {
 		console.warn('Turf great circle generation failed, falling back to manual calculation:', error);
