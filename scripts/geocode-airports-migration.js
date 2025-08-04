@@ -9,7 +9,7 @@
  * Features:
  * - Connects to the Turso database using existing connection pattern
  * - Finds airports with invalid coordinates
- * - Uses OpenStreetMap Nominatim API for geocoding
+ * - Uses Mapbox Geocoding API for geocoding
  * - Implements rate limiting to avoid API limits
  * - Shows progress and detailed results
  * - Safe operation with error handling and rollback capabilities
@@ -18,6 +18,10 @@
 import { createClient } from '@libsql/client';
 import { readFileSync } from 'fs';
 import { join } from 'path';
+import dotenv from 'dotenv';
+
+// Load environment variables
+dotenv.config();
 
 // Configuration
 const RATE_LIMIT_DELAY = 1000; // 1 second between API calls
@@ -60,14 +64,28 @@ function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Geocoding function using OpenStreetMap Nominatim
+// Geocoding function using Mapbox Geocoding API
 async function geocodeAirport(iataCode, airportName, city, country, retryCount = 0) {
   try {
     console.log(`  🔍 Geocoding ${iataCode} - ${airportName} (${city}, ${country})`);
     
-    // Build search query
-    const query = encodeURIComponent(`${airportName} ${city} airport`);
-    const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&addressdetails=1`;
+    // Get Mapbox access token from environment
+    const mapboxToken = process.env.VITE_MAPBOX_ACCESS_TOKEN || process.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
+    
+    if (!mapboxToken) {
+      throw new Error('Mapbox access token not found in environment variables');
+    }
+
+    // Build search query - use airport name with city for better accuracy
+    // Remove redundant "airport" from query if it's already in the name
+    const hasAirport = airportName.toLowerCase().includes('airport');
+    const searchQuery = city ? 
+      (hasAirport ? `${airportName} ${city}` : `${airportName} airport ${city}`) :
+      (hasAirport ? airportName : `${airportName} airport`);
+    const encodedQuery = encodeURIComponent(searchQuery);
+    
+    // Use Mapbox Geocoding API with types filter for airports
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodedQuery}.json?access_token=${mapboxToken}&limit=3&types=poi`;
     
     const response = await fetch(url, {
       headers: { 
@@ -81,21 +99,58 @@ async function geocodeAirport(iataCode, airportName, city, country, retryCount =
     
     const data = await response.json();
     
-    if (data && data.length > 0) {
-      const result = data[0];
-      const coordinates = {
-        latitude: parseFloat(result.lat),
-        longitude: parseFloat(result.lon),
-        country_code: result.address?.country_code?.toUpperCase() || 'XX'
-      };
+    if (data.features && data.features.length > 0) {
+      // Find the best match by looking for airport-related terms
+      let bestResult = null;
       
-      // Validate coordinates
-      if (isNaN(coordinates.latitude) || isNaN(coordinates.longitude)) {
-        throw new Error('Invalid coordinates returned from geocoding service');
+      for (const feature of data.features) {
+        const placeName = feature.place_name.toLowerCase();
+        const text = feature.text.toLowerCase();
+        
+        // Score results based on airport-related terms
+        let score = 0;
+        if (text.includes('airport') || placeName.includes('airport')) score += 10;
+        if (text.includes('international') || placeName.includes('international')) score += 5;
+        if (text.includes(iataCode.toLowerCase())) score += 8;
+        if (placeName.includes(city.toLowerCase())) score += 3;
+        
+        // Prefer results with higher relevance scores from Mapbox
+        score += (feature.relevance || 0);
+        
+        if (!bestResult || score > bestResult.score) {
+          bestResult = { ...feature, score };
+        }
       }
       
-      console.log(`  ✅ Found coordinates: [${coordinates.longitude}, ${coordinates.latitude}]`);
-      return coordinates;
+      if (bestResult) {
+        const [longitude, latitude] = bestResult.center;
+        
+        // Validate coordinates
+        if (isNaN(latitude) || isNaN(longitude)) {
+          throw new Error('Invalid coordinates returned from geocoding service');
+        }
+        
+        // Extract country code from context
+        let countryCode = 'XX';
+        if (bestResult.context) {
+          const countryContext = bestResult.context.find(ctx => ctx.id.startsWith('country'));
+          if (countryContext && countryContext.short_code) {
+            countryCode = countryContext.short_code.toUpperCase();
+          }
+        }
+        
+        const coordinates = {
+          latitude,
+          longitude,
+          country_code: countryCode
+        };
+        
+        console.log(`  ✅ Found coordinates: [${coordinates.longitude}, ${coordinates.latitude}]`);
+        console.log(`  📍 Matched: ${bestResult.place_name} (score: ${bestResult.score.toFixed(1)})`);
+        return coordinates;
+      } else {
+        throw new Error('No suitable results found');
+      }
     } else {
       throw new Error('No results found');
     }
@@ -134,8 +189,8 @@ async function runAirportGeocodingMigration() {
     await client.execute('SELECT 1');
     console.log('✅ Database connection successful\n');
     
-    // Find airports with invalid coordinates
-    console.log('🔍 Finding airports with invalid coordinates...');
+    // Find airports with invalid coordinates (specifically [0,0] coordinates)
+    console.log('🔍 Finding airports with [0,0] coordinates...');
     const invalidAirportsQuery = `
       SELECT id, iata_code, name, city, country, latitude, longitude
       FROM airports 
@@ -143,12 +198,8 @@ async function runAirportGeocodingMigration() {
         AND (
           latitude IS NULL 
           OR longitude IS NULL 
-          OR latitude = 0.0 
-          OR longitude = 0.0
-          OR (latitude = 0.0 AND longitude = 0.0)
-          OR latitude = 0
-          OR longitude = 0
           OR (latitude = 0 AND longitude = 0)
+          OR (latitude = 0.0 AND longitude = 0.0)
         )
       ORDER BY iata_code
     `;
@@ -159,15 +210,15 @@ async function runAirportGeocodingMigration() {
     results.total = invalidAirports.length;
     
     if (results.total === 0) {
-      console.log('✅ No airports found with invalid coordinates. Migration complete!');
+      console.log('✅ No airports found with [0,0] coordinates. Migration complete!');
       return results;
     }
     
-    console.log(`📊 Found ${results.total} airports with invalid coordinates\n`);
+    console.log(`📊 Found ${results.total} airports with [0,0] coordinates\n`);
     
     // In debug mode, show the airports that would be processed
     if (DEBUG && results.total > 0) {
-      console.log('🔍 DEBUG: Airports with invalid coordinates:');
+      console.log('🔍 DEBUG: Airports with [0,0] coordinates:');
       invalidAirports.forEach((airport, index) => {
         console.log(`   ${index + 1}. ${airport.iata_code} - ${airport.name}`);
         console.log(`      Location: ${airport.city}, ${airport.country}`);
@@ -306,7 +357,7 @@ async function validateMigration() {
   const client = createDbClient();
   
   try {
-    // Check remaining invalid airports
+    // Check remaining airports with [0,0] coordinates
     const stillInvalidQuery = `
       SELECT COUNT(*) as count
       FROM airports 
@@ -314,34 +365,30 @@ async function validateMigration() {
         AND (
           latitude IS NULL 
           OR longitude IS NULL 
-          OR latitude = 0.0 
-          OR longitude = 0.0
-          OR (latitude = 0.0 AND longitude = 0.0)
-          OR latitude = 0
-          OR longitude = 0
           OR (latitude = 0 AND longitude = 0)
+          OR (latitude = 0.0 AND longitude = 0.0)
         )
     `;
     
     const result = await client.execute(stillInvalidQuery);
     const remainingInvalid = result.rows[0]?.count || 0;
     
-    // Check total valid airports
+    // Check total valid airports (not [0,0])
     const validQuery = `
       SELECT COUNT(*) as count
       FROM airports 
       WHERE is_active = TRUE 
         AND latitude IS NOT NULL 
         AND longitude IS NOT NULL 
-        AND latitude != 0.0 
-        AND longitude != 0.0
+        AND NOT (latitude = 0 AND longitude = 0)
+        AND NOT (latitude = 0.0 AND longitude = 0.0)
     `;
     
     const validResult = await client.execute(validQuery);
     const totalValid = validResult.rows[0]?.count || 0;
     
     console.log(`✅ Valid airports with coordinates: ${totalValid}`);
-    console.log(`⚠️  Airports still missing coordinates: ${remainingInvalid}`);
+    console.log(`⚠️  Airports still with [0,0] coordinates: ${remainingInvalid}`);
     
     if (remainingInvalid === 0) {
       console.log('🎉 All airports now have valid coordinates!');
