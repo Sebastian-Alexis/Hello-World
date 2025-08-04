@@ -37,7 +37,8 @@
 		isPolarRegion,
 		generateGreatCirclePath,
 		generateBezierPath,
-		calculateDistance
+		calculateDistance,
+		splitPathAtAntimeridian
 	} from './utils';
 
 	//props
@@ -331,7 +332,7 @@
 				map.on('click', 'flight-paths', (e) => {
 					if (e.features && e.features.length > 0) {
 						const feature = e.features[0];
-						const flightId = feature.properties?.id;
+						const flightId = feature.properties?.flightId || feature.properties?.id;
 						
 						// Find the corresponding flight object
 						const flight = $filteredFlights.find(f => f.flight_id === flightId);
@@ -447,66 +448,66 @@
 	}
 
 	function flightsToGeoJSON(flights: Flight[]) {
-		const validFeatures = flights
-			.map(flight => {
-				const { origin, destination, issues } = getValidFlightCoordinates(flight);
+		const allFeatures: any[] = [];
+		
+		flights.forEach(flight => {
+			const { origin, destination, issues } = getValidFlightCoordinates(flight);
+			
+			// Only include flights with valid coordinates
+			if (origin && destination) {
+				// Calculate distance to determine path type
+				const distance = calculateDistance(origin, destination);
+				const crossesAntimeridian = crossesDateLine(origin[0], destination[0]);
 				
-				// Only include flights with valid coordinates
-				if (origin && destination) {
-					// Calculate distance to determine path type
-					const distance = calculateDistance(origin, destination);
-					
-					// Generate curved path based on distance
-					let pathCoordinates: [number, number][];
-					
-					if (distance > 5000) {
-						// Long distance flights: use great circle path
-						pathCoordinates = generateGreatCirclePath(origin, destination, 100);
-					} else if (distance > 500) {
-						// Medium distance flights: use bezier curve with moderate height
-						const curveHeight = Math.min(0.3, distance / 10000);
-						pathCoordinates = generateBezierPath(origin, destination, curveHeight, 75);
-					} else {
-						// Short distance flights: use slight bezier curve
-						pathCoordinates = generateBezierPath(origin, destination, 0.1, 50);
+				// Generate curved path based on distance
+				let pathCoordinates: [number, number][];
+				
+				if (distance > 5000) {
+					// Long distance flights: use great circle path
+					pathCoordinates = generateGreatCirclePath(origin, destination, 100);
+				} else if (distance > 500) {
+					// Medium distance flights: use bezier curve with moderate height
+					const curveHeight = Math.min(0.3, distance / 10000);
+					pathCoordinates = generateBezierPath(origin, destination, curveHeight, 75);
+				} else {
+					// Short distance flights: use slight bezier curve
+					pathCoordinates = generateBezierPath(origin, destination, 0.1, 50);
+				}
+				
+				// Create a single feature for the flight path
+				// Turf's great circle should handle antimeridian crossing correctly
+				allFeatures.push({
+					type: 'Feature',
+					geometry: {
+						type: 'LineString',
+						coordinates: pathCoordinates
+					},
+					properties: {
+						id: flight.flight_id,
+						flightId: flight.flight_id,
+						status: flight.flight_status,
+						airline: flight.airline_name,
+						flightNumber: flight.flight_number,
+						departureAirport: flight.departure_airport_name,
+						arrivalAirport: flight.arrival_airport_name,
+						distance: distance,
+						departureTime: flight.departure_time,
+						// Add validation info for debugging
+						validationIssues: issues.length > 0 ? issues : undefined,
+						crossesDateLine: crossesAntimeridian,
+						isPolarOrigin: isPolarRegion(origin[1]),
+						isPolarDestination: isPolarRegion(destination[1])
 					}
-					
-					return {
-						type: 'Feature',
-						geometry: {
-							type: 'LineString',
-							coordinates: pathCoordinates
-						},
-						properties: {
-							id: flight.flight_id,
-							status: flight.flight_status,
-							airline: flight.airline_name,
-							flightNumber: flight.flight_number,
-							departureAirport: flight.departure_airport_name,
-							arrivalAirport: flight.arrival_airport_name,
-							distance: distance,
-							departureTime: flight.departure_time,
-							// Add validation info for debugging
-							validationIssues: issues.length > 0 ? issues : undefined,
-							crossesDateLine: crossesDateLine(origin[0], destination[0]),
-							isPolarOrigin: isPolarRegion(origin[1]),
-							isPolarDestination: isPolarRegion(destination[1])
-						}
-					};
-				}
-				
+				});
+			} else if (issues.length > 0) {
 				// Log invalid flights for debugging
-				if (issues.length > 0) {
-					console.warn(`⚠️ Skipping flight ${flight.flight_id} due to coordinate issues:`, issues);
-				}
-				
-				return null;
-			})
-			.filter(Boolean);
+				console.warn(`⚠️ Skipping flight ${flight.flight_id} due to coordinate issues:`, issues);
+			}
+		});
 		
 		return {
 			type: 'FeatureCollection',
-			features: validFeatures
+			features: allFeatures
 		};
 	}
 

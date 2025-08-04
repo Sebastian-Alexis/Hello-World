@@ -1,4 +1,6 @@
 import type { Flight, Airport, FilterOptions } from './types';
+import greatCircle from '@turf/great-circle';
+import { point } from '@turf/helpers';
 
 //calculate great circle distance between two coordinates
 export function calculateDistance(
@@ -74,7 +76,7 @@ export function isPolarRegion(lat: number): boolean {
 }
 
 /**
- * Generates a great circle path between two points
+ * Generates a great circle path between two points using Turf.js
  * @param start Starting coordinates [lng, lat]
  * @param end Ending coordinates [lng, lat]
  * @param numPoints Number of intermediate points to generate
@@ -85,8 +87,51 @@ export function generateGreatCirclePath(
 	end: [number, number],
 	numPoints: number = 100
 ): [number, number][] {
-	const [lng1, lat1] = start;
-	const [lng2, lat2] = end;
+	try {
+		// Create Turf points
+		const startPoint = point(start);
+		const endPoint = point(end);
+		
+		// Generate great circle using Turf
+		// This handles antimeridian crossing automatically
+		const gc = greatCircle(startPoint, endPoint, {
+			npoints: numPoints + 1
+		});
+		
+		// Extract coordinates from the LineString
+		if (gc && gc.geometry && gc.geometry.coordinates) {
+			return gc.geometry.coordinates as [number, number][];
+		}
+	} catch (error) {
+		console.warn('Turf great circle generation failed, falling back to manual calculation:', error);
+	}
+	
+	// Fallback to manual calculation if Turf fails
+	return generateGreatCirclePathManual(start, end, numPoints);
+}
+
+/**
+ * Manual great circle path generation (fallback)
+ */
+function generateGreatCirclePathManual(
+	start: [number, number],
+	end: [number, number],
+	numPoints: number = 100
+): [number, number][] {
+	let [lng1, lat1] = start;
+	let [lng2, lat2] = end;
+	
+	// Handle antimeridian crossing
+	const lngDiff = lng2 - lng1;
+	
+	// If longitude difference is greater than 180, we're going the wrong way
+	if (Math.abs(lngDiff) > 180) {
+		if (lngDiff > 0) {
+			lng2 -= 360;
+		} else {
+			lng2 += 360;
+		}
+	}
 	
 	// Convert to radians
 	const phi1 = lat1 * Math.PI / 180;
@@ -118,12 +163,71 @@ export function generateGreatCirclePath(
 		
 		// Convert back to degrees
 		const lat = phi * 180 / Math.PI;
-		const lng = lambda * 180 / Math.PI;
+		let lng = lambda * 180 / Math.PI;
+		
+		// Normalize to [-180, 180]
+		while (lng > 180) lng -= 360;
+		while (lng < -180) lng += 360;
 		
 		path.push([lng, lat]);
 	}
 	
 	return path;
+}
+
+/**
+ * Splits a path at the antimeridian (180° longitude) to handle date line crossing
+ * @param path Array of coordinates
+ * @returns Array of path segments that don't cross the antimeridian
+ */
+export function splitPathAtAntimeridian(path: [number, number][]): [number, number][][] {
+	const segments: [number, number][][] = [];
+	let currentSegment: [number, number][] = [];
+	
+	for (let i = 0; i < path.length; i++) {
+		const [lng, lat] = path[i];
+		
+		if (i > 0) {
+			const [prevLng] = path[i - 1];
+			
+			// Check if we're crossing the antimeridian
+			if (Math.abs(lng - prevLng) > 180) {
+				// End current segment at the antimeridian
+				if (currentSegment.length > 0) {
+					// Add interpolated point at the antimeridian
+					const [prevLng, prevLat] = path[i - 1];
+					const crossLng = prevLng > 0 ? 180 : -180;
+					
+					// Simple linear interpolation for the crossing point
+					const ratio = Math.abs((crossLng - prevLng) / (lng - prevLng));
+					const crossLat = prevLat + (lat - prevLat) * ratio;
+					
+					currentSegment.push([crossLng, crossLat]);
+					segments.push(currentSegment);
+				}
+				
+				// Start new segment from the other side
+				currentSegment = [];
+				const startLng = lng > 0 ? -180 : 180;
+				
+				// Add interpolated point from the other side
+				const [prevLng, prevLat] = path[i - 1];
+				const ratio = Math.abs((startLng - lng) / (prevLng - lng));
+				const startLat = lat + (prevLat - lat) * ratio;
+				
+				currentSegment.push([startLng, startLat]);
+			}
+		}
+		
+		currentSegment.push([lng, lat]);
+	}
+	
+	// Add the last segment
+	if (currentSegment.length > 0) {
+		segments.push(currentSegment);
+	}
+	
+	return segments.length > 0 ? segments : [path];
 }
 
 /**
