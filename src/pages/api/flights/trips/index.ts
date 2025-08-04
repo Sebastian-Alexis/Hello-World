@@ -1,8 +1,6 @@
 import type { APIRoute } from 'astro';
 import { db } from '@/lib/db';
 import { executeQuery, executeTransaction } from '@/lib/db';
-import { extractSessionFromCookie } from '@/lib/auth/session';
-import { verifyToken } from '@/lib/auth/jwt';
 
 export const GET: APIRoute = async ({ request }) => {
   try {
@@ -73,67 +71,16 @@ export const GET: APIRoute = async ({ request }) => {
 };
 
 export const POST: APIRoute = async ({ request }) => {
-  // Check authentication via JWT token in cookie
-  const cookieHeader = request.headers.get('Cookie');
-  const token = extractSessionFromCookie(cookieHeader);
+  // Import authMiddleware for consistent authentication
+  const { authMiddleware } = await import('@/lib/auth');
   
-  if (!token) {
+  // Check auth using the fixed middleware
+  const authResult = await authMiddleware(request, { required: true, roles: ['admin'] });
+  if (!authResult.success) {
     return new Response(
-      JSON.stringify({ error: 'Authentication required' }),
+      JSON.stringify({ error: authResult.error || 'Unauthorized' }),
       { 
-        status: 401,
-        headers: { 'Content-Type': 'application/json' }
-      }
-    );
-  }
-
-  // Verify JWT token
-  try {
-    const tokenPayload = await verifyToken(token);
-    
-    // Check admin role
-    if (tokenPayload.role !== 'admin') {
-      return new Response(
-        JSON.stringify({ error: 'Admin access required' }),
-        { 
-          status: 403,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      );
-    }
-
-    // Optionally verify session if sessionId is in token
-    if (tokenPayload.sessionId) {
-      const sessionResult = await executeQuery(
-        'SELECT * FROM user_sessions WHERE id = ? AND expires_at > datetime("now")',
-        [tokenPayload.sessionId]
-      );
-
-      if (!sessionResult.rows || sessionResult.rows.length === 0) {
-        return new Response(
-          JSON.stringify({ error: 'Session expired' }),
-          { 
-            status: 401,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        );
-      }
-    }
-  } catch (error) {
-    console.error('Token verification error:', error);
-    
-    // Provide user-friendly error messages
-    let errorMessage = 'Authentication failed';
-    if (error.message.includes('expired')) {
-      errorMessage = 'Your session has expired. Please log in again.';
-    } else if (error.message.includes('invalid')) {
-      errorMessage = 'Invalid authentication token';
-    }
-    
-    return new Response(
-      JSON.stringify({ error: errorMessage }),
-      { 
-        status: 401,
+        status: authResult.status || 401,
         headers: { 'Content-Type': 'application/json' }
       }
     );

@@ -94,10 +94,15 @@ const { data: trips = [] } = response.ok ? await response.json() : { data: [] };
             credentials: 'same-origin'
           });
 
+          console.log('Delete response:', response.status, response.statusText);
+          
           if (response.ok) {
+            console.log('Delete successful, reloading page...');
             window.location.reload();
           } else {
-            alert('Failed to delete trip');
+            const errorData = await response.json();
+            console.error('Delete failed:', errorData);
+            alert(`Failed to delete trip: ${errorData.error || 'Unknown error'}`);
           }
         } catch (error) {
           console.error('Error deleting trip:', error);

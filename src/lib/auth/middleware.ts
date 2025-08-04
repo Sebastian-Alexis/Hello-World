@@ -155,8 +155,10 @@ export async function authMiddleware(
   try {
     //extract token from header or cookie
     const authHeader = request.headers.get('Authorization');
+    const cookieHeader = request.headers.get('Cookie');
     const token = extractTokenFromHeader(authHeader) || 
-                  extractSessionFromCookie(request.headers.get('Cookie'));
+                  extractSessionFromCookie(cookieHeader);
+    
     
     if (!token) {
       return required 
@@ -164,8 +166,55 @@ export async function authMiddleware(
         : { success: true };
     }
     
-    //verify token
-    const payload = await verifyToken(token);
+    let payload: TokenPayload;
+    
+    //check if token is JWT (starts with eyJ) or session ID
+    if (token.startsWith('eyJ')) {
+      //verify JWT token
+      payload = await verifyToken(token);
+    } else {
+      //validate session ID
+      const { executeQuery } = await import('../db/index.js');
+      
+      //query session from database
+      const sessionResult = await executeQuery<{
+        id: string;
+        user_id: number;
+        expires_at: string;
+        created_at: string;
+      }>(
+        'SELECT * FROM user_sessions WHERE id = ? AND expires_at > datetime("now")',
+        [token]
+      );
+      
+      if (!sessionResult.rows || sessionResult.rows.length === 0) {
+        return { success: false, error: 'Invalid or expired session', status: 401 };
+      }
+      
+      //query user data
+      const userResult = await executeQuery<User>(
+        'SELECT * FROM users WHERE id = ? AND is_active = 1',
+        [sessionResult.rows[0].user_id]
+      );
+      
+      if (!userResult.rows || userResult.rows.length === 0) {
+        return { success: false, error: 'User not found', status: 401 };
+      }
+      
+      const user = userResult.rows[0];
+      
+      //create TokenPayload-like object from session data
+      payload = {
+        userId: user.id,
+        email: user.email,
+        username: user.username,
+        role: user.role,
+        sessionId: token,
+        type: 'access' as const,
+        iat: new Date(sessionResult.rows[0].created_at).getTime() / 1000,
+        exp: new Date(sessionResult.rows[0].expires_at).getTime() / 1000,
+      };
+    }
     
     //check role permissions
     if (roles && roles.length > 0) {

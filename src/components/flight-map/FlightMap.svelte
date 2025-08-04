@@ -1398,6 +1398,14 @@
 		color: #f9fafb;
 	}
 
+	:global(.dark) .controls-header {
+		border-bottom-color: #4b5563;
+	}
+
+	:global(.dark) .flight-details-header {
+		border-bottom-color: #4b5563;
+	}
+
 	:global(.dark) .filter-group h4 {
 		color: #d1d5db;
 	}
@@ -1410,6 +1418,13 @@
 
 	:global(.dark) .filter-item:hover {
 		background: #4b5563;
+		border-color: #6b7280;
+	}
+
+	:global(.dark) .filter-item.active {
+		background: #3b82f6;
+		border-color: #3b82f6;
+		color: white;
 	}
 
 	:global(.dark) .clear-btn {
@@ -1420,6 +1435,22 @@
 
 	:global(.dark) .clear-btn:hover {
 		background: #4b5563;
+	}
+
+	:global(.dark) .close-btn {
+		color: #9ca3af;
+	}
+
+	:global(.dark) .close-btn:hover {
+		color: #f9fafb;
+	}
+
+	:global(.dark) .animation-toggle {
+		color: #f9fafb;
+	}
+
+	:global(.dark) .animation-toggle span {
+		color: #d1d5db;
 	}
 
 	:global(.dark) .stat-value {
@@ -1435,6 +1466,28 @@
 	}
 
 	:global(.dark) .value {
+		color: #f9fafb;
+	}
+
+	:global(.dark) .data-quality-info {
+		border-top-color: #4b5563;
+	}
+
+	:global(.dark) .data-quality-info h4 {
+		color: #d1d5db;
+	}
+
+	:global(.dark) .quality-item.warning {
+		background-color: #7c2d12;
+		border-color: #dc2626;
+	}
+
+	:global(.dark) .quality-item.info {
+		background-color: #1e3a8a;
+		border-color: #2563eb;
+	}
+
+	:global(.dark) .quality-text {
 		color: #f9fafb;
 	}
 

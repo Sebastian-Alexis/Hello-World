@@ -97,12 +97,12 @@ export const POST: APIRoute = async ({ request, clientAddress }) => {
 
     const cookies: string[] = [];
 
-    if (authResult.tokens) {
-      //set session cookie (access token)
-      cookies.push(createSessionCookie(authResult.tokens.accessToken));
+    if (authResult.session) {
+      //set session cookie with session ID (not JWT)
+      cookies.push(createSessionCookie(authResult.session.id));
 
-      //set refresh token cookie if remember me is enabled
-      if (remember_me && authResult.tokens.refreshToken) {
+      //set refresh token cookie if remember me is enabled  
+      if (remember_me && authResult.tokens?.refreshToken) {
         cookies.push(createRefreshTokenCookie(authResult.tokens.refreshToken));
       }
     }
