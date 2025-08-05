@@ -9,9 +9,6 @@ export {
   closeDb, 
   healthCheck, 
   enhancedHealthCheck,
-  initDatabase, 
-  runMigrations, 
-  seedDatabase,
   executeQuery,
   executeTransaction,
   getDatabaseStats,
@@ -160,9 +157,6 @@ export async function initializeOptimizedDatabase(): Promise<{
 }> {
   try {
     console.log('🚀 Initializing Plan 7 Database Optimization Suite...');
-    
-    //initialize database schema with performance indexes
-    await initDatabase();
     
     //run health check
     const health = await enhancedHealthCheck();

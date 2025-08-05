@@ -10,11 +10,12 @@ import path from 'path';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  site: 'https://yoursite.com',
+  site: 'https://personal-website-production.sebastianralexis.workers.dev',
   output: 'server',
   adapter: cloudflare({
-    platformProxy: {
-      enabled: true
+    mode: 'directory',
+    routes: {
+      exclude: []
     }
   }),
   integrations: [

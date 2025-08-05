@@ -5,7 +5,7 @@
 // =============================================================================
 
 import { onCLS, onFCP, onLCP, onTTFB, onINP, type Metric } from 'web-vitals';
-import { fontOptimizer, fontPerformanceUtils } from './font-optimization.js';
+import { fontOptimizer, fontUtils } from './font-optimization.js';
 
 //core web vitals thresholds (in milliseconds/units)
 const VITALS_THRESHOLDS = {
@@ -719,27 +719,6 @@ class PerformanceTracker {
     return 'good';
   }
 
-  private getNavigationType(): string {
-    if ('navigation' in performance) {
-      const navEntry = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
-      return navEntry?.type || 'unknown';
-    }
-    return 'unknown';
-  }
-
-  private getConnectionType(): string | undefined {
-    const connection = (navigator as any).connection;
-    return connection?.effectiveType || connection?.type;
-  }
-
-  private getNavigationTiming(): PerformanceNavigationTiming | null {
-    const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-    return entries[0] || null;
-  }
-
-  private getConnectionInfo(): any {
-    return (navigator as any).connection || null;
-  }
 
   private sendBeacon(): void {
     if (this.vitalsData.length === 0) return;
@@ -768,22 +747,6 @@ class PerformanceTracker {
     }
   }
 
-  private getResourceTimings(): PerformanceResourceTiming[] {
-    return performance.getEntriesByType('resource') as PerformanceResourceTiming[];
-  }
-
-  private getNavigationTiming(): PerformanceNavigationTiming | null {
-    const entries = performance.getEntriesByType('navigation') as PerformanceNavigationTiming[];
-    return entries[0] || null;
-  }
-
-  private getMemoryInfo(): any {
-    return (performance as any).memory || null;
-  }
-
-  private getConnectionInfo(): any {
-    return (navigator as any).connection || null;
-  }
 
   //public API methods for external usage
   public setUserId(userId: string): void {

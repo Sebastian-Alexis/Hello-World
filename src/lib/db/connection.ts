@@ -15,8 +15,6 @@ export function getDbClient(): Client {
   _client = createClient({
     url: config.url,
     authToken: config.authToken,
-    syncUrl: config.syncUrl,
-    syncInterval: isDev() ? undefined : 60, // sync every minute in production
   });
 
   return _client;
@@ -47,62 +45,6 @@ export async function healthCheck(): Promise<{ healthy: boolean; error?: string;
   }
 }
 
-//initializes the database schema for development
-export async function initDatabase(): Promise<void> {
-  if (!isDev()) {
-    console.log('Skipping schema initialization in production');
-    return;
-  }
-
-  console.log('Database initialization is not available in Cloudflare Workers environment');
-  console.log('Please run database setup locally before deploying');
-}
-
-//runs database migrations
-export async function runMigrations(): Promise<void> {
-  // For now, we'll use the schema initialization
-  // In the future, add proper migration logic here
-  console.log('Running database migrations...');
-  
-  try {
-    await initDatabase();
-    console.log('✅ Migrations completed successfully');
-  } catch (error) {
-    console.error('❌ Migration failed:', error);
-    throw error;
-  }
-}
-
-//seeds the database with initial data
-export async function seedDatabase(): Promise<void> {
-  if (!isDev()) {
-    console.log('Skipping database seeding in production');
-    return;
-  }
-
-  try {
-    console.log('Seeding database with initial data...');
-    
-    const client = getDbClient();
-    
-    // Check if already seeded by looking for admin user
-    const existingUser = await client.execute(
-      'SELECT id FROM users WHERE email = ? LIMIT 1',
-      ['admin@localhost.dev']
-    );
-    
-    if (existingUser.rows.length > 0) {
-      console.log('Database already seeded, skipping...');
-      return;
-    }
-    
-    // Add seed data here
-    console.log('✅ Database seeded successfully');
-  } catch (error) {
-    console.error('❌ Failed to seed database:', error);
-    throw error;
-  }
-}
 
 //executes a query with error handling and logging
 export async function executeQuery<T = unknown>(

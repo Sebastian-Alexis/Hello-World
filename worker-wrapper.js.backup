@@ -1,0 +1,26 @@
+// Custom worker wrapper for Cloudflare Workers
+import * as mod from './dist/_worker.js/index.js';
+
+// Extract the default export (which is __astrojsSsrVirtualEntry)
+const worker = mod.default || mod.__astrojsSsrVirtualEntry || mod;
+
+// Ensure we export a proper fetch handler
+export default {
+  async fetch(request, env, ctx) {
+    // Make env available globally for the request
+    globalThis.__CLOUDFLARE_ENV__ = env;
+    
+    // If worker has a fetch method, use it
+    if (typeof worker.fetch === 'function') {
+      return worker.fetch(request, env, ctx);
+    }
+    
+    // If worker is itself a function, call it
+    if (typeof worker === 'function') {
+      return worker(request, env, ctx);
+    }
+    
+    // Fallback error response
+    return new Response('Worker initialization error', { status: 500 });
+  }
+};

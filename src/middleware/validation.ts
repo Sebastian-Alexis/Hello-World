@@ -1,7 +1,6 @@
 //comprehensive input validation and sanitization middleware
 import type { MiddlewareNext } from 'astro:middleware';
 import type { APIContext } from 'astro';
-import DOMPurify from 'isomorphic-dompurify';
 import { z } from 'zod';
 
 //validation result interface
@@ -65,17 +64,36 @@ const SANITIZATION_CONFIG = {
   }
 };
 
-//sanitize html content
+//sanitize html content - server-side safe version
 function sanitizeHTML(input: string): string {
   if (typeof input !== 'string') return '';
   
-  //use dompurify with strict config
-  return DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: SANITIZATION_CONFIG.HTML.ALLOWED_TAGS,
-    ALLOWED_ATTR: SANITIZATION_CONFIG.HTML.ALLOWED_ATTR,
-    ALLOWED_URI_REGEXP: SANITIZATION_CONFIG.HTML.ALLOWED_URI_REGEXP,
-    KEEP_CONTENT: SANITIZATION_CONFIG.HTML.KEEP_CONTENT,
-  });
+  // Basic server-side HTML sanitization
+  let sanitized = input;
+  
+  // Remove script tags and their content
+  sanitized = sanitized.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+  
+  // Remove event handlers
+  sanitized = sanitized.replace(/\s*on\w+\s*=\s*["'][^"']*["']/gi, '');
+  
+  // Remove javascript: protocol
+  sanitized = sanitized.replace(/javascript:/gi, '');
+  
+  // Remove data: protocol except for images
+  sanitized = sanitized.replace(/data:(?!image\/)/gi, '');
+  
+  // Keep only allowed tags by removing all others
+  const allowedTagsPattern = SANITIZATION_CONFIG.HTML.ALLOWED_TAGS.join('|');
+  const tagRegex = new RegExp(`<(?!\/?(?:${allowedTagsPattern})\\s*\/?)[^>]+>`, 'gi');
+  sanitized = sanitized.replace(tagRegex, '');
+  
+  // Clean attributes on allowed tags
+  const allowedAttrs = SANITIZATION_CONFIG.HTML.ALLOWED_ATTR.join('|');
+  const attrRegex = new RegExp(`\\s+(?!(?:${allowedAttrs})\\s*=)[a-zA-Z-]+\\s*=\\s*["'][^"']*["']`, 'gi');
+  sanitized = sanitized.replace(attrRegex, '');
+  
+  return sanitized.trim();
 }
 
 //sanitize string for sql safety

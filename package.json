@@ -4,6 +4,7 @@
   "version": "0.0.1",
   "scripts": {
     "dev": "astro dev",
+    "dev:wrangler": "wrangler dev",
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
@@ -12,7 +13,7 @@
     "db:migrate": "node scripts/migrate-database.js",
     "db:migrate:lighthouse": "node scripts/migrate-lighthouse-schema.js",
     "db:seed": "node scripts/seed-database.js",
-    "db:reset": "rm -f local.db && npm run db:setup && npm run db:seed",
+    "db:reset": "echo 'Local database removed - use Turso cloud database'",
     "db:setup:full": "npm run db:setup && npm run db:migrate:lighthouse && npm run db:seed",
     "type-check": "astro check",
     "lint": "eslint . --ext .ts,.astro,.svelte --max-warnings 20",

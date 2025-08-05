@@ -1,8 +1,11 @@
 import { z } from 'zod';
 import * as dotenv from 'dotenv';
+import { getEnvVar, getAllEnvVars } from './cloudflare';
 
-// Load .env file
-dotenv.config();
+// Load .env file (only in Node.js environments)
+if (typeof process !== 'undefined' && process.env) {
+  dotenv.config();
+}
 
 const envSchema = z.object({
   // Database Configuration
@@ -32,30 +35,75 @@ const envSchema = z.object({
   SITE_DESCRIPTION: z.string().min(1, 'Site description is required'),
 
   // Email Configuration (optional)
-  SMTP_HOST: z.string().optional(),
-  SMTP_PORT: z.preprocess(
-    val => val === undefined || val === '' ? undefined : Number(val),
-    z.number().int().min(1).max(65535).optional()
+  SMTP_HOST: z.preprocess(
+    val => {
+      if (val === undefined || val === null || val === '' || 
+          val === 'smtp.gmail.com' || val === 'your_smtp_host') {
+        return undefined;
+      }
+      return val;
+    },
+    z.string().optional()
   ),
-  SMTP_USER: z.string().optional(),
-  SMTP_PASS: z.string().optional(),
+  SMTP_PORT: z.preprocess(
+    val => {
+      if (val === undefined || val === null || val === '') return undefined;
+      const num = Number(val);
+      return isNaN(num) ? undefined : num;
+    },
+    z.union([z.number().int().min(1).max(65535), z.undefined()]).optional()
+  ),
+  SMTP_USER: z.preprocess(
+    val => {
+      if (val === undefined || val === null || val === '' || 
+          val === 'your_email@gmail.com' || val === 'your_smtp_user') {
+        return undefined;
+      }
+      return val;
+    },
+    z.string().optional()
+  ),
+  SMTP_PASS: z.preprocess(
+    val => {
+      if (val === undefined || val === null || val === '' || 
+          val === 'your_app_password' || val === 'your_smtp_password') {
+        return undefined;
+      }
+      return val;
+    },
+    z.string().optional()
+  ),
   FROM_EMAIL: z.preprocess(
-    val => val === undefined || val === '' ? undefined : val,
-    z.string().email().optional()
+    val => {
+      // Handle empty strings and common placeholder values
+      if (val === undefined || val === null || val === '' || 
+          val === 'noreply@yoursite.com' || val === 'dev@localhost' ||
+          val === 'your_email@gmail.com') {
+        return undefined;
+      }
+      return val;
+    },
+    z.union([z.string().email(), z.undefined()]).optional()
   ),
 
   // Analytics (optional)
   GOOGLE_ANALYTICS_ID: z.string().optional(),
   UMAMI_WEBSITE_ID: z.string().optional(),
   UMAMI_URL: z.preprocess(
-    val => val === undefined || val === '' ? undefined : val,
-    z.string().url().optional()
+    val => {
+      if (val === undefined || val === null || val === '') return undefined;
+      return val;
+    },
+    z.union([z.string().url(), z.undefined()]).optional()
   ),
 
   // CDN & Assets (optional)
   CDN_URL: z.preprocess(
-    val => val === undefined || val === '' ? undefined : val,
-    z.string().url().optional()
+    val => {
+      if (val === undefined || val === null || val === '') return undefined;
+      return val;
+    },
+    z.union([z.string().url(), z.undefined()]).optional()
   ),
   CLOUDINARY_CLOUD_NAME: z.string().optional(),
   CLOUDINARY_API_KEY: z.string().optional(),
@@ -84,8 +132,8 @@ export function validateEnv(): Env {
   if (_env) return _env;
 
   try {
-    //use process.env directly since Astro should load .env files
-    const env = process.env;
+    //use Cloudflare-compatible environment variable access
+    const env = getAllEnvVars();
     
     //merge with default values for development
     const envWithDefaults = {

@@ -442,7 +442,8 @@ class MonitoringSystem {
 export const monitoring = new MonitoringSystem();
 
 //initialize monitoring system when module is loaded
-if (typeof window !== 'undefined' || typeof process !== 'undefined') {
+//only in browser environment, not in workers
+if (typeof window !== 'undefined' && typeof document !== 'undefined') {
   monitoring.initialize().catch(console.error);
 }
 
