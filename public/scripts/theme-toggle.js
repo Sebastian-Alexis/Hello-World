@@ -12,7 +12,7 @@
   let darkIcon = null;
   let lightIcon = null;
   
-  //get theme preference from localStorage or system
+  //get theme preference from localStorage or default to light
   function getPreferredTheme() {
     const stored = localStorage.getItem(THEME_KEY);
     // Security: Validate theme value against allowed themes only
@@ -20,7 +20,8 @@
       return stored;
     }
     
-    return window.matchMedia('(prefers-color-scheme: dark)').matches ? THEME_DARK : THEME_LIGHT;
+    // Default to light mode instead of system preference
+    return THEME_LIGHT;
   }
   
   //apply theme to document
