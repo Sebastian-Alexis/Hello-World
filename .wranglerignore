@@ -1,0 +1,21 @@
+# Ignore the _worker.js directory (it's the server-side code)
+_worker.js/
+
+# Ignore source files
+src/
+public/
+node_modules/
+
+# Ignore config files
+.env
+.env.*
+astro.config.mjs
+package.json
+package-lock.json
+tsconfig.json
+wrangler.toml
+
+# Ignore other files
+README.md
+.gitignore
+.npmrc
