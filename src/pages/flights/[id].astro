@@ -1,6 +1,10 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import type { Flight, Airport } from '../../components/flight-map/types';
+import { getEnvVar } from '../../lib/env/cloudflare';
+
+// Get Mapbox token from environment
+const mapboxToken = getEnvVar('VITE_MAPBOX_ACCESS_TOKEN') || getEnvVar('PUBLIC_MAPBOX_ACCESS_TOKEN') || import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
 //get flight ID from URL params
 const { id } = Astro.params;
@@ -418,7 +422,7 @@ const pageDescription = flight
               <section>
                 <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">Route Map</h2>
                 <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
-                  <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center" id="flight-detail-map" data-flight={JSON.stringify(flight)} data-airports={JSON.stringify(miniMapAirports)}>
+                  <div class="h-64 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center" id="flight-detail-map" data-flight={JSON.stringify(flight)} data-airports={JSON.stringify(miniMapAirports)} data-mapbox-token={mapboxToken}>
                     <div class="text-center">
                       <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-600 dark:border-gray-300 mx-auto mb-2"></div>
                       <p class="text-sm text-gray-600 dark:text-gray-400">Loading map...</p>
@@ -531,13 +535,16 @@ const pageDescription = flight
   </main>
 </BaseLayout>
 
-<script>
+<script define:vars={{ mapboxToken }}>
   // Load FlightMap component only on client side to avoid SSR issues with mapbox-gl
   if (typeof window !== 'undefined') {
     const container = document.getElementById('flight-detail-map');
     if (container) {
       const flight = JSON.parse(container.dataset.flight || 'null');
       const airports = JSON.parse(container.dataset.airports || '[]');
+      
+      // Set mapbox token globally
+      window.MAPBOX_ACCESS_TOKEN = mapboxToken;
       
       if (flight && airports.length >= 2) {
         import('../../components/flight-map/FlightMap.svelte').then(({ default: FlightMap }) => {
@@ -546,6 +553,7 @@ const pageDescription = flight
             props: {
               flights: [flight],
               airports: airports,
+              mapboxToken: mapboxToken || window.MAPBOX_ACCESS_TOKEN,
               height: '256px',
               showControls: false,
               theme: 'light'

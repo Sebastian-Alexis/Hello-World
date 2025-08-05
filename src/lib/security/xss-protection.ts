@@ -1,5 +1,5 @@
 //comprehensive xss protection system
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtmlLib from 'sanitize-html';
 
 //xss protection configuration
 const XSS_CONFIG = {
@@ -178,8 +178,15 @@ export function sanitizeHTML(
     );
   }
   
-  //sanitize with dompurify
-  let sanitized = DOMPurify.sanitize(input, purifyConfig);
+  //sanitize with sanitize-html
+  let sanitized = sanitizeHtmlLib(input, {
+    allowedTags: purifyConfig.ALLOWED_TAGS,
+    allowedAttributes: {
+      '*': purifyConfig.ALLOWED_ATTR,
+    },
+    allowedSchemes: ['http', 'https', 'mailto'],
+    allowedSchemesAppliedToAttributes: ['href', 'src'],
+  });
   
   //additional custom sanitization
   sanitized = sanitized

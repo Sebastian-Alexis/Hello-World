@@ -4,7 +4,7 @@
 // =============================================================================
 
 import { marked } from 'marked';
-import DOMPurify from 'isomorphic-dompurify';
+import sanitizeHtmlLib from 'sanitize-html';
 
 //configure marked with enhanced options
 marked.setOptions({
@@ -80,8 +80,8 @@ export class ContentProcessor {
 
   //sanitizes HTML content for security
   static sanitizeHtml(html: string): string {
-    return DOMPurify.sanitize(html, {
-      ALLOWED_TAGS: [
+    return sanitizeHtmlLib(html, {
+      allowedTags: [
         'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
         'p', 'br', 'strong', 'em', 'u', 'strike', 'del', 'ins',
         'blockquote', 'code', 'pre',
@@ -92,14 +92,14 @@ export class ContentProcessor {
         'details', 'summary',
         'mark', 'kbd', 'samp', 'var',
       ],
-      ALLOWED_ATTR: [
-        'href', 'title', 'alt', 'src', 'class', 'id',
-        'target', 'rel', 'width', 'height',
-        'loading', 'decoding',
-        'open', // for details element
-      ],
-      ALLOW_DATA_ATTR: false,
-      ALLOWED_URI_REGEXP: /^(?:(?:(?:f|ht)tps?|mailto|tel|callto|sms|cid|xmpp):|[^a-z]|[a-z+.\-]+(?:[^a-z+.\-:]|$))/i,
+      allowedAttributes: {
+        '*': ['class', 'id'],
+        'a': ['href', 'title', 'target', 'rel'],
+        'img': ['src', 'alt', 'title', 'width', 'height', 'loading', 'decoding'],
+        'details': ['open'],
+      },
+      allowedSchemes: ['http', 'https', 'ftp', 'mailto', 'tel'],
+      allowedSchemesAppliedToAttributes: ['href', 'src'],
     });
   }
 

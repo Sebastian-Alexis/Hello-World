@@ -52,6 +52,7 @@
 	export let theme: 'light' | 'dark' = 'light';
 	export let onFlightSelect: ((flight: Flight | null) => void) | undefined = undefined;
 	export let onAirportSelect: ((airport: Airport | null) => void) | undefined = undefined;
+	export let mapboxToken: string | undefined = undefined;
 
 	//event dispatcher
 	const dispatch = createEventDispatcher<{
@@ -145,7 +146,6 @@
 	// Deck.GL overlay removed - using native Mapbox layers only
 	// let deckOverlay: MapboxOverlay | null = null;
 	let mounted = false;
-	let mapboxToken: string | undefined;
 
 	//popup handling
 	let flightPopup: mapboxgl.Popup | null = null;
@@ -165,31 +165,26 @@
 		// Validate data on mount
 		validateDataOnMount();
 		
-		// Access token inside onMount to avoid SSR issues
-		// Try both VITE_ and PUBLIC_ prefixes
-		mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
+		// Use the token passed as prop, or try to get from environment as fallback
+		if (!mapboxToken) {
+			// Try multiple sources for the token
+			mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || 
+			              import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN ||
+			              (typeof window !== 'undefined' && window.MAPBOX_ACCESS_TOKEN) ||
+			              '';
+		}
 		
 		console.log('FlightMap onMount - Token check:', { 
 			hasToken: !!mapboxToken,
 			tokenLength: mapboxToken?.length || 0,
 			environment: import.meta.env.MODE,
 			isValid: validateMapboxToken(mapboxToken),
-			tokenValue: mapboxToken, // Log the actual value to debug
-			allEnvKeys: Object.keys(import.meta.env),
-			viteKeys: Object.keys(import.meta.env).filter(k => k.startsWith('VITE_')),
-			publicKeys: Object.keys(import.meta.env).filter(k => k.startsWith('PUBLIC_')),
-			hasViteToken: !!import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
-			hasPublicToken: !!import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN
+			tokenFromProp: !!mapboxToken
 		});
 		
 		if (!validateMapboxToken(mapboxToken)) {
-			const errorMsg = 'Invalid or missing Mapbox access token. Please set VITE_MAPBOX_ACCESS_TOKEN or PUBLIC_MAPBOX_ACCESS_TOKEN environment variable with a valid token starting with "pk."';
+			const errorMsg = 'Invalid or missing Mapbox access token. Please ensure the mapboxToken prop is provided or set VITE_MAPBOX_ACCESS_TOKEN environment variable with a valid token starting with "pk."';
 			console.error(errorMsg);
-			console.error('Environment details:', {
-				viteToken: import.meta.env.VITE_MAPBOX_ACCESS_TOKEN,
-				publicToken: import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN,
-				allKeys: Object.keys(import.meta.env)
-			});
 			errorMessage.set(errorMsg);
 			hasError.set(true);
 			isLoading.set(false);

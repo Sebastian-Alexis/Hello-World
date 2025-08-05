@@ -2,8 +2,13 @@
 import BaseLayout from '../../layouts/BaseLayout.astro';
 import type { Flight, Airport } from '../../components/flight-map/types';
 import { DatabaseQueries } from '../../lib/db/queries';
-// FlightMap is loaded client-side only to avoid SSR issues with mapbox-gl
+// Import FlightMap component for client-side rendering
+import FlightMap from '../../components/flight-map/FlightMap.svelte';
 import FlightDebug from '../../components/FlightDebug.astro';
+import { getEnvVar } from '../../lib/env/cloudflare';
+
+// Get Mapbox token from environment
+const mapboxToken = getEnvVar('VITE_MAPBOX_ACCESS_TOKEN') || getEnvVar('PUBLIC_MAPBOX_ACCESS_TOKEN') || import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
 //fetch flight statistics
 let flightStats = {
@@ -254,14 +259,21 @@ const currentYear = new Date().getFullYear();
 					</p>
 				</div>
 
-				<div class="map-wrapper" id="flight-map-container" data-flights={JSON.stringify(flights)} data-airports={JSON.stringify(airports)}>
-					<!-- Flight map will be loaded client-side -->
-					<div class="bg-gray-100 dark:bg-gray-800 rounded-lg p-12 flex items-center justify-center" style="height: 700px;">
-						<div class="text-center">
-							<div class="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 dark:border-white mx-auto mb-4"></div>
-							<p class="text-gray-600 dark:text-gray-400">Loading flight map...</p>
-						</div>
-					</div>
+				<div class="map-wrapper">
+					<FlightMap 
+						client:load
+						flights={flights}
+						airports={airports}
+						mapboxToken={mapboxToken}
+						height="700px"
+						showControls={true}
+						theme="light"
+						onFlightSelect={(flight) => {
+							if (flight) {
+								window.location.href = `/flights/${flight.id}`;
+							}
+						}}
+					/>
 				</div>
 			</section>
 		)}
@@ -403,35 +415,10 @@ const currentYear = new Date().getFullYear();
 	</main>
 </BaseLayout>
 
-<script>
-	// Load FlightMap component only on client side to avoid SSR issues with mapbox-gl
+<script define:vars={{ mapboxToken }}>
+	// Set mapbox token globally for any scripts that might need it
 	if (typeof window !== 'undefined') {
-		const container = document.getElementById('flight-map-container');
-		if (container) {
-			const flights = JSON.parse(container.dataset.flights || '[]');
-			const airports = JSON.parse(container.dataset.airports || '[]');
-			
-			import('../../components/flight-map/FlightMap.svelte').then(({ default: FlightMap }) => {
-				const app = new FlightMap({
-					target: container,
-					props: {
-						flights,
-						airports,
-						height: '700px',
-						showControls: true,
-						theme: 'light',
-						onFlightSelect: (flight) => {
-							if (flight) {
-								window.location.href = `/flights/${flight.id}`;
-							}
-						}
-					}
-				});
-				
-				// Clear the loading state
-				container.innerHTML = '';
-			});
-		}
+		window.MAPBOX_ACCESS_TOKEN = mapboxToken;
 	}
 </script>
 

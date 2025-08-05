@@ -170,6 +170,7 @@
         class:active={layout === 'grid'}
         on:click={() => layout = 'grid'}
         title="Grid View"
+        aria-label="Switch to grid view"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="3" y="3" width="7" height="7"/>
@@ -183,6 +184,7 @@
         class:active={layout === 'list'}
         on:click={() => layout = 'list'}
         title="List View"
+        aria-label="Switch to list view"
       >
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="8" y1="6" x2="21" y2="6"/>
