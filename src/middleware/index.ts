@@ -8,14 +8,9 @@ import { loggingMiddleware } from './logging.js';
 
 //compose middleware chain with security first
 export const onRequest = defineMiddleware(async (context, next) => {
-  const pathname = context.url.pathname;
-
-  //identify route types
-  const isApiRoute = pathname.startsWith('/api/');
-  const isAdminRoute = pathname.startsWith('/admin/');
-  const isProtectedRoute = isAdminRoute || pathname.startsWith('/protected/');
-
+  //only run middleware for API routes (server-rendered endpoints)
   //exclude certain endpoints to avoid body consumption conflicts
+  const isApiRoute = context.url.pathname.startsWith('/api/');
   const excludedPaths = [
     '/api/auth/login',
     '/api/admin/media/upload',
@@ -25,52 +20,51 @@ export const onRequest = defineMiddleware(async (context, next) => {
     '/api/flights/fetch',
     '/api/airports/lookup'
   ];
-  const isExcludedRoute = excludedPaths.some(path => pathname.includes(path));
-
-  //public paths that don't require authentication
-  const publicPaths = [
-    '/admin/login'
-  ];
-  const isPublicPath = publicPaths.some(path => pathname === path || pathname.startsWith(path));
-
-  //apply security middleware for API routes
+  const isExcludedRoute = excludedPaths.some(path => context.url.pathname.includes(path));
+  
   if (isApiRoute && !isExcludedRoute) {
     //security headers must be applied first
     await securityHeadersMiddleware(context, next);
-
+    
     //rate limiting to prevent abuse
     const rateLimitResult = await rateLimitMiddleware(context, next);
     if (!rateLimitResult.allowed) {
-      return new Response('Rate limit exceeded', {
+      return new Response('Rate limit exceeded', { 
         status: 429,
         headers: {
           'Retry-After': rateLimitResult.retryAfter?.toString() || '60'
         }
       });
     }
-
+    
     //request logging for security monitoring
     await loggingMiddleware(context, next);
-  }
-
-  //authentication for protected routes (both API and page routes)
-  if ((isProtectedRoute || pathname.startsWith('/api/auth/me')) && !isPublicPath) {
-    const authResult = await authMiddleware(context, next);
-    if (!authResult.authenticated) {
-      if (isApiRoute) {
-        return new Response(JSON.stringify({
-          success: false,
-          error: 'Authentication required'
-        }), {
-          status: 401,
-          headers: { 'Content-Type': 'application/json' }
-        });
+    
+    //note: input validation is handled within individual API routes
+    //to avoid consuming the request body before the endpoint can process it
+    
+    //authentication for protected routes (excluding login endpoint)
+    if ((context.url.pathname.startsWith('/admin/') || 
+        context.url.pathname.startsWith('/api/auth/me') ||
+        context.url.pathname.includes('protected')) &&
+        !context.url.pathname.startsWith('/api/auth/login')) {
+      const authResult = await authMiddleware(context, next);
+      if (!authResult.authenticated) {
+        if (context.url.pathname.startsWith('/api/')) {
+          return new Response(JSON.stringify({
+            success: false,
+            error: 'Authentication required'
+          }), {
+            status: 401,
+            headers: { 'Content-Type': 'application/json' }
+          });
+        }
+        
+        //redirect to login for web routes
+        return context.redirect('/admin/login');
       }
-
-      //redirect to login for web routes
-      return context.redirect('/admin/login');
     }
   }
-
+  
   return next();
 });

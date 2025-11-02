@@ -191,41 +191,17 @@ const selectedTagIds = post.tags?.map(t => t.id) || [];
           <h3 class="text-lg font-medium text-gray-900 dark:text-white">Content</h3>
         </div>
         <div class="p-6">
-          <div class="mb-4">
-            <label for="markdown-file" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Upload New Markdown File (Optional)
-            </label>
-            <div class="flex items-center space-x-4">
-              <label for="markdown-file" class="cursor-pointer inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
-                </svg>
-                Choose .md File
-              </label>
-              <span id="file-name" class="text-sm text-gray-500 dark:text-gray-400">No file selected</span>
-            </div>
-            <input
-              type="file"
-              id="markdown-file"
-              accept=".md,.markdown"
-              class="hidden"
-            >
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Upload a markdown (.md) file to replace the current content, or keep the existing content below.
-            </p>
-          </div>
-          <textarea
-            name="content"
-            id="content"
-            rows="15"
+          <textarea 
+            name="content" 
+            id="content" 
+            rows="20"
             required
-            readonly
-            class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-white shadow-sm font-mono text-sm"
-            placeholder="Markdown content will appear here..."
+            class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500 font-mono text-sm"
+            placeholder="Write your blog post content in Markdown..."
           >{post.content}</textarea>
           <div class="flex justify-between items-center mt-2">
             <p class="text-sm text-gray-500 dark:text-gray-400">
-              Preview of your markdown content
+              Write your content using Markdown syntax. It will be converted to HTML when published.
             </p>
             <p class="text-xs text-gray-500 dark:text-gray-400">
               <span id="content-length">{post.content.length}</span> characters
@@ -240,28 +216,67 @@ const selectedTagIds = post.tags?.map(t => t.id) || [];
           <h3 class="text-lg font-medium text-gray-900 dark:text-white">Featured Image</h3>
         </div>
         <div class="p-6">
-          <div>
-            <label for="featured-image-url" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Featured Image URL
-            </label>
-            <input
-              type="url"
-              name="featured_image"
-              id="featured-image-url"
-              value={post.featured_image_url || ''}
-              class="block w-full rounded-md border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white shadow-sm focus:border-blue-500 focus:ring-blue-500"
-              placeholder="https://example.com/image.jpg"
-            >
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-2">
-              Enter the full URL of your featured image. Recommended size: 1200x630px (16:9 aspect ratio)
+          <div class="mb-4">
+            <p class="text-sm text-gray-600 dark:text-gray-400 mb-3">
+              Upload a featured image for your blog post. This will be used as the thumbnail in blog listings and social media previews.
             </p>
+            <div class="text-xs text-gray-500 dark:text-gray-500">
+              • Recommended size: 1200x630px (16:9 aspect ratio)
+              • Maximum file size: 5MB
+              • Supported formats: JPG, PNG, WebP
+            </div>
           </div>
-
+          
+          <div id="featured-image-upload">
+            <!-- MediaUpload component will be mounted here -->
+            <!-- Fallback upload button if component doesn't mount -->
+            <div id="fallback-upload" class="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-8 text-center" style={post.featured_image_url ? 'display: none;' : ''}>
+              <svg class="w-12 h-12 text-gray-400 mb-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 48 48">
+                <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              </svg>
+              <h3 class="text-sm font-medium text-gray-900 dark:text-white mb-2">
+                Upload Featured Image
+              </h3>
+              <p class="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                Click to select an image file
+              </p>
+              <button type="button" id="fallback-upload-btn" class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+                </svg>
+                Choose Image
+              </button>
+              <input type="file" id="fallback-file-input" accept="image/jpeg,image/png,image/webp" class="hidden">
+            </div>
+          </div>
+          <input type="hidden" name="featured_image" id="featured-image-input" value={post.featured_image_url || ''}>
+          
           <!-- Featured Image Preview -->
-          <div id="featured-image-preview" class={`mt-4 ${post.featured_image_url ? '' : 'hidden'}`}>
+          <div id="featured-image-preview" class={`mt-6 ${post.featured_image_url ? '' : 'hidden'}`}>
             <div class="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-              <p class="text-xs text-gray-500 dark:text-gray-400 mb-2">Preview:</p>
-              <img id="featured-image-display" src={post.featured_image_url || ''} class="w-full max-w-md rounded-lg shadow-sm" alt="Featured image preview">
+              <div class="flex items-start space-x-4">
+                <img 
+                  id="featured-image-display" 
+                  class="w-32 h-20 object-cover rounded-lg shadow-sm" 
+                  src={post.featured_image_url || ''}
+                  alt="Featured image preview"
+                >
+                <div class="flex-1">
+                  <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-1">Featured Image Preview</h4>
+                  <div id="image-info" class="text-xs text-gray-500 dark:text-gray-400 space-y-1">
+                    {post.featured_image_url && (
+                      <div>Current image: {post.featured_image_url.split('/').pop()}</div>
+                    )}
+                  </div>
+                  <button type="button" id="remove-featured-image" class="mt-3 inline-flex items-center px-3 py-1 border border-red-300 text-xs font-medium rounded text-red-700 bg-red-50 hover:bg-red-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
+                    <svg class="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                      <path fill-rule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clip-rule="evenodd"/>
+                      <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"/>
+                    </svg>
+                    Remove Image
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -378,64 +393,141 @@ const selectedTagIds = post.tags?.map(t => t.id) || [];
   //store postId in a const for use in async functions
   const POST_ID = postId;
   const SELECTED_TAG_IDS = selectedTagIds;
-
+  
   document.addEventListener('DOMContentLoaded', async function() {
-    //markdown file upload handler
-    const markdownFileInput = document.getElementById('markdown-file');
-    const fileNameDisplay = document.getElementById('file-name');
-    const contentTextarea = document.getElementById('content');
-    const contentCounter = document.getElementById('content-length');
+    //utility function to format file size
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+    
+    //dynamically import MediaUpload component
+    const MediaUpload = (await import('../../../components/admin/MediaUpload.svelte')).default;
+    
+    //function to handle successful image upload
+    function handleImageUpload(file, url) {
+      document.getElementById('featured-image-input').value = url;
+      const imgElement = document.getElementById('featured-image-display');
+      imgElement.src = url;
+      
+      //show image info when loaded
+      imgElement.onload = function() {
+        const imageInfo = document.getElementById('image-info');
+        const fileSizeFormatted = formatFileSize(file.size);
+        
+        imageInfo.innerHTML = `
+          <div>Dimensions: ${this.naturalWidth} × ${this.naturalHeight}px</div>
+          <div>File size: ${fileSizeFormatted}</div>
+          <div>File name: ${file.name}</div>
+        `;
+        
+        //show recommendations if dimensions are not optimal
+        const aspectRatio = this.naturalWidth / this.naturalHeight;
+        const optimalRatio = 1200 / 630; // 16:9
+        
+        if (Math.abs(aspectRatio - optimalRatio) > 0.1) {
+          imageInfo.innerHTML += `
+            <div class="text-amber-600 dark:text-amber-400 mt-1">
+              ⚠️ For best results, use 16:9 aspect ratio (1200×630px recommended)
+            </div>
+          `;
+        }
+      };
+      
+      document.getElementById('featured-image-preview').classList.remove('hidden');
+      document.getElementById('fallback-upload').style.display = 'none';
+    }
 
-    markdownFileInput.addEventListener('change', async function(event) {
+    //try to mount media upload component using Svelte 5 syntax
+    let mediaUploadInstance;
+    try {
+      const { mount } = await import('svelte');
+      
+      mediaUploadInstance = mount(MediaUpload, {
+        target: document.getElementById('featured-image-upload'),
+        props: {
+          accept: 'image/jpeg,image/png,image/webp',
+          multiple: false,
+          maxSize: 5 * 1024 * 1024, // 5MB
+          disabled: false,
+          // Event handlers as props in Svelte 5
+          onsuccess: (event) => {
+            const file = event.detail.files[0];
+            if (file) {
+              handleImageUpload(file, file.url);
+            }
+          },
+          onerror: (event) => {
+            alert(event.detail.message);
+          }
+        }
+      });
+      
+      //hide fallback when component mounts successfully
+      document.getElementById('fallback-upload').style.display = 'none';
+      
+    } catch (error) {
+      console.error('Media upload mount error:', error);
+      console.log('Using fallback upload button');
+    }
+    
+    //fallback upload functionality
+    const fallbackBtn = document.getElementById('fallback-upload-btn');
+    const fallbackInput = document.getElementById('fallback-file-input');
+    
+    fallbackBtn?.addEventListener('click', () => {
+      fallbackInput?.click();
+    });
+    
+    fallbackInput?.addEventListener('change', async (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
-
-      //validate file extension
-      if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) {
-        alert('Please select a valid Markdown file (.md or .markdown)');
-        this.value = '';
+      
+      //validate file
+      if (file.size > 5 * 1024 * 1024) {
+        alert('File is too large. Maximum size is 5MB.');
         return;
       }
-
-      //display file name
-      fileNameDisplay.textContent = file.name;
-
-      //read file content
-      try {
-        const content = await file.text();
-        contentTextarea.value = content;
-        contentCounter.textContent = content.length.toLocaleString();
-      } catch (error) {
-        console.error('Error reading file:', error);
-        alert('Failed to read markdown file');
+      
+      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+        alert('Invalid file type. Please select a JPEG, PNG, or WebP image.');
+        return;
       }
+      
+      //create object URL for preview
+      const url = URL.createObjectURL(file);
+      handleImageUpload(file, url);
     });
-
-    //featured image URL preview
-    const imageUrlInput = document.getElementById('featured-image-url');
-    const imagePreview = document.getElementById('featured-image-preview');
-    const imageDisplay = document.getElementById('featured-image-display');
-
-    let imagePreviewTimeout;
-    imageUrlInput.addEventListener('input', function() {
-      clearTimeout(imagePreviewTimeout);
-      const url = this.value.trim();
-
-      if (!url) {
-        imagePreview.classList.add('hidden');
-        return;
+    
+    //remove featured image
+    document.getElementById('remove-featured-image')?.addEventListener('click', function() {
+      if (confirm('Are you sure you want to remove the featured image?')) {
+        document.getElementById('featured-image-input').value = '';
+        document.getElementById('featured-image-preview').classList.add('hidden');
+        document.getElementById('image-info').innerHTML = '';
+        
+        //show upload area again
+        document.getElementById('fallback-upload').style.display = 'block';
+        
+        //reset file inputs
+        if (mediaUploadInstance) {
+          const fileInput = document.querySelector('#featured-image-upload input[type="file"]');
+          if (fileInput) fileInput.value = '';
+        }
+        
+        if (fallbackInput) {
+          fallbackInput.value = '';
+        }
+        
+        //revoke object URL to free memory
+        const imgElement = document.getElementById('featured-image-display');
+        if (imgElement.src && imgElement.src.startsWith('blob:')) {
+          URL.revokeObjectURL(imgElement.src);
+        }
       }
-
-      //debounce the preview update
-      imagePreviewTimeout = setTimeout(() => {
-        imageDisplay.src = url;
-        imageDisplay.onload = function() {
-          imagePreview.classList.remove('hidden');
-        };
-        imageDisplay.onerror = function() {
-          imagePreview.classList.add('hidden');
-        };
-      }, 500);
     });
     
     //tags management

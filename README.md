@@ -1,6 +1,6 @@
 # Hello, World!
 
-My kinda minimalistic personal site. Built to be extremley fast. 
+My kinda minimalistic personal site. Built to be extremley fast.
 
 ## Main Dependencies
 

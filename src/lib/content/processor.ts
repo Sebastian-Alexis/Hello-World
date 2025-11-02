@@ -5,75 +5,20 @@
 
 import { marked } from 'marked';
 import sanitizeHtmlLib from 'sanitize-html';
-import Prism from 'prismjs';
-import 'prismjs/components/prism-javascript.js';
-import 'prismjs/components/prism-typescript.js';
-import 'prismjs/components/prism-jsx.js';
-import 'prismjs/components/prism-tsx.js';
-import 'prismjs/components/prism-css.js';
-import 'prismjs/components/prism-scss.js';
-import 'prismjs/components/prism-json.js';
-import 'prismjs/components/prism-yaml.js';
-import 'prismjs/components/prism-markdown.js';
-import 'prismjs/components/prism-bash.js';
-import 'prismjs/components/prism-shell-session.js';
-import 'prismjs/components/prism-python.js';
-import 'prismjs/components/prism-rust.js';
-import 'prismjs/components/prism-go.js';
-import 'prismjs/components/prism-sql.js';
-import 'prismjs/components/prism-graphql.js';
-import 'prismjs/components/prism-docker.js';
 
-//configure marked with enhanced options for better markdown rendering
+//configure marked with enhanced options
 marked.setOptions({
-  breaks: true,           // Convert \n to <br>
-  gfm: true,              // GitHub Flavored Markdown
-  headerIds: true,        // Generate IDs for headings
-  mangle: false,          // Don't escape autolinked email addresses
-  pedantic: false,        // Don't use original markdown.pl behavior
-  smartLists: true,       // Use smarter list behavior
-  smartypants: false,     // Don't use smart punctuation
+  breaks: true,
+  gfm: true,
+  headerIds: true,
+  mangle: false,
 });
 
-//configure syntax highlighting with Prism.js
+//configure highlight.js for syntax highlighting (placeholder for now)
 marked.setOptions({
   highlight: function(code: string, lang: string) {
-    //normalize language identifier
-    const normalizedLang = lang?.toLowerCase().trim() || 'text';
-
-    //map common aliases to Prism language names
-    const langMap: Record<string, string> = {
-      'js': 'javascript',
-      'ts': 'typescript',
-      'sh': 'bash',
-      'shell': 'bash',
-      'yml': 'yaml',
-      'md': 'markdown',
-      'py': 'python',
-      'rs': 'rust',
-    };
-
-    const prismLang = langMap[normalizedLang] || normalizedLang;
-
-    //check if language is supported by Prism
-    if (Prism.languages[prismLang]) {
-      try {
-        const highlighted = Prism.highlight(code, Prism.languages[prismLang], prismLang);
-        return `<pre class="language-${prismLang}"><code class="language-${prismLang}">${highlighted}</code></pre>`;
-      } catch (error) {
-        console.warn(`Prism highlighting failed for language: ${prismLang}`, error);
-      }
-    }
-
-    //fallback to plain code block with escaped HTML
-    const escapedCode = code
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-
-    return `<pre class="language-${normalizedLang}"><code class="language-${normalizedLang}">${escapedCode}</code></pre>`;
+    //will integrate with Prism.js or highlight.js later
+    return `<pre class="language-${lang || 'text'}"><code class="language-${lang || 'text'}">${code}</code></pre>`;
   },
 });
 
