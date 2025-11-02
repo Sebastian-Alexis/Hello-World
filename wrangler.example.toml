@@ -1,0 +1,21 @@
+# Cloudflare Pages configuration for Astro SSR
+name = "personal-website-production"
+compatibility_date = "2025-11-02"
+compatibility_flags = ["nodejs_compat"]
+
+# Pages configuration - required for Astro directory mode
+pages_build_output_dir = "dist"
+
+# KV Namespaces for session storage
+[[kv_namespaces]]
+binding = "SESSION"
+id = ""  # Add your production KV namespace ID here
+preview_id = ""  # Add your preview KV namespace ID here
+
+# Build configuration
+[build]
+command = "npm run build"
+
+# Development server configuration
+[dev]
+port = 8788
