@@ -8,7 +8,7 @@
     "start": "astro dev",
     "build": "astro build",
     "preview": "astro preview",
-    "deploy": "npm run build && wrangler pages deploy dist/",
+    "deploy": "npm run build && wrangler deploy",
     "astro": "astro",
     "db:setup": "node scripts/setup-database.js",
     "db:migrate": "node scripts/migrate-database.js",

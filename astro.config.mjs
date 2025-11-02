@@ -13,7 +13,7 @@ export default defineConfig({
   site: 'https://personal-website-production.sebastianralexis.workers.dev',
   output: 'server',
   adapter: cloudflare({
-    mode: 'directory',
+    mode: 'advanced',
     routes: {
       exclude: []
     }
