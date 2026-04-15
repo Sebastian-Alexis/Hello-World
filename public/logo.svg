@@ -3,18 +3,7 @@
   <defs>
     <style>
       .cls-1 {
-        fill: #1a1a1a;
-      }
-      path, polygon {
-        stroke: #1a1a1a;
-      }
-      @media (prefers-color-scheme: dark) {
-        .cls-1 {
-          fill: #fafafa;
-        }
-        path, polygon {
-          stroke: #fafafa;
-        }
+        fill: #fafafa;
       }
     </style>
   </defs>

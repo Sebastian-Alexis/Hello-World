@@ -1,28 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 
-// Fetch experience and education data
-let workExperience = [];
-let education = [];
-let error = '';
-
-try {
-  const baseUrl = import.meta.env.PROD 
-    ? 'https://your-domain.com' 
-    : `http://localhost:${import.meta.env.PORT || 4321}`;
-  
-  const response = await fetch(`${baseUrl}/api/portfolio/experience`);
-  const data = await response.json();
-  
-  if (data.success) {
-    workExperience = data.data.workExperience || [];
-    education = data.data.education || [];
-  }
-} catch (err) {
-  console.error('Error fetching experience data:', err);
-  // Don't show error to user for this non-critical data
-}
-
 // SEO data
 const title = 'About Me - Professional Background & Expertise';
 const description = 'Learn about my professional journey, technical expertise, and passion for creating innovative digital solutions. Discover my background, experience, and what drives me as a developer.';
@@ -147,104 +125,6 @@ const description = 'Learn about my professional journey, technical expertise, a
       </div>
     </section>
 
-    <!-- Experience Timeline -->
-    {workExperience.length > 0 && (
-      <section class="experience-section">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">Professional Experience</h2>
-            <p class="section-subtitle">
-              My journey through various roles and organizations that have shaped my expertise
-            </p>
-          </div>
-          
-          <div class="timeline">
-            {workExperience.map((job, index) => (
-              <div class="timeline-item">
-                <div class="timeline-marker"></div>
-                <div class="timeline-content">
-                  <div class="job-header">
-                    <h3 class="job-title">{job.position}</h3>
-                    <div class="job-company">{job.company_name}</div>
-                    <div class="job-duration">
-                      {new Date(job.start_date).getFullYear()} - 
-                      {job.end_date ? new Date(job.end_date).getFullYear() : 'Present'}
-                    </div>
-                  </div>
-                  
-                  {job.description && (
-                    <div class="job-description" set:html={job.description}></div>
-                  )}
-                  
-                  {job.key_achievements && (
-                    <div class="job-achievements">
-                      <h4>Key Achievements:</h4>
-                      <div set:html={job.key_achievements}></div>
-                    </div>
-                  )}
-                  
-                  {job.technologies_used && job.technologies_used.length > 0 && (
-                    <div class="job-technologies">
-                      <h4>Technologies Used:</h4>
-                      <div class="tech-tags">
-                        {job.technologies_used.map((tech) => (
-                          <span class="tech-tag">{tech}</span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )}
-
-    <!-- Education -->
-    {education.length > 0 && (
-      <section class="education-section">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title">Education & Certifications</h2>
-            <p class="section-subtitle">
-              Academic background and professional certifications that form the foundation of my expertise
-            </p>
-          </div>
-          
-          <div class="education-grid">
-            {education.map((edu) => (
-              <div class="education-card">
-                <div class="education-icon">
-                  {edu.degree_type === 'Bachelor' && '🎓'}
-                  {edu.degree_type === 'Master' && '📚'}
-                  {edu.degree_type === 'Certificate' && '📜'}
-                  {edu.degree_type === 'Bootcamp' && '💻'}
-                  {!['Bachelor', 'Master', 'Certificate', 'Bootcamp'].includes(edu.degree_type) && '🏫'}
-                </div>
-                <div class="education-content">
-                  <h3 class="education-degree">{edu.degree_type} {edu.field_of_study && `in ${edu.field_of_study}`}</h3>
-                  <div class="education-institution">{edu.institution_name}</div>
-                  <div class="education-duration">
-                    {new Date(edu.start_date).getFullYear()} - 
-                    {edu.end_date ? new Date(edu.end_date).getFullYear() : 'Present'}
-                  </div>
-                  
-                  {edu.description && (
-                    <p class="education-description">{edu.description}</p>
-                  )}
-                  
-                  {edu.gpa && (
-                    <div class="education-gpa">GPA: {edu.gpa}</div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-    )}
-
     <!-- Skills Preview -->
     <section class="skills-preview-section">
       <div class="container">
@@ -313,15 +193,6 @@ const description = 'Learn about my professional journey, technical expertise, a
           </div>
         </div>
         
-        <div class="skills-cta">
-          <a href="/skills" class="skills-cta-btn">
-            View Complete Skills Breakdown
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14"/>
-              <path d="m12 5 7 7-7 7"/>
-            </svg>
-          </a>
-        </div>
       </div>
     </section>
 
@@ -385,11 +256,11 @@ const description = 'Learn about my professional journey, technical expertise, a
             Whether you have a specific project in mind or just want to chat about technology, I'd love to hear from you.
           </p>
           <div class="cta-actions">
-            <a href="/contact" class="cta-btn primary">
+            <a href="mailto:sebastianralexis@gmail.com" class="cta-btn primary">
               Get In Touch
             </a>
-            <a href="/portfolio" class="cta-btn secondary">
-              View My Work
+            <a href="/blog" class="cta-btn secondary">
+              Read My Blog
             </a>
           </div>
         </div>

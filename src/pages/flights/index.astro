@@ -1,172 +1,75 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import type { Flight, Airport } from '../../components/flight-map/types';
-import { DatabaseQueries } from '../../lib/db/queries';
-// Import FlightMap component for client-side rendering
 import FlightMap from '../../components/flight-map/FlightMap.svelte';
-import FlightDebug from '../../components/FlightDebug.astro';
-import { getEnvVar } from '../../lib/env/cloudflare';
+
+// Import static data
+import flightsData from '../../data/flights.json';
+import airportsData from '../../data/airports.json';
 
 // Get Mapbox token from environment
-const mapboxToken = getEnvVar('VITE_MAPBOX_ACCESS_TOKEN') || getEnvVar('PUBLIC_MAPBOX_ACCESS_TOKEN') || import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN || '';
+const mapboxToken = import.meta.env.VITE_MAPBOX_ACCESS_TOKEN || import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN || '';
 
-//fetch flight statistics
-let flightStats = {
-  totalFlights: 0,
-  totalDistance: 0,
-  completedFlights: 0,
-  upcomingFlights: 0,
-  uniqueAirlines: 0,
-  visitedAirports: 0,
-  totalAirports: 0,
-  countries: 0,
-  totalFlightTime: 0,
-  uniqueAirports: 0,
-  uniqueCountries: 0,
-  favoriteAirline: '',
-  longestFlight: null,
-  mostVisitedAirport: ''
+// Transform flight data for the map component
+const flights = flightsData.map(f => ({
+  id: f.id,
+  flight_number: f.flight_number,
+  airline_name: f.airline_name,
+  airline_code: f.airline_code,
+  departure_time: f.departure_time,
+  arrival_time: f.arrival_time,
+  flight_duration: f.flight_duration,
+  distance_km: f.distance_km,
+  flight_status: f.flight_status,
+  trip_name: f.trip_name,
+  departure_airport_id: f.departure_airport_id,
+  arrival_airport_id: f.arrival_airport_id,
+  departure_airport_name: f.departure_airport_name,
+  departure_city: f.departure_city,
+  departure_iata: f.departure_iata,
+  departure_lat: f.departure_lat,
+  departure_lng: f.departure_lng,
+  arrival_airport_name: f.arrival_airport_name,
+  arrival_city: f.arrival_city,
+  arrival_iata: f.arrival_iata,
+  arrival_lat: f.arrival_lat,
+  arrival_lng: f.arrival_lng,
+}));
+
+// Transform airports for the map
+const airports = airportsData.map(a => ({
+  id: a.id,
+  iata_code: a.iata_code,
+  name: a.name,
+  city: a.city,
+  country: a.country,
+  latitude: a.latitude,
+  longitude: a.longitude,
+}));
+
+// Calculate statistics from static data
+const now = new Date();
+const flightStats = {
+  totalFlights: flights.length,
+  totalDistance: flights.reduce((sum, f) => sum + (f.distance_km || 0), 0),
+  completedFlights: flights.filter(f => f.flight_status === 'completed' || new Date(f.arrival_time) < now).length,
+  upcomingFlights: flights.filter(f => f.flight_status === 'booked' || new Date(f.departure_time) > now).length,
+  uniqueAirlines: [...new Set(flights.map(f => f.airline_name).filter(Boolean))].length,
+  visitedAirports: airports.length,
+  countries: [...new Set(airports.map(a => a.country).filter(Boolean))].length,
 };
 
-//fetch all flights for map visualization
-let flights: Flight[] = [];
-let airports: Airport[] = [];
-let recentFlights: Flight[] = [];
-let hasError = false;
-let errorMessage = '';
+// Get recent flights (last 10)
+const recentFlights = [...flights]
+  .sort((a, b) => new Date(b.departure_time).getTime() - new Date(a.departure_time).getTime())
+  .slice(0, 10);
 
-try {
-  const db = new DatabaseQueries();
-
-  // First, let's try to get the flight statistics to verify database connectivity
-  try {
-    const stats = await db.getComprehensiveFlightStatistics();
-    console.log('Comprehensive flight statistics:', stats);
-    
-    // Map the returned statistics to what the frontend expects
-    flightStats = {
-      totalFlights: stats.totalFlights,
-      totalDistance: stats.totalDistance,
-      completedFlights: stats.completedFlights,
-      upcomingFlights: stats.upcomingFlights,
-      uniqueAirlines: stats.uniqueAirlines,
-      visitedAirports: stats.uniqueAirports,
-      totalAirports: stats.uniqueAirports,
-      countries: stats.uniqueCountries,
-      totalFlightTime: stats.totalFlightTime,
-      uniqueAirports: stats.uniqueAirports,
-      uniqueCountries: stats.uniqueCountries,
-      favoriteAirline: stats.favoriteAirline,
-      longestFlight: stats.longestFlight,
-      mostVisitedAirport: stats.mostVisitedAirport
-    };
-  } catch (statsError) {
-    console.error('Error fetching flight statistics:', statsError);
-  }
-
-  //fetch flights with high limit for map visualization
-  try {
-    console.log('Attempting to fetch flights...');
-    const flightsResponse = await db.getAllFlights(1, 1000);
-    console.log('Flight response:', JSON.stringify(flightsResponse, null, 2));
-    flights = flightsResponse.data;
-    console.log(`Fetched ${flights.length} flights from database`);
-    
-    // Log first flight if exists
-    if (flights.length > 0) {
-      console.log('First flight:', JSON.stringify(flights[0], null, 2));
-    }
-  } catch (flightError) {
-    console.error('Error fetching flights:', flightError);
-    console.error('Error details:', flightError.message);
-    console.error('Stack trace:', flightError.stack);
-    
-    // Try using the API endpoint instead
-    try {
-      console.log('Trying API fallback...');
-      const response = await fetch(`${Astro.url.origin}/api/flights?limit=1000`);
-      console.log('API response status:', response.status);
-      
-      if (response.ok) {
-        const apiData = await response.json();
-        console.log('API data:', JSON.stringify(apiData, null, 2));
-        
-        if (apiData.success && apiData.data?.data) {
-          flights = apiData.data.data;
-          console.log(`Fetched ${flights.length} flights from API`);
-        }
-      }
-    } catch (apiError) {
-      console.error('Error fetching from API:', apiError);
-    }
-  }
-
-  //fetch airports
-  try {
-    airports = await db.searchAirports(undefined, 500);
-    console.log(`Fetched ${airports.length} airports`);
-  } catch (airportError) {
-    console.error('Error fetching airports:', airportError);
-  }
-
-  //get recent flights (last 10)
-  if (flights.length > 0) {
-    recentFlights = flights
-      .sort((a, b) => new Date(b.departure_time).getTime() - new Date(a.departure_time).getTime())
-      .slice(0, 10);
-  }
-
-  // Update flight stats with actual count if mismatch
-  if (flightStats.totalFlights === 0 && flights.length > 0) {
-    flightStats.totalFlights = flights.length;
-  }
-  
-  // Calculate completed and upcoming flights from actual data
-  if (flights.length > 0) {
-    const now = new Date();
-    flightStats.completedFlights = flights.filter(f => 
-      f.flight_status === 'completed' || new Date(f.arrival_time) < now
-    ).length;
-    flightStats.upcomingFlights = flights.filter(f => 
-      f.flight_status === 'booked' || new Date(f.departure_time) > now
-    ).length;
-    
-    // If the stats from the database don't match, use the actual count
-    if (flightStats.totalFlights === 0) {
-      flightStats.totalFlights = flights.length;
-    }
-  }
-
-} catch (error) {
-  hasError = true;
-  errorMessage = 'Failed to load flight data. Please try again later.';
-  console.error('Error fetching flight data:', error);
-}
-
-//calculate current year for dynamic content
 const currentYear = new Date().getFullYear();
 ---
 
-<BaseLayout 
+<BaseLayout
 	title="Flight Map - Interactive Travel Visualization"
-	description="Explore my flight routes and airport visits with an interactive map. View flight statistics, filter by airlines and dates, and discover travel patterns across the globe."
-	keywords="flight tracking, travel map, interactive visualization, flight routes, airports, travel statistics, mapbox, flight data"
-	image="/images/flight-map-preview.jpg"
-	structuredData={{
-		"@context": "https://schema.org",
-		"@type": "WebPage",
-		"name": "Flight Map - Interactive Travel Visualization",
-		"description": "Interactive map showing flight routes and airport visits with detailed statistics and filtering options.",
-		"url": `${Astro.site}flights/`,
-		"mainEntity": {
-			"@type": "TravelAction",
-			"name": "Flight Tracking",
-			"description": `Tracking ${flightStats.totalFlights} flights across ${flightStats.visitedAirports} airports in ${flightStats.countries} countries.`
-		}
-	}}
+	description="Explore my flight routes and airport visits with an interactive map."
 >
-	<!-- Debug component -->
-	<FlightDebug flightStats={flightStats} flights={flights} error={errorMessage} />
 	<!-- Hero Section with Statistics -->
 	<section class="bg-white dark:bg-gray-900 py-16 border-b border-gray-200 dark:border-gray-800">
 		<div class="max-w-7xl mx-auto px-4">
@@ -175,20 +78,14 @@ const currentYear = new Date().getFullYear();
 					Flight Map
 				</h1>
 				<p class="text-xl text-gray-600 dark:text-gray-400 max-w-3xl mx-auto mb-8">
-					An awesome 3d map that shows all flights I have been on around that world! Will continue to update as I go to events throughout my life. Stay tuned!
+					An awesome 3d map that shows all flights I have been on around the world! Will continue to update as I go to events throughout my life.
 				</p>
 				<div class="flex flex-wrap justify-center gap-4">
-					<a href="#flight-map" class="inline-flex items-center px-6 py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg transition-all duration-200 hover:transform hover:scale-105">
+					<a href="#flight-map" class="inline-flex items-center px-6 py-3 bg-gray-900 dark:bg-white hover:bg-gray-800 dark:hover:bg-gray-100 text-white dark:text-gray-900 font-medium rounded-lg transition-all duration-200">
 						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
 							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
 						</svg>
 						View Flight Map
-					</a>
-					<a href="#recent-flights" class="inline-flex items-center px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 font-medium rounded-lg border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:transform hover:scale-105">
-						<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-							<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-						</svg>
-						Recent Flights
 					</a>
 				</div>
 			</div>
@@ -197,7 +94,7 @@ const currentYear = new Date().getFullYear();
 			<div class="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
 				<div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-6 text-center border border-gray-200 dark:border-gray-700">
 					<div class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-						{flightStats.totalFlights.toLocaleString()}
+						{flightStats.totalFlights}
 					</div>
 					<div class="text-sm font-medium text-gray-600 dark:text-gray-400">
 						Total Flights
@@ -236,194 +133,144 @@ const currentYear = new Date().getFullYear();
 
 	<main class="max-w-7xl mx-auto px-4 py-12">
 
-		<!-- Error State -->
-		{hasError ? (
-			<div class="bg-gray-50 dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg p-6 mb-8">
-				<div class="flex items-center mb-2">
-					<svg class="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-						<path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd"></path>
-					</svg>
-					<h3 class="text-gray-800 dark:text-gray-200 font-medium">Unable to Load Flight Data</h3>
-				</div>
-				<p class="text-gray-600 dark:text-gray-400">{errorMessage}</p>
+		<!-- Interactive Map Section -->
+		<section id="flight-map" class="mb-12 scroll-mt-20">
+			<div class="mb-6">
+				<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+					Interactive Flight Map
+				</h2>
+				<p class="text-gray-600 dark:text-gray-400">
+					See the flights I have taken. White dots represent airports, black lines represent flight paths. Hover over airports for more details.
+				</p>
 			</div>
-		) : (
-			<!-- Interactive Map Section -->
-			<section id="flight-map" class="mb-12 scroll-mt-20">
-				<div class="mb-6">
-					<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-3">
-						Interactive Flight Map
-					</h2>
-					<p class="text-gray-600 dark:text-gray-400">
-						See the flights I have taken. White dots represent airports, black lines represent flight paths. Hover over airports for more details.
+
+			<div class="map-wrapper">
+				<FlightMap
+					client:load
+					flights={flights}
+					airports={airports}
+					mapboxToken={mapboxToken}
+					height="700px"
+					showControls={true}
+					theme="light"
+				/>
+			</div>
+		</section>
+
+		<!-- Recent Flights -->
+		<section id="recent-flights" class="mb-12 scroll-mt-20">
+			<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+				Recent Flights
+			</h2>
+
+			<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+				{recentFlights.length > 0 ? (
+					<div class="divide-y divide-gray-200 dark:divide-gray-700">
+						{recentFlights.map((flight) => (
+							<div class="p-4">
+								<div class="flex items-center gap-3 mb-1">
+									<span class="font-semibold text-gray-900 dark:text-white">
+										{flight.airline_name || 'Unknown Airline'}
+									</span>
+									{flight.flight_number && (
+										<span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded">
+											{flight.flight_number}
+										</span>
+									)}
+									<span class="px-2 py-1 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+										{flight.flight_status}
+									</span>
+								</div>
+								<p class="text-sm text-gray-600 dark:text-gray-400">
+									{flight.departure_airport_name} → {flight.arrival_airport_name}
+								</p>
+								<p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
+									{new Date(flight.departure_time).toLocaleDateString('en-US', {
+										year: 'numeric',
+										month: 'short',
+										day: 'numeric'
+									})}
+								</p>
+							</div>
+						))}
+					</div>
+				) : (
+					<div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+						<p>No recent flights to display</p>
+					</div>
+				)}
+			</div>
+		</section>
+
+		<!-- Additional Statistics -->
+		<section class="mb-12">
+			<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+				Flight Statistics
+			</h2>
+
+			<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+				<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+							Completed
+						</h3>
+					</div>
+					<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+						{flightStats.completedFlights}
+					</p>
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						of {flightStats.totalFlights} total flights
 					</p>
 				</div>
 
-				<div class="map-wrapper">
-					<FlightMap 
-						client:load
-						flights={flights}
-						airports={airports}
-						mapboxToken={mapboxToken}
-						height="700px"
-						showControls={true}
-						theme="light"
-						onFlightSelect={(flight) => {
-							if (flight) {
-								window.location.href = `/flights/${flight.id}`;
-							}
-						}}
-					/>
+				<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+							Upcoming
+						</h3>
+					</div>
+					<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+						{flightStats.upcomingFlights}
+					</p>
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						booked flights
+					</p>
 				</div>
-			</section>
-		)}
 
-		<!-- Recent Flights -->
-		{!hasError && (
-			<section id="recent-flights" class="mb-12 scroll-mt-20">
-				<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-					Recent Flights
-				</h2>
-
-				<div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-					{recentFlights.length > 0 ? (
-						<div class="divide-y divide-gray-200 dark:divide-gray-700">
-							{recentFlights.map((flight, index) => (
-								<div key={flight.id} class="p-4">
-									<div class="flex items-center gap-3 mb-1">
-										<span class="font-semibold text-gray-900 dark:text-white">
-											{flight.airline_name || 'Unknown Airline'}
-										</span>
-										{flight.flight_number && (
-											<span class="px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 text-xs font-medium rounded">
-												{flight.flight_number}
-											</span>
-										)}
-										<span class="px-2 py-1 text-xs font-medium rounded bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
-											{flight.flight_status}
-										</span>
-									</div>
-									<p class="text-sm text-gray-600 dark:text-gray-400">
-										{flight.departure_airport_name} → {flight.arrival_airport_name}
-									</p>
-									<p class="text-xs text-gray-500 dark:text-gray-500 mt-1">
-										{new Date(flight.departure_time).toLocaleDateString('en-US', { 
-											year: 'numeric', 
-											month: 'short', 
-											day: 'numeric' 
-										})}
-									</p>
-								</div>
-							))}
-						</div>
-					) : (
-						<div class="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
-							<p>No recent flights to display</p>
-						</div>
-					)}
+				<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+							Airlines
+						</h3>
+					</div>
+					<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+						{flightStats.uniqueAirlines}
+					</p>
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						unique airlines
+					</p>
 				</div>
-			</section>
-		)}
 
-		<!-- Additional Statistics -->
-		{!hasError && (
-			<section class="mb-12">
-				<h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-6">
-					Flight Statistics
-				</h2>
-
-				<div class="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-						<div class="flex items-center justify-between mb-4">
-							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-								Completed
-							</h3>
-							<div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-								<svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-									<path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"></path>
-								</svg>
-							</div>
-						</div>
-						<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-							{flightStats.completedFlights}
-						</p>
-						<p class="text-sm text-gray-600 dark:text-gray-400">
-							of {flightStats.totalFlights} total flights
-						</p>
+				<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+					<div class="flex items-center justify-between mb-4">
+						<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+							This Year
+						</h3>
 					</div>
-
-					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-						<div class="flex items-center justify-between mb-4">
-							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-								Upcoming
-							</h3>
-							<div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-								<svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-								</svg>
-							</div>
-						</div>
-						<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-							{flightStats.upcomingFlights}
-						</p>
-						<p class="text-sm text-gray-600 dark:text-gray-400">
-							booked flights
-						</p>
-					</div>
-
-					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-						<div class="flex items-center justify-between mb-4">
-							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-								Airlines
-							</h3>
-							<div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-								<svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9v-9m0-9v9"></path>
-								</svg>
-							</div>
-						</div>
-						<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-							{flightStats.uniqueAirlines}
-						</p>
-						<p class="text-sm text-gray-600 dark:text-gray-400">
-							unique airlines
-						</p>
-					</div>
-
-					<div class="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
-						<div class="flex items-center justify-between mb-4">
-							<h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-								This Year
-							</h3>
-							<div class="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
-								<svg class="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-									<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
-								</svg>
-							</div>
-						</div>
-						<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
-							{flights.filter(f => new Date(f.departure_time).getFullYear() === currentYear).length}
-						</p>
-						<p class="text-sm text-gray-600 dark:text-gray-400">
-							flights in {currentYear}
-						</p>
-					</div>
+					<p class="text-3xl font-bold text-gray-900 dark:text-white mb-1">
+						{flights.filter(f => new Date(f.departure_time).getFullYear() === currentYear).length}
+					</p>
+					<p class="text-sm text-gray-600 dark:text-gray-400">
+						flights in {currentYear}
+					</p>
 				</div>
-			</section>
-		)}
+			</div>
+		</section>
 
 	</main>
 </BaseLayout>
 
-<script define:vars={{ mapboxToken }}>
-	// Set mapbox token globally for any scripts that might need it
-	if (typeof window !== 'undefined') {
-		window.MAPBOX_ACCESS_TOKEN = mapboxToken;
-	}
-</script>
-
 <style>
-	/* Smooth scrolling for the entire page */
 	html {
 		scroll-behavior: smooth;
 	}
@@ -433,22 +280,5 @@ const currentYear = new Date().getFullYear();
 		overflow: hidden;
 		box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
 		border: 1px solid rgb(229 231 235 / 0.5);
-	}
-
-	@media (prefers-color-scheme: dark) {
-		.map-wrapper {
-			border-color: rgb(75 85 99 / 0.5);
-		}
-	}
-
-	/* Enhanced hover effects for interactive elements */
-	.flight-card:hover {
-		transform: translateY(-2px);
-		box-shadow: 0 8px 25px -5px rgb(0 0 0 / 0.1);
-	}
-
-	/* Smooth transitions for all interactive elements */
-	.transition-smooth {
-		transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 	}
 </style>

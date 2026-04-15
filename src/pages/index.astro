@@ -2,43 +2,16 @@
 import BaseLayout from '../layouts/BaseLayout.astro';
 import Button from '../components/ui/Button.astro';
 import Card from '../components/ui/Card.astro';
-import { DatabaseQueries } from '../lib/db/queries';
-import type { BlogPost } from '../lib/db/types';
+import { getCollection } from 'astro:content';
 
-// Fetch latest blog posts
-let latestPosts: BlogPost[] = [];
-let hasError = false;
-
-try {
-  const db = new DatabaseQueries();
-  const response = await db.getBlogPosts({
-    page: 1,
-    limit: 3,
-    status: 'published',
-    sortBy: 'published_at',
-    sortOrder: 'DESC',
-    includeAuthor: true,
-    includeCategories: true,
-    includeTags: true
-  });
-  
-  latestPosts = response.data;
-  console.log(`Fetched ${latestPosts.length} blog posts for homepage`);
-} catch (error) {
-  console.error('Error fetching blog posts:', error);
-  hasError = true;
-}
-
-// Helper function to calculate reading time
-function calculateReadingTime(content: string): number {
-  const wordsPerMinute = 200;
-  const wordCount = content.split(/\s+/).length;
-  return Math.ceil(wordCount / wordsPerMinute);
-}
+// Fetch latest blog posts from content collection
+const allPosts = await getCollection('blog', ({ data }) => data.status === 'published');
+const latestPosts = allPosts
+  .sort((a, b) => new Date(b.data.published_at).getTime() - new Date(a.data.published_at).getTime())
+  .slice(0, 3);
 
 // Helper function to format date
-function formatDate(dateString: string): string {
-  const date = new Date(dateString);
+function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
@@ -212,33 +185,25 @@ function formatDate(dateString: string): string {
       </div>
       
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {hasError ? (
-          <div class="col-span-full text-center py-8">
-            <p class="text-text-secondary">Unable to load blog posts at this time.</p>
-          </div>
-        ) : latestPosts.length > 0 ? (
+        {latestPosts.length > 0 ? (
           latestPosts.map((post) => (
             <Card variant="default" class="group hover:shadow-lg transition-shadow">
               <div class="mb-4">
-                <span class="text-sm text-accent-primary font-medium">
-                  {post.categories && post.categories.length > 0 
-                    ? post.categories[0].name 
-                    : 'Blog'}
-                </span>
+                <span class="text-sm text-accent-primary font-medium">Blog</span>
                 <span class="text-text-tertiary mx-2">•</span>
                 <span class="text-sm text-text-secondary">
-                  {calculateReadingTime(post.content)} min read
+                  {post.data.reading_time || 5} min read
                 </span>
               </div>
               <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
-                {post.title}
+                {post.data.title}
               </h3>
               <p class="text-text-secondary mb-4 leading-relaxed line-clamp-3">
-                {post.excerpt || post.content.substring(0, 150) + '...'}
+                {post.data.excerpt || 'Read more...'}
               </p>
               <div class="flex items-center justify-between">
                 <span class="text-sm text-text-secondary">
-                  {formatDate(post.published_at || post.created_at)}
+                  {formatDate(post.data.published_at)}
                 </span>
                 <Button variant="ghost" size="sm" href={`/blog/${post.slug}`}>
                   Read More
