@@ -20,8 +20,8 @@
       return stored;
     }
     
-    // Default to light mode instead of system preference
-    return THEME_LIGHT;
+    // Default to dark mode
+    return THEME_DARK;
   }
   
   //apply theme to document
