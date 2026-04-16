@@ -1,3 +1,7 @@
+## Project Memory
+Blog writing conventions, style guidelines, and workflow are documented in `.factory/memories.md`.
+Refer to this file before writing or editing blog posts.
+
 # Deployment
 
 This site is deployed to **Cloudflare Pages** (project: `personal-website-production`).
