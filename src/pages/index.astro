@@ -1,267 +1,95 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
-import Button from '../components/ui/Button.astro';
-import Card from '../components/ui/Card.astro';
 import { getCollection } from 'astro:content';
 
-// Fetch latest blog posts from content collection
 const allPosts = await getCollection('blog', ({ data }) => data.status === 'published');
-const latestPosts = allPosts
-  .sort((a, b) => new Date(b.data.published_at).getTime() - new Date(a.data.published_at).getTime())
-  .slice(0, 3);
+const posts = allPosts.sort((a, b) =>
+  new Date(b.data.published_at).getTime() - new Date(a.data.published_at).getTime()
+);
 
-// Helper function to format date
 function formatDate(date: Date): string {
   return date.toLocaleDateString('en-US', {
-    month: 'short',
+    month: 'long',
     day: 'numeric',
     year: 'numeric'
   });
 }
+
+function getPreviewHtml(body: string): string {
+  const text = body
+    .replace(/^---[\s\S]*?---/, '')
+    .replace(/!\[.*?\]\(.*?\)/g, '')
+    .replace(/\[([^\]]*)\]\(.*?\)/g, '$1')
+    .replace(/#{1,6}\s+/g, '')
+    .replace(/[*_~`>]/g, '')
+    .replace(/\*\*/g, '')
+    .trim();
+  return text
+    .split(/\n{2,}/)
+    .filter(p => p.trim())
+    .map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
 ---
 
-<BaseLayout 
+<BaseLayout
   title="Home"
-  description="Personal website showcasing blog, portfolio, credentials, and travel experiences."
+  description="UC Berkeley student studying applied math and cybersecurity."
 >
-  <!-- Hero Section -->
-  <section class="py-20 bg-primary">
-    <div class="container mx-auto text-center">
-      <div class="max-w-4xl mx-auto">
-        <h1 class="text-5xl md:text-6xl font-light text-text-primary mb-6 fade-in">
-          Hello, World.
-        </h1>
-        <p class="text-xl md:text-2xl text-text-primary mb-8 leading-relaxed fade-in">
-          My name is Sebastian Alexis. I'm a software dev who works in cybersecurity, participates in hackathons, and loves making projects.
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center items-center fade-in">
-          <Button variant="primary" size="lg" href="https://github.com/Sebastian-Alexis">
-            View My Work
-          </Button>
-          <Button variant="outline" size="lg" href="/blog">
-            Read My Blog
-          </Button>
-        </div>
-      </div>
-    </div>
-  </section>
+  <div class="container mx-auto max-w-3xl px-4">
+    <!-- Intro -->
+    <p class="text-lg text-text-primary pt-6 pb-10 leading-relaxed">
+      UC Berkeley student studying applied math and cybersecurity. I like to build stuff, and I talk about it here. See my <a href="/resume.pdf" target="_blank" rel="noopener noreferrer" class="underline hover:opacity-70 transition-opacity">resume</a> and feel free to contact me over <a href="https://www.linkedin.com/in/sebastian-alexis-423993314/" target="_blank" rel="noopener noreferrer" class="underline hover:opacity-70 transition-opacity">LinkedIn</a>.
+    </p>
 
-  <!-- Features Section -->
-  <section class="py-20 bg-secondary">
-    <div class="container mx-auto">
-      <div class="text-center mb-16">
-        <h2 class="text-4xl font-light text-text-primary mb-4">What Is This?</h2>
-        <p class="text-xl text-text-primary max-w-2xl mx-auto">
-          Hello World is my little corner of the internet, where I share the following with the world:
-        </p>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        <!-- Development -->
-        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
-          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"></path>
-            </svg>
-          </div>
-          <h3 class="text-2xl font-semibold text-text-primary mb-4">Development</h3>
-          <p class="text-text-secondary leading-relaxed">
-            Building cool stuff using cool technology. Always looking for ways to optimize speed, use cool algorithims, and blend computer graphics with my web design.
-          </p>
-        </Card>
-
-        <!-- Writing -->
-        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
-          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path>
-            </svg>
-          </div>
-          <h3 class="text-2xl font-semibold text-text-primary mb-4">Writing</h3>
-          <p class="text-text-secondary leading-relaxed">
-            Sharing great technologies, once in a lifetime expreiences, and lessons learnt the hard way.
-          </p>
-        </Card>
-
-        <!-- Travel -->
-        <Card variant="elevated" class="text-center group hover:scale-105 transition-transform duration-normal">
-          <div class="w-16 h-16 bg-accent-primary rounded-full flex items-center justify-center mx-auto mb-6 group-hover:bg-accent-hover transition-colors">
-            <svg class="w-8 h-8 text-primary" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-              <path d="M10 14.66v1.626a2 2 0 0 1-.976 1.696A5 5 0 0 0 7 21.978"/>
-              <path d="M14 14.66v1.626a2 2 0 0 0 .976 1.696A5 5 0 0 1 17 21.978"/>
-              <path d="M18 9h1.5a1 1 0 0 0 0-5H18"/>
-              <path d="M4 22h16"/>
-              <path d="M6 9a6 6 0 0 0 12 0V3a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1z"/>
-              <path d="M6 9H4.5a1 1 0 0 1 0-5H6"/>
-            </svg>
-          </div>
-          <h3 class="text-2xl font-semibold text-text-primary mb-4">Competing</h3>
-          <p class="text-text-secondary leading-relaxed">
-            Documenting my travels around the world, participating in conferences, hackathons, and more.
-          </p>
-        </Card>
-      </div>
-    </div>
-  </section>
-
-  <!-- Recent Work Section (Temporarily Hidden) -->
-  {/*
-  <section class="py-20 bg-primary">
-    <div class="container mx-auto">
-      <div class="flex flex-col lg:flex-row items-center justify-between mb-12">
-        <div>
-          <h2 class="text-4xl font-bold text-text-primary mb-4">Recent Work</h2>
-          <p class="text-xl text-text-secondary">
-            A selection of projects I've been working on.
-          </p>
-        </div>
-        <Button variant="outline" href="/portfolio">
-          View All Projects
-        </Button>
-      </div>
-      
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <!-- Project 1 -->
-        <Card variant="elevated" class="overflow-hidden group">
-          <div class="aspect-video bg-tertiary mb-6 rounded-lg flex items-center justify-center group-hover:bg-accent-primary/10 transition-colors">
-            <svg class="w-16 h-16 text-text-tertiary group-hover:text-accent-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14-7l2 12-2 12m0-24l-2-12-2 12"></path>
-            </svg>
-          </div>
-          <h3 class="text-2xl font-semibold text-text-primary mb-3">E-Commerce Platform</h3>
-          <p class="text-text-secondary mb-4 leading-relaxed">
-            A full-stack e-commerce solution built with modern technologies, 
-            featuring real-time inventory, payment processing, and analytics.
-          </p>
-          <div class="flex flex-wrap gap-2 mb-4">
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">React</span>
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Node.js</span>
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">PostgreSQL</span>
-          </div>
-          <Button variant="ghost" href="/portfolio/ecommerce-platform">
-            Learn More →
-          </Button>
-        </Card>
-
-        <!-- Project 2 -->
-        <Card variant="elevated" class="overflow-hidden group">
-          <div class="aspect-video bg-tertiary mb-6 rounded-lg flex items-center justify-center group-hover:bg-accent-primary/10 transition-colors">
-            <svg class="w-16 h-16 text-text-tertiary group-hover:text-accent-primary transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
-            </svg>
-          </div>
-          <h3 class="text-2xl font-semibold text-text-primary mb-3">Analytics Dashboard</h3>
-          <p class="text-text-secondary mb-4 leading-relaxed">
-            Real-time analytics dashboard with interactive visualizations, 
-            custom reporting, and performance monitoring capabilities.
-          </p>
-          <div class="flex flex-wrap gap-2 mb-4">
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Vue.js</span>
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">D3.js</span>
-            <span class="px-3 py-1 bg-accent-primary/10 text-accent-primary text-sm rounded-full">Python</span>
-          </div>
-          <Button variant="ghost" href="/portfolio/analytics-dashboard">
-            Learn More →
-          </Button>
-        </Card>
-      </div>
-    </div>
-  </section>
-  */}
-
-  <!-- Blog Section -->
-  <section class="py-20 bg-secondary">
-    <div class="container mx-auto">
-      <div class="flex flex-col lg:flex-row items-center justify-between mb-12">
-        <div>
-          <h2 class="text-4xl font-bold text-text-primary mb-4">Latest Posts</h2>
-          <p class="text-xl text-text-secondary">
-            Straight from my brain to my blog, then to you.
-          </p>
-        </div>
-        <Button variant="outline" href="/blog">
-          View All Posts
-        </Button>
-      </div>
-      
-      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {latestPosts.length > 0 ? (
-          latestPosts.map((post) => (
-            <Card variant="default" class="group hover:shadow-lg transition-shadow">
-              <div class="mb-4">
-                <span class="text-sm text-accent-primary font-medium">Blog</span>
-                <span class="text-text-tertiary mx-2">•</span>
-                <span class="text-sm text-text-secondary">
-                  {post.data.reading_time || 5} min read
-                </span>
-              </div>
-              <h3 class="text-xl font-semibold text-text-primary mb-3 group-hover:text-accent-primary transition-colors">
+    <!-- Blog Posts -->
+    {posts.length > 0 ? (
+      <div class="space-y-10 pb-20">
+        {posts.map((post) => (
+          <article>
+            <a href={`/blog/${post.slug}`} class="block group">
+              <h2 class="text-2xl md:text-3xl font-medium text-text-primary group-hover:underline mb-1">
                 {post.data.title}
-              </h3>
-              <p class="text-text-secondary mb-4 leading-relaxed line-clamp-3">
-                {post.data.excerpt || 'Read more...'}
-              </p>
-              <div class="flex items-center justify-between">
-                <span class="text-sm text-text-secondary">
-                  {formatDate(post.data.published_at)}
-                </span>
-                <Button variant="ghost" size="sm" href={`/blog/${post.slug}`}>
-                  Read More
-                </Button>
+              </h2>
+            </a>
+            <time class="text-sm text-text-secondary" datetime={post.data.published_at.toISOString()}>
+              {formatDate(post.data.published_at)}
+            </time>
+            <div class={`mt-4 ${post.data.featured_image_url ? 'flex flex-col sm:flex-row gap-5' : ''}`}>
+              {post.data.featured_image_url && (
+                <a href={`/blog/${post.slug}`} class="flex-shrink-0">
+                  <img
+                    src={post.data.featured_image_url}
+                    alt={post.data.title}
+                    class="w-full sm:w-56 md:w-64 sm:h-56 rounded-lg object-cover"
+                    loading="lazy"
+                  />
+                </a>
+              )}
+              <div class={`flex flex-col min-h-0 flex-1 ${post.data.featured_image_url ? 'sm:max-h-56' : ''}`}>
+                <div class="preview-text text-text-primary leading-relaxed overflow-hidden flex-1 relative" set:html={getPreviewHtml(post.body)} />
+                <a href={`/blog/${post.slug}`} class="inline-block mt-2 text-text-secondary hover:text-text-primary transition-colors flex-shrink-0">
+                  Read more &#x27F6;
+                </a>
               </div>
-            </Card>
-          ))
-        ) : (
-          <div class="col-span-full text-center py-8">
-            <p class="text-text-secondary">No blog posts available yet.</p>
-          </div>
-        )}
+            </div>
+          </article>
+        ))}
       </div>
-    </div>
-  </section>
-
-  <!-- CTA Section -->
-  <section class="py-20 bg-primary">
-    <div class="container mx-auto">
-      <Card variant="elevated" class="max-w-4xl mx-auto text-center">
-        <h2 class="text-4xl font-bold text-text-primary mb-4">Let's Work Together</h2>
-        <p class="text-xl text-text-secondary mb-8 opacity-90 leading-relaxed">
-          Have a cool idea that you think I would like? Feel free to shoot me an email 
-          and I'd love to talk about it. Please don't spam me though!
-        </p>
-        <div class="flex flex-col sm:flex-row gap-4 justify-center">
-          <Button variant="secondary" size="lg" href="mailto:sebastianralexis@gmail.com">
-            Get In Touch
-          </Button>
-          <Button variant="outline" size="lg" href="https://www.linkedin.com/in/sebastian-alexis-423993314/">
-            Connect With Me
-          </Button>
-        </div>
-      </Card>
-    </div>
-  </section>
+    ) : (
+      <div class="py-16 text-center">
+        <p class="text-text-secondary">No posts yet. Check back soon.</p>
+      </div>
+    )}
+  </div>
 </BaseLayout>
 
 <style>
-  .fade-in {
-    animation: fadeIn 0.8s ease-out;
+  .preview-text {
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
   }
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
-  
-  .line-clamp-3 {
-    display: -webkit-box;
-    -webkit-line-clamp: 3;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
+  .preview-text p {
+    margin-bottom: 1em;
   }
 </style>

@@ -6,24 +6,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Font Loading - Optimized monospace fonts with CLS prevention */
-/* Monospace font stack optimized for cross-platform availability and performance */
 
-/* font-display optimization for monospace fallbacks */
-@supports (font: -apple-system-body) {
-  html {
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1; /* tabular numbers for consistent spacing */
-  }
-}
-
-/* prevent layout shift with size-adjust for better fallback matching */
-@font-face {
-  font-family: 'Courier New Fallback';
-  src: local('Courier New'), local('CourierNew');
-  size-adjust: 100%;
-  font-display: swap;
-}
 
 /* Reset & Base Styles */
 *,
@@ -41,10 +24,7 @@ html {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
-  /* optimize monospace rendering */
-  text-rendering: optimizeSpeed; /* faster than optimizeLegibility for monospace */
-  font-variant-numeric: tabular-nums;
-  font-kerning: none; /* disable kerning for monospace consistency */
+  text-rendering: optimizeLegibility;
 }
 
 body {
@@ -56,7 +36,7 @@ body {
               color var(--duration-normal) var(--ease-out);
 }
 
-/* Typography - Thin typewriter aesthetic */
+/* Typography */
 h1, h2, h3, h4, h5, h6 {
   font-weight: var(--font-weight-normal);
   line-height: var(--leading-tight);

@@ -1,13 +1,7 @@
 :root {
-  /* optimized platform-specific monospace font stacks */
-  --font-primary: Consolas, 'Courier New', Monaco, 'Liberation Mono', 'Lucida Console', 'DejaVu Sans Mono', 'Menlo', 'Ubuntu Mono', monospace;
-  --font-mono: Consolas, 'Courier New', Monaco, 'Liberation Mono', 'Lucida Console', 'DejaVu Sans Mono', 'Menlo', 'Ubuntu Mono', monospace;
-  
-  /* performance-optimized font metrics for zero cls */
-  --font-primary-metric: 0.6; /* consistent character width ratio */
-  --font-primary-line-height: 1.2; /* optimal line height for readability */
-  --font-weight-adjustment: 1.05; /* slight weight boost for thin fonts */
-  --font-render-optimization: optimizeSpeed; /* prioritize speed over quality */
+  /* Font stacks */
+  --font-primary: 'Space Grotesk', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: Consolas, 'Courier New', Monaco, 'Liberation Mono', monospace;
   
   /* Color Palette - Light Mode */
   --color-white: #ffffff;
@@ -115,43 +109,42 @@
   --z-tooltip: 1070;
   --z-toast: 1080;
   
-  /* Font Weights - Thin typewriter aesthetic */
+  /* Font Weights */
   --font-weight-thin: 300;
-  --font-weight-normal: 300;
-  --font-weight-medium: 300;
-  --font-weight-bold: 400;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-bold: 700;
 }
 
-/* Dark Mode Variables - Pure B&W Inverted */
+/* Dark Mode Variables */
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg-primary: var(--color-black);
-    --bg-secondary: var(--color-black);
-    --bg-tertiary: var(--color-black);
-    --text-primary: var(--color-white);
-    --text-secondary: var(--color-white);
-    --text-tertiary: var(--color-white);
-    --border-primary: var(--color-white);
-    --border-secondary: var(--color-white);
-    --accent-primary: var(--color-white);
-    --accent-hover: var(--color-white);
-    --accent-light: var(--color-white);
+    --bg-primary: hsl(240 3.7% 15.9%);
+    --bg-secondary: hsl(240 3.7% 15.9%);
+    --bg-tertiary: hsl(240 3.7% 15.9%);
+    --text-primary: hsl(240 5.9% 90%);
+    --text-secondary: hsl(240 5.9% 90%);
+    --text-tertiary: hsl(240 5.9% 90%);
+    --border-primary: hsl(240 5.9% 90%);
+    --border-secondary: hsl(240 5.9% 90%);
+    --accent-primary: hsl(240 5.9% 90%);
+    --accent-hover: hsl(240 5.9% 90%);
+    --accent-light: hsl(240 5.9% 90%);
   }
 }
 
-/* Manual Dark Mode Toggle - Pure B&W */
 [data-theme="dark"] {
-  --bg-primary: var(--color-black);
-  --bg-secondary: var(--color-black);
-  --bg-tertiary: var(--color-black);
-  --text-primary: var(--color-white);
-  --text-secondary: var(--color-white);
-  --text-tertiary: var(--color-white);
-  --border-primary: var(--color-white);
-  --border-secondary: var(--color-white);
-  --accent-primary: var(--color-white);
-  --accent-hover: var(--color-white);
-  --accent-light: var(--color-white);
+  --bg-primary: hsl(240 3.7% 15.9%);
+  --bg-secondary: hsl(240 3.7% 15.9%);
+  --bg-tertiary: hsl(240 3.7% 15.9%);
+  --text-primary: hsl(240 5.9% 90%);
+  --text-secondary: hsl(240 5.9% 90%);
+  --text-tertiary: hsl(240 5.9% 90%);
+  --border-primary: hsl(240 5.9% 90%);
+  --border-secondary: hsl(240 5.9% 90%);
+  --accent-primary: hsl(240 5.9% 90%);
+  --accent-hover: hsl(240 5.9% 90%);
+  --accent-light: hsl(240 5.9% 90%);
 }
 
 [data-theme="light"] {

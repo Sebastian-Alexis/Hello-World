@@ -34,6 +34,9 @@ export default defineConfig({
     assets: 'assets'
   },
   vite: {
+    server: {
+      allowedHosts: ['sra']
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, './src')

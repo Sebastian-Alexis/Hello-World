@@ -26,7 +26,7 @@ const {
 } = Astro.props;
 
 const siteUrl = Astro.site?.toString() || 'https://yoursite.com';
-const fullTitle = title === 'Home' ? 'Your Name' : `${title} | Your Name`;
+const fullTitle = title === 'Home' ? 'Sebastian Alexis' : `${title} | Sebastian Alexis`;
 const canonical = canonicalUrl || new URL(Astro.url.pathname, siteUrl).toString();
 const imageUrl = new URL(image, siteUrl).toString();
 
@@ -34,7 +34,7 @@ const imageUrl = new URL(image, siteUrl).toString();
 const defaultStructuredData = {
   "@context": "https://schema.org",
   "@type": "Person",
-  "name": "Your Name",
+  "name": "Sebastian Alexis",
   "url": siteUrl,
   "sameAs": [
     "https://github.com/yourusername",
@@ -79,56 +79,16 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
       // Validate theme value against allowed themes only
       if (theme === 'dark' || theme === 'light') {
         document.documentElement.setAttribute('data-theme', theme);
-      } else if (!theme) {
-        // Only check OS preference if no stored theme
-        if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-          document.documentElement.setAttribute('data-theme', 'dark');
-        }
+      } else {
+        document.documentElement.setAttribute('data-theme', 'dark');
       }
     })();
   </script>
   
-  <!-- Preload critical resources -->
-  <!-- monospace font optimization and CLS prevention -->
-  <link rel="preconnect" href="/" crossorigin>
-  
-  <!-- optimized font loading strategy with cls prevention -->
-  <style>
-    /* critical inline css for zero-cls font loading */
-    :root {
-      --font-loading-strategy: swap;
-      /* platform-optimized font metrics for consistent sizing */
-      --font-char-width: 0.6em; /* monospace character width */
-      --font-ascent-override: 85%; /* prevent vertical cls */
-      --font-descent-override: 20%; /* maintain baseline consistency */
-    }
-    
-    /* prevent cls with size-adjust and consistent metrics */
-    @font-face {
-      font-family: 'optimized-mono';
-      src: local('Consolas'), local('Courier New'), local('Monaco'), local('Liberation Mono');
-      font-display: swap;
-      size-adjust: 100%; /* ensure consistent sizing */
-      ascent-override: var(--font-ascent-override);
-      descent-override: var(--font-descent-override);
-    }
-    
-    /* zero-cls body font application */
-    body {
-      font-family: 'optimized-mono', var(--font-primary);
-      letter-spacing: 0; /* monospace already has consistent spacing */
-      word-spacing: normal;
-      text-rendering: optimizeSpeed; /* faster rendering for monospace */
-      -webkit-font-smoothing: antialiased; /* improve thin font rendering */
-      -moz-osx-font-smoothing: grayscale;
-    }
-    
-    /* performance-first loading state */
-    .font-loading {
-      visibility: visible; /* always show text */
-      font-synthesis: none; /* prevent artificial bold/italic generation */
-    }
-  </style>
+  <!-- Google Fonts: Space Grotesk -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   
   <!-- CSS imported in frontmatter for optimal bundling -->
   
@@ -144,7 +104,7 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
   <meta property="og:image" content={imageUrl}>
   <meta property="og:url" content={canonical}>
   <meta property="og:type" content={type}>
-  <meta property="og:site_name" content="Your Name">
+  <meta property="og:site_name" content="Sebastian Alexis">
   
   <!-- Twitter Card -->
   <meta name="twitter:card" content="summary_large_image">
@@ -169,104 +129,7 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
   <!-- Structured data -->
   <script type="application/ld+json" set:html={secureStructuredData} />
   
-  <!-- comprehensive font performance monitoring -->
-  <script>
-    // advanced font performance tracking with budget validation
-    if ('performance' in window && 'PerformanceObserver' in window) {
-      performance.mark('page-start');
-      
-      const fontLoadStart = performance.now();
-      const performanceConfig = {
-        budgets: {
-          lcp: 2500,
-          fid: 100,
-          cls: 0.1,
-          ttfb: 800,
-          fcp: 1800,
-          inp: 200,
-          fontLoad: 100 // max acceptable font load time
-        }
-      };
-      
-      // comprehensive font loading analysis
-      document.fonts.ready.then(() => {
-        const fontLoadTime = performance.now() - fontLoadStart;
-        performance.measure('font-load-complete', 'page-start');
-        
-        // detailed font availability detection
-        const fontTests = [
-          { name: 'Consolas', fallback: 'monospace' },
-          { name: 'Courier New', fallback: 'monospace' },
-          { name: 'Monaco', fallback: 'monospace' },
-          { name: 'Liberation Mono', fallback: 'monospace' }
-        ];
-        
-        let primaryFontAvailable = false;
-        let fontFallbackLevel = 0;
-        
-        fontTests.forEach((font, index) => {
-          const testSpan = document.createElement('span');
-          testSpan.style.fontFamily = font.name;
-          testSpan.style.fontSize = '16px';
-          testSpan.style.position = 'absolute';
-          testSpan.style.left = '-9999px';
-          testSpan.textContent = 'Mmm...iii';
-          document.body.appendChild(testSpan);
-          
-          const primaryWidth = testSpan.offsetWidth;
-          testSpan.style.fontFamily = font.fallback;
-          const fallbackWidth = testSpan.offsetWidth;
-          
-          if (Math.abs(primaryWidth - fallbackWidth) > 2) {
-            if (index === 0) primaryFontAvailable = true;
-            fontFallbackLevel = index + 1;
-          }
-          
-          document.body.removeChild(testSpan);
-        });
-        
-        // track performance metrics with context
-        if (window.performanceTracker) {
-          window.performanceTracker.trackCustomMetric('font-load-time', fontLoadTime, 
-            fontLoadTime <= performanceConfig.budgets.fontLoad ? 'good' : 'needs-improvement');
-          window.performanceTracker.trackCustomMetric('font-primary-available', primaryFontAvailable ? 1 : 0);
-          window.performanceTracker.trackCustomMetric('font-fallback-level', fontFallbackLevel);
-          
-          // platform detection for font optimization insights
-          const platform = navigator.platform.toLowerCase();
-          const isWindows = platform.includes('win');
-          const isMac = platform.includes('mac');
-          const isLinux = platform.includes('linux');
-          
-          window.performanceTracker.trackCustomMetric('platform-font-optimization', {
-            windows: isWindows && primaryFontAvailable ? 'optimal' : 'fallback',
-            mac: isMac && primaryFontAvailable ? 'optimal' : 'fallback', 
-            linux: isLinux && fontFallbackLevel <= 2 ? 'acceptable' : 'poor'
-          });
-        }
-        
-        // budget validation with automatic recommendations
-        setTimeout(() => {
-          if (window.performanceTracker && window.performanceTracker.getLatestMetrics) {
-            const metrics = window.performanceTracker.getLatestMetrics();
-            const budgetViolations = [];
-            
-            Object.keys(performanceConfig.budgets).forEach(metric => {
-              const value = metrics[metric === 'fontLoad' ? 'font-load-time' : metric];
-              if (value && value > performanceConfig.budgets[metric]) {
-                budgetViolations.push({ metric, value, budget: performanceConfig.budgets[metric] });
-              }
-            });
-            
-            if (budgetViolations.length > 0) {
-              console.warn('Performance budget violations detected:', budgetViolations);
-              // could trigger monitoring alerts here
-            }
-          }
-        }, 1000);
-      });
-    }
-  </script>
+
 </head>
 
 <body class="min-h-screen bg-primary text-primary font-primary antialiased">
@@ -279,26 +142,12 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
   </a>
   
   <!-- Header -->
-  <header class="sticky top-0 z-40 bg-primary/95 backdrop-blur-sm border-b border-border-primary shadow-sm">
+  <header class="z-40 bg-primary pt-8">
     <nav class="container mx-auto" aria-label="Main navigation">
-      <div class="flex items-center h-16">
-        <!-- Logo -->
-        <a href="/" class="flex-shrink-0 mr-4">
-          <img src="/logo.svg" alt="Home" class="h-8 w-auto dark:invert-0 invert" />
-        </a>
-
-        <!-- Desktop Navigation - Centered -->
-        <div class="hidden md:flex flex-1 justify-center">
-          <div class="flex items-baseline space-x-8">
-            <a href="/" class="nav-link" data-page="home">Home</a>
-            <a href="/blog" class="nav-link" data-page="blog">Blog</a>
-            <a href="/flights" class="nav-link" data-page="flights">Flights</a>
-          </div>
-        </div>
-        
-        <!-- Theme toggle and mobile menu -->
-        <div class="flex items-center space-x-2">
-          <!-- Theme Toggle -->
+      <div class="flex items-center justify-between h-16">
+        <a href="/" class="text-5xl font-medium text-text-primary hover:opacity-80 transition-opacity">Sebastian Alexis</a>
+        <div class="flex items-center space-x-4">
+          <a href="/" class="nav-link" data-page="blog">Blog</a>
           <button
             id="theme-toggle"
             type="button"
@@ -313,29 +162,6 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
               <path fill-rule="evenodd" d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-.464 4.95l.707.707a1 1 0 001.414-1.414l-.707-.707a1 1 0 00-1.414 1.414zm2.12-10.607a1 1 0 010 1.414l-.706.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM17 11a1 1 0 100-2h-1a1 1 0 100 2h1zm-7 4a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1zM5.05 6.464A1 1 0 106.465 5.05l-.708-.707a1 1 0 00-1.414 1.414l.707.707zm1.414 8.486l-.707.707a1 1 0 01-1.414-1.414l.707-.707a1 1 0 011.414 1.414zM4 11a1 1 0 100-2H3a1 1 0 000 2h1z" clip-rule="evenodd"></path>
             </svg>
           </button>
-          
-          <!-- Mobile menu button -->
-          <button
-            id="mobile-menu-button"
-            type="button"
-            class="md:hidden p-2 rounded-lg text-text-primary hover:bg-secondary border border-border-primary transition-colors duration-fast"
-            aria-label="Toggle mobile menu"
-            aria-expanded="false"
-            aria-controls="mobile-menu"
-          >
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-      
-      <!-- Mobile Navigation -->
-      <div id="mobile-menu" class="md:hidden hidden border-t border-border-primary">
-        <div class="px-2 pt-2 pb-3 space-y-1 text-center">
-          <a href="/" class="mobile-nav-link" data-page="home">Home</a>
-          <a href="/blog" class="mobile-nav-link" data-page="blog">Blog</a>
-          <a href="/flights" class="mobile-nav-link" data-page="flights">Flights</a>
         </div>
       </div>
     </nav>
@@ -360,11 +186,7 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
   <script src="/scripts/theme-toggle.js" is:inline></script>
   <script src="/scripts/mobile-menu.js" is:inline></script>
   <script src="/scripts/core-web-vitals.js" is:inline></script>
-  <script src="/scripts/font-performance-test.js" is:inline></script>
-  
-  <!-- Font Performance Monitoring -->
-  <script src="/scripts/font-performance.js" is:inline></script>
-  <script src="/scripts/validate-font-performance.js" is:inline></script>
+
 </body>
 </html>
 
