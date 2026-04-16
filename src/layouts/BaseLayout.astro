@@ -147,7 +147,7 @@ const secureStructuredData = JSON.stringify(finalStructuredData)
       <div class="flex items-center justify-between h-16">
         <a href="/" class="text-5xl font-medium text-text-primary hover:opacity-80 transition-opacity">Sebastian Alexis</a>
         <div class="flex items-center space-x-4">
-          <a href="/" class="nav-link" data-page="blog">Blog</a>
+          <a href="/work" class:list={["nav-link", { active: Astro.url.pathname.startsWith("/work") }]} data-page="work">My Work</a>
           <button
             id="theme-toggle"
             type="button"

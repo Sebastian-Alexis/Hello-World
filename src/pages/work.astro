@@ -1,0 +1,107 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+
+interface Project {
+  title: string;
+  description: string;
+  tags: string[];
+  youtubeId?: string;
+  thumbnail?: string;
+  links: { label: string; url: string }[];
+  awards?: string[];
+}
+
+const projects: Project[] = [
+  {
+    title: 'PDF-based Stegomalware Detection Research',
+    description:
+      'Novel detection method using Kolmogorov complexity approximation to analyze PDF JavaScript, metadata, and actions. Presented at IEEE\'s Silicon Valley Cybersecurity Conference.',
+    tags: ['Research', 'Cybersecurity', 'Python'],
+    youtubeId: 'h0sO7dKyezA',
+    awards: ['ISEF 2025 Third Place Grand Award', 'Published in IEEE'],
+    links: [
+      { label: 'IEEE Publication', url: 'https://ieeexplore.ieee.org/document/11133625' },
+      { label: 'Paper', url: '/papers/SVCC_2025_paper_2414.pdf' },
+    ],
+  },
+  {
+    title: 'OCSEF Website',
+    description:
+      'Designed and developed the high-traffic platform for the Orange County Science and Engineering Fair, one of the largest regional science fairs in the US. Built with Svelte and hosted on Firebase with scalability optimization and a comprehensive admin panel for event management.',
+    tags: ['Web', 'Svelte', 'Firebase'],
+    thumbnail: '/images/ocsef-screenshot.png',
+    links: [
+      { label: 'Visit Site', url: 'https://ocsef.org/' },
+    ],
+  },
+];
+---
+
+<BaseLayout
+  title="My Work"
+  description="Projects and work by Sebastian Alexis."
+>
+  <div class="container mx-auto max-w-4xl px-4 pb-20">
+    <div class="h-12"></div>
+    <div class="space-y-14">
+      {projects.map((project) => (
+        <article class="flex flex-col sm:flex-row gap-5">
+          {project.youtubeId ? (
+            <div class="flex-shrink-0 w-full sm:w-72 md:w-80">
+              <div class="relative w-full" style="padding-bottom:56.25%">
+                <iframe
+                  src={`https://www.youtube.com/embed/${project.youtubeId}`}
+                  title={project.title}
+                  class="absolute inset-0 w-full h-full rounded-lg"
+                  frameborder="0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowfullscreen
+                />
+              </div>
+            </div>
+          ) : project.thumbnail ? (
+            <div class="flex-shrink-0 w-full sm:w-72 md:w-80">
+              <div class="relative w-full" style="padding-bottom:56.25%">
+                <img
+                  src={project.thumbnail}
+                  alt={project.title}
+                  class="absolute inset-0 w-full h-full rounded-lg object-cover"
+                  loading="lazy"
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div class="flex-1 min-w-0">
+            <h2 class="text-xl font-medium text-text-primary mb-1">{project.title}</h2>
+
+            {project.awards && project.awards.length > 0 && (
+              <p class="text-sm text-text-secondary mb-3">
+                {project.awards.join(' · ')}
+              </p>
+            )}
+
+            <p class="text-sm text-text-primary leading-relaxed mb-3">{project.description}</p>
+
+            <p class="text-xs text-text-secondary mb-3">
+              {project.tags.join(' · ')}
+            </p>
+
+            <div class="flex flex-wrap gap-4">
+              {project.links.map((link) => (
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  class="text-sm text-text-secondary hover:text-text-primary transition-colors underline"
+                >
+                  {link.label}
+                </a>
+              ))}
+            </div>
+          </div>
+        </article>
+      ))}
+    </div>
+  </div>
+</BaseLayout>
