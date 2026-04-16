@@ -54,35 +54,35 @@ const structuredData = {
   structuredData={structuredData}
   type="article"
 >
-  <article class="min-h-screen bg-white dark:bg-gray-900">
+  <article class="min-h-screen">
 
     <!-- Hero Section -->
-    <header class="bg-white dark:bg-gray-900">
+    <header>
       <div class="max-w-4xl mx-auto px-4 py-16 sm:py-24">
 
         <!-- Breadcrumb -->
         <nav class="mb-12" aria-label="Breadcrumb">
-          <ol class="flex items-center space-x-2 text-sm font-light text-gray-600 dark:text-gray-400">
-            <li><a href="/" class="hover:text-black dark:hover:text-white">Home</a></li>
+          <ol class="flex items-center space-x-2 text-sm font-light text-text-secondary">
+            <li><a href="/" class="hover:text-text-primary">Home</a></li>
             <li>/</li>
-            <li><a href="/" class="hover:text-black dark:hover:text-white">Blog</a></li>
+            <li><a href="/" class="hover:text-text-primary">Blog</a></li>
           </ol>
         </nav>
 
         <!-- Title -->
-        <h1 class="text-4xl md:text-6xl font-light tracking-tight text-black dark:text-white leading-tight mb-8">
+        <h1 class="text-4xl md:text-6xl font-light tracking-tight text-text-primary leading-tight mb-8">
           {post.data.title}
         </h1>
 
         <!-- Excerpt -->
         {post.data.excerpt && (
-          <p class="text-xl font-light text-gray-600 dark:text-gray-300 leading-relaxed mb-12">
+          <p class="text-xl font-light text-text-secondary leading-relaxed mb-12">
             {post.data.excerpt}
           </p>
         )}
 
         <!-- Post Meta -->
-        <div class="text-base font-light text-gray-600 dark:text-gray-400 mb-12">
+        <div class="text-base font-light text-text-secondary mb-12">
           <span>{formattedDate}</span>
           {post.data.reading_time && (
             <span> • {post.data.reading_time} min read</span>
@@ -108,7 +108,7 @@ const structuredData = {
     <!-- Article Content -->
     <div class="max-w-4xl mx-auto px-4">
       <div class="mb-16">
-        <div class="prose prose-lg dark:prose-invert prose-headings:font-light prose-headings:tracking-tight prose-a:text-blue-600 dark:prose-a:text-blue-400 max-w-none">
+        <div class="prose prose-lg prose-site prose-headings:font-light prose-headings:tracking-tight max-w-none">
           <Content />
         </div>
       </div>
@@ -116,10 +116,10 @@ const structuredData = {
 
     <!-- Back to Blog -->
     <div class="max-w-4xl mx-auto px-4 py-16">
-      <div class="border-t border-gray-200 dark:border-gray-700 pt-8">
+      <div class="border-t border-border-primary pt-8">
         <a
           href="/"
-          class="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-black dark:hover:text-white transition-colors"
+          class="inline-flex items-center text-text-secondary hover:text-text-primary transition-colors"
         >
           <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
@@ -133,24 +133,56 @@ const structuredData = {
 </Layout>
 
 <style is:global>
-  /* Prose styling for markdown content */
-  .prose img {
+  .prose-site {
+    color: var(--text-primary);
+  }
+
+  .prose-site h1,
+  .prose-site h2,
+  .prose-site h3,
+  .prose-site h4,
+  .prose-site h5,
+  .prose-site h6 {
+    color: var(--text-primary);
+  }
+
+  .prose-site a {
+    color: var(--text-primary);
+    text-decoration: underline;
+  }
+
+  .prose-site strong {
+    color: var(--text-primary);
+  }
+
+  .prose-site blockquote {
+    color: var(--text-secondary);
+    border-left-color: var(--border-primary);
+  }
+
+  .prose-site img {
     @apply rounded-lg;
   }
 
-  .prose a {
-    @apply underline;
+  .prose-site code {
+    color: var(--text-primary);
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
+    @apply px-1 py-0.5 rounded;
   }
 
-  .prose code {
-    @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded;
+  .prose-site pre {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-secondary);
+    @apply rounded-lg overflow-x-auto;
   }
 
-  .prose pre {
-    @apply bg-gray-900 dark:bg-gray-800 rounded-lg overflow-x-auto;
-  }
-
-  .prose pre code {
+  .prose-site pre code {
     @apply bg-transparent px-0 py-0;
+    border: none;
+  }
+
+  .prose-site hr {
+    border-color: var(--border-primary);
   }
 </style>
