@@ -7,11 +7,22 @@ interface Project {
   tags: string[];
   youtubeId?: string;
   thumbnail?: string;
+  thumbnailBg?: string;
   links: { label: string; url: string }[];
   awards?: string[];
 }
 
 const projects: Project[] = [
+  {
+    title: 'Faire',
+    description:
+      'End-to-end science fair management platform I founded. Handles judge registration and smart allocation, project submissions, real-time scoring with custom rubrics, automated awards, and multi-organization support. Trusted by fairs like OCSEF.',
+    tags: ['Web', 'SaaS', 'Startup'],
+    thumbnail: '/images/faire-screenshot.png',
+    links: [
+      { label: 'Visit Site', url: 'https://faireportal.com' },
+    ],
+  },
   {
     title: 'PDF-based Stegomalware Detection Research',
     description:
@@ -32,6 +43,17 @@ const projects: Project[] = [
     thumbnail: '/images/ocsef-screenshot.png',
     links: [
       { label: 'Visit Site', url: 'https://ocsef.org/' },
+    ],
+  },
+  {
+    title: 'CoopCam',
+    description:
+      'Low-cost monitoring solution for backyard chicken coop owners. Streams live video from repurposed devices with multi-camera support, flashlight control, recording, and a pixel-art UI.',
+    tags: ['Hardware', 'JavaScript', 'Node.js'],
+    thumbnail: '/images/coopcam.gif',
+    thumbnailBg: '#f5f0e1',
+    links: [
+      { label: 'GitHub', url: 'https://github.com/Sebastian-Alexis/Coop-Cam' },
     ],
   },
 ];
@@ -61,11 +83,14 @@ const projects: Project[] = [
             </div>
           ) : project.thumbnail ? (
             <div class="flex-shrink-0 w-full sm:w-72 md:w-80">
-              <div class="relative w-full" style="padding-bottom:56.25%">
+              <div
+                class="relative w-full rounded-lg overflow-hidden"
+                style={`padding-bottom:56.25%;${project.thumbnailBg ? `background:${project.thumbnailBg}` : ''}`}
+              >
                 <img
                   src={project.thumbnail}
                   alt={project.title}
-                  class="absolute inset-0 w-full h-full rounded-lg object-cover"
+                  class={`absolute inset-0 w-full h-full ${project.thumbnailBg ? 'object-contain p-3' : 'object-cover'}`}
                   loading="lazy"
                 />
               </div>
